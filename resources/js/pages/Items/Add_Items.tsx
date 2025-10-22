@@ -1,8 +1,7 @@
 // src/pages/AddItem.tsx
-
-import { useState } from "react";
+import { useEffect } from "react";
 import AppLayout from "@/layouts/app-layout";
-import { Head, router } from "@inertiajs/react";
+import { Head, useForm, router, usePage } from "@inertiajs/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,55 +14,100 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 
-const categories = ["General", "Special", "Minuman", "Makanan"];
+type Kategori = {
+  id: number;
+  nama: string;
+  deskripsi?: string | null;
+  [k: string]: any;
+};
 
 export default function Add_Items() {
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    stock: "",
-    stock_min: "",
-    category: categories[0],
-    qrcode: "",
-  });
-  const [errors, setErrors] = useState({});
+  const { props } = usePage<any>();
+  // kategoris is provided from controller (create())
+  const kategoris: Kategori[] = props.kategoris ?? [];
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-  };
+  // use Inertia useForm to handle data, errors and processing
+  const form = useForm({
+    nama: "",
+    deskripsi: "",
+    stok: "",
+    stok_minimal: "",
+    // store id_kategori as string (Select uses string values). We'll convert on server if needed.
+    id_kategori: "" as string | number | null,
+    kategori: "",
+    kode_item: "",
+  });
+
+  // A sentinel value for the placeholder SelectItem (must be non-empty string)
+  const PLACEHOLDER_VALUE = "__none";
+
+  // keep numeric fields as strings while typing
+  useEffect(() => {
+    if (form.data.stok === null) form.setData("stok", "");
+    if (form.data.stok_minimal === null) form.setData("stok_minimal", "");
+
+    // If controller provided categories and no selection yet, optionally prefill the first category
+    // (If you prefer to require explicit user choice, skip this.)
+    if ((form.data.id_kategori === "" || form.data.id_kategori == null) && kategoris.length > 0) {
+      const first = kategoris[0];
+      form.setData("id_kategori", String(first.id));
+      form.setData("kategori", first.nama);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kategoris]);
 
   const handleCategory = (value: string) => {
-    setForm((f) => ({ ...f, category: value }));
-  };
-
-  const validate = () => {
-    const errs: any = {};
-    if (!form.name) errs.name = "Nama wajib diisi";
-    if (!form.description) errs.description = "Deskripsi wajib diisi";
-    if (!form.stock || isNaN(Number(form.stock))) errs.stock = "Stok harus angka";
-    if (!form.stock_min || isNaN(Number(form.stock_min))) errs.stock_min = "Stok harus angka";
-    if (!form.qrcode) errs.qrcode = "QR Code wajib diisi";
-    return errs;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length) {
-      setErrors(errs);
+    // When placeholder (PLACEHOLDER_VALUE) is selected, clear category
+    if (value === PLACEHOLDER_VALUE) {
+      form.setData("id_kategori", "");
+      form.setData("kategori", "");
       return;
     }
-    alert("Item berhasil ditambahkan! (Simulasi, integrasikan ke backend Anda)");
-    router.visit("/items");
+
+    const id = value ? Number(value) : null;
+    const found = kategoris.find((k) => k.id === id) ?? null;
+    form.setData("id_kategori", id ?? "");
+    form.setData("kategori", found ? found.nama : "");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // small client-side checks (server will validate)
+    const clientErrors: Record<string, string> = {};
+    if (!form.data.nama) clientErrors.nama = "Nama wajib diisi";
+    if (!form.data.deskripsi) clientErrors.deskripsi = "Deskripsi wajib diisi";
+    if (!form.data.stok || isNaN(Number(form.data.stok))) clientErrors.stok = "Stok harus angka";
+    if (!form.data.stok_minimal || isNaN(Number(form.data.stok_minimal))) clientErrors.stok_minimal = "Stok minimal harus angka";
+    if (!form.data.kode_item) clientErrors.kode_item = "QR Code wajib diisi";
+
+    if (Object.keys(clientErrors).length > 0) {
+      // quick UX: show an alert; server errors will be displayed inline from form.errors
+      alert("Periksa input. Semua field wajib diisi dan stok harus angka.");
+      return;
+    }
+
+    // Post to backend. Assumes route('item.store') exists.
+    form.post(route("item.store"), {
+      onSuccess: () => {
+        // Inertia usually follows redirects returned by controller; explicit visit to /items is fine.
+        router.visit("/item");
+      },
+      onError: () => {
+        // server validation errors populate form.errors automatically
+        console.warn("Validation failed", form.errors);
+      },
+    });
   };
 
   return (
-    <AppLayout breadcrumbs={[
-      { title: "Dashboard", href: "/dashboard" },
-      { title: "Item List", href: "/items" },
-      { title: "Tambah Item", href: "/items/add" },
-    ]}>
+    <AppLayout
+      breadcrumbs={[
+        { title: "Dashboard", href: "/dashboard" },
+        { title: "Item List", href: "/item" },
+        { title: "Tambah Item", href: "/item/tambah" },
+      ]}
+    >
       <Head title="Tambah Item" />
       <div className="max-w-4xl my-10 bg-white dark:bg-background rounded-xl shadow p-6 border border-sidebar-border/60">
         <Button
@@ -74,15 +118,19 @@ export default function Add_Items() {
         >
           <ArrowLeft size={16} /> Kembali ke Daftar Item
         </Button>
+
         <h2 className="text-xl font-semibold mb-6">Tambah Item Baru</h2>
+
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left: QR Code Preview */}
           <div className="md:w-1/3 flex flex-col items-center justify-start">
             <div className="bg-muted p-4 rounded-lg border w-full flex flex-col bg-slate-100 items-center min-h-[200px]">
               <span className="mb-2 text-black text-sm text-center">Preview QR Code</span>
-              {form.qrcode ? (
+              {form.data.kode_item ? (
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(form.qrcode)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                    String(form.data.kode_item)
+                  )}`}
                   alt="QR Preview"
                   className="rounded shadow border"
                   style={{ width: 180, height: 180 }}
@@ -94,99 +142,100 @@ export default function Add_Items() {
               )}
             </div>
           </div>
+
           {/* Right: Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex-1 space-y-4"
-            autoComplete="off"
-          >
+          <form onSubmit={handleSubmit} className="flex-1 space-y-4" autoComplete="off">
             <div>
               <label className="block mb-1">Nama Item *</label>
               <Input
-                name="name"
+                name="nama"
                 placeholder="Nama item"
-                value={form.name}
-                onChange={handleChange}
+                value={form.data.nama}
+                onChange={(e) => form.setData("nama", e.target.value)}
                 autoFocus
               />
-              {errors.name && (
-                <div className="text-red-600 text-xs mt-1">{errors.name}</div>
-              )}
+              {form.errors.nama && <div className="text-red-600 text-xs mt-1">{form.errors.nama}</div>}
             </div>
+
             <div>
               <label className="block mb-1">Deskripsi *</label>
               <Textarea
-                name="description"
+                name="deskripsi"
                 placeholder="Deskripsi item"
-                value={form.description}
-                onChange={handleChange}
+                value={form.data.deskripsi}
+                onChange={(e) => form.setData("deskripsi", e.target.value)}
               />
-              {errors.description && (
-                <div className="text-red-600 text-xs mt-1">{errors.description}</div>
-              )}
+              {form.errors.deskripsi && <div className="text-red-600 text-xs mt-1">{form.errors.deskripsi}</div>}
             </div>
+
             <div>
               <label className="block mb-1">Stok *</label>
               <Input
-                name="stock"
+                name="stok"
                 placeholder="Stok (angka)"
-                value={form.stock_min}
-                onChange={handleChange}
+                value={String(form.data.stok)}
+                onChange={(e) => form.setData("stok", e.target.value)}
                 type="number"
                 min={0}
               />
-              {errors.stock && (
-                <div className="text-red-600 text-xs mt-1">{errors.stock}</div>
-              )}
+              {form.errors.stok && <div className="text-red-600 text-xs mt-1">{form.errors.stok}</div>}
             </div>
+
             <div>
               <label className="block mb-1">Stok Minimal *</label>
               <Input
-                name="stock_min"
+                name="stok_minimal"
                 placeholder="Stok Minimal (angka)"
-                value={form.stock_min}
-                onChange={handleChange}
+                value={String(form.data.stok_minimal)}
+                onChange={(e) => form.setData("stok_minimal", e.target.value)}
                 type="number"
                 min={0}
               />
-              {errors.stock_min && (
-                <div className="text-red-600 text-xs mt-1">{errors.stock}</div>
-              )}
+              {form.errors.stok_minimal && <div className="text-red-600 text-xs mt-1">{form.errors.stok_minimal}</div>}
             </div>
+
             <div>
               <label className="block mb-1">Kategori *</label>
-              <Select value={form.category} onValueChange={handleCategory}>
+
+              {/* Use controller-provided kategoris for dropdown */}
+              <Select
+                value={form.data.id_kategori ? String(form.data.id_kategori) : PLACEHOLDER_VALUE}
+                onValueChange={(val) => handleCategory(val)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {/* placeholder option uses non-empty sentinel value */}
+                  <SelectItem value={PLACEHOLDER_VALUE}>-- Pilih Kategori --</SelectItem>
+                  {kategoris.map((k) => (
+                    <SelectItem key={k.id} value={String(k.id)}>
+                      {k.nama}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {form.errors.kategori && <div className="text-red-600 text-xs mt-1">{form.errors.kategori}</div>}
             </div>
+
             <div>
-              <label className="block mb-1">QR Code Text *</label>
+              <label className="block mb-1">Kode Item *</label>
               <Input
-                name="qrcode"
-                placeholder="Masukkan text untuk QR code"
-                value={form.qrcode}
-                onChange={handleChange}
+                name="kode_item"
+                placeholder="Masukkan text untuk Kode Item (QR Code)"
+                value={form.data.kode_item}
+                onChange={(e) => form.setData("kode_item", e.target.value)}
               />
-              {errors.qrcode && (
-                <div className="text-red-600 text-xs mt-1">{errors.qrcode}</div>
-              )}
+              {form.errors.kode_item && <div className="text-red-600 text-xs mt-1">{form.errors.kode_item}</div>}
             </div>
+
             <div className="pt-4 flex gap-2">
-              <Button type="submit">Simpan Item</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.visit("/items")}
-              >
+              <Button type="submit" disabled={form.processing}>
+                {form.processing ? "Menyimpan..." : "Simpan Item"}
+              </Button>
+
+              <Button type="button" variant="outline" onClick={() => router.visit("/tambah")}>
                 Batal
               </Button>
             </div>

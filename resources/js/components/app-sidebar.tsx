@@ -48,7 +48,7 @@ const mainNavItems: NavItem[] = [
         },
         {
             title: "Tambah Produk",
-            href: "/items/add",
+            href: "/item/tambah",
         },
         {
             title: "Kategori Produk",

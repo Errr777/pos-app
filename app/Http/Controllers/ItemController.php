@@ -100,6 +100,53 @@ class ItemController extends Controller
         ]);
     }
 
+    public function create()
+    {
+        // Get all categories for the dropdown
+        
+        $kategoris = Kategori::select('id', 'nama', 'deskripsi')->orderBy('nama')->get();
+
+        return Inertia::render('Items/Add_Items', [
+            'kategoris' => $kategoris,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        // ✅ Validate the input
+        $validated = $request->validate([
+            'nama' => 'required|string|max:255',
+            'deskripsi' => 'nullable|string|max:1000',
+            'kode_item' => 'required|string|max:255|unique:items,kode_item',
+            'stok' => 'required|numeric|min:0',
+            'stok_minimal' => 'required|numeric|min:0',
+            'kategori' => 'nullable|string|max:255',
+            'id_kategori' => 'nullable|exists:kategoris,id',
+        ]);
+
+        // ✅ Set kategori (normalize category name if linked by ID)
+        if (empty($validated['kategori']) && !empty($validated['id_kategori'])) {
+            $kategori = Kategori::find($validated['id_kategori']);
+            $validated['kategori'] = $kategori?->nama;
+        }
+
+        // ✅ Save to DB
+        $item = Item::create([
+            'nama' => $validated['nama'],
+            'deskripsi' => $validated['deskripsi'] ?? null,
+            'kode_item' => $validated['kode_item'],
+            'stok' => $validated['stok'],
+            'stok_minimal' => $validated['stok_minimal'],
+            'kategori' => $validated['kategori'] ?? null,
+            'id_kategori' => $validated['id_kategori'] ?? null,
+        ]);
+
+        // ✅ Redirect with Inertia flash message
+        return redirect()
+            ->route('item.tambah')
+            ->with('success', "Item '{$item->nama}' berhasil ditambahkan.");
+    }
+
     public function edit(Item $item, Request $request)
     {
         // Load kategori relation if available
