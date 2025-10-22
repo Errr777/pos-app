@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
 import { Search, Plus, Pencil, Trash, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,22 +17,29 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import Pagination from '@/components/Pagination'; // <- ensure this file exists
 
 const breadcrumbs = [
   { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Item List', href: '/items' },
+  { title: 'Item List', href: '/item' },
 ];
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export default function Items() {
   const { props } = usePage();
   const { items = { data: [], meta: {} }, filters = {}, kategoris = [] } = props;
 
+  // --- sort key mappings (client <> server)
+  const clientToServer = { name: 'nama', stock: 'stok', category: 'kategori' };
+  const serverToClient = { nama: 'name', stok: 'stock', kategori: 'category' };
+
   // Local state copies so we can do optimistic updates
   const [localItems, setLocalItems] = useState(items.data ?? []);
+  // normalize incoming filters.sort_by (server key) to client key
+  const initialSortBy = serverToClient[filters.sort_by] ?? (filters.sort_by ?? 'name');
   const [query, setQuery] = useState(filters.search ?? '');
-  const [sortBy, setSortBy] = useState(filters.sort_by ?? 'name');
+  const [sortBy, setSortBy] = useState(initialSortBy);
   const [sortDir, setSortDir] = useState(filters.sort_dir ?? 'asc');
   const [perPage, setPerPage] = useState(filters.per_page ?? ITEMS_PER_PAGE);
 
@@ -49,33 +55,51 @@ export default function Items() {
     stock: 0,
     stock_min: 0,
     category: '',
-    id_kategori: null, // added to track selected kategori id
+    id_kategori: null,
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalItems(items.data ?? []);
-  }, [items]);
+    if (items?.meta?.per_page) {
+      setPerPage(items.meta.per_page);
+    }
 
-  const mapSortBy = (col) => ({ name: 'nama', stock: 'stok', category: 'kategori' }[col] ?? 'nama');
+    // If server filter changes, sync sortBy & sortDir to client keys
+    if (filters.sort_by) {
+      const clientKey = serverToClient[filters.sort_by] ?? filters.sort_by;
+      setSortBy(clientKey);
+    }
+    if (filters.sort_dir) {
+      setSortDir(filters.sort_dir);
+    }
+  }, [items, filters]);
+
+  const mapSortBy = (col) => clientToServer[col] ?? col;
+
+  // helper to get server key to send
+  const serverSortKey = () => mapSortBy(sortBy);
 
   const handleSearchSubmit = (e) => {
     e?.preventDefault();
     router.get(
-      route('items.index'),
-      { search: query, per_page: perPage, sort_by: mapSortBy(sortBy), sort_dir: sortDir },
+      route('item.index'),
+      { search: query, per_page: perPage, sort_by: serverSortKey(), sort_dir: sortDir },
       { preserveState: true, replace: true }
     );
   };
 
   const handleSort = (col) => {
+    // col is client-key ('name'|'stock'|'category')
     let newDir = 'asc';
     if (sortBy === col) newDir = sortDir === 'asc' ? 'desc' : 'asc';
     setSortBy(col);
     setSortDir(newDir);
+
+    // always send server-key
     router.get(
-      route('items.index'),
-      { search: query, per_page: perPage, sort_by: mapSortBy(col), sort_dir: newDir },
+      route('item.index'),
+      { search: query, per_page: perPage, sort_by: clientToServer[col] ?? col, sort_dir: newDir },
       { preserveState: true, replace: true }
     );
   };
@@ -84,8 +108,8 @@ export default function Items() {
 
   const handlePage = (page) => {
     router.get(
-      route('items.index'),
-      { search: query, per_page: perPage, sort_by: mapSortBy(sortBy), sort_dir: sortDir, page },
+      route('item.index'),
+      { search: query, per_page: perPage, sort_by: serverSortKey(), sort_dir: sortDir, page },
       { preserveState: true }
     );
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -95,14 +119,13 @@ export default function Items() {
     const pp = parseInt(e.target.value, 10) || ITEMS_PER_PAGE;
     setPerPage(pp);
     router.get(
-      route('items.index'),
-      { search: query, per_page: pp, sort_by: mapSortBy(sortBy), sort_dir: sortDir },
+      route('item.index'),
+      { search: query, per_page: pp, sort_by: serverSortKey(), sort_dir: sortDir },
       { preserveState: true, replace: true }
     );
   };
 
   const handleAddItem = () => {
-    // replace with toast when ready
     alert('Fitur tambah item coming soon!');
   };
 
@@ -113,8 +136,6 @@ export default function Items() {
 
   const openEditModal = (item) => {
     form.reset();
-
-    // deduce category id/name from item shape
     const idKategori =
       item.id_kategori ??
       (item.kategori_rel ? item.kategori_rel.id : null) ??
@@ -127,7 +148,6 @@ export default function Items() {
 
     form.setData({
       id: item.id,
-      // support both server shapes
       name: item.nama ?? item.name ?? '',
       description: item.deskripsi ?? item.description ?? '',
       qrcode: item.kode_item ?? item.qrcode ?? '',
@@ -140,19 +160,14 @@ export default function Items() {
     setIsEditModalOpen(true);
   };
 
-  // Optimistic delete: remove locally immediately; revert snapshot on error
   const handleDelete = (id) => {
     if (!confirm('Yakin ingin menghapus item ini?')) return;
-
     const snapshot = [...localItems];
     setLocalItems((prev) => prev.filter((i) => i.id !== id));
 
-    router.delete(route('items.destroy', id), {
+    router.delete(route('item.destroy', id), {
       preserveState: true,
-      onSuccess: () => {
-        // replace with toast
-        alert('Item berhasil dihapus');
-      },
+      onSuccess: () => alert('Item berhasil dihapus'),
       onError: () => {
         setLocalItems(snapshot);
         alert('Gagal menghapus item. Coba lagi.');
@@ -160,31 +175,23 @@ export default function Items() {
     });
   };
 
-  // ---------- PATCHED submitEdit: use form.put (Inertia manages form.processing) ----------
   const submitEdit = (e) => {
     e.preventDefault();
     const id = form.data.id;
-
-    // keep both id_kategori and category name in payload for compatibility
     const payload = {
       ...form.data,
-      // ensure category set to name for legacy backend
       category: form.data.category ?? (kategoris.find((k) => k.id === form.data.id_kategori) || {}).nama ?? '',
     };
 
-    // Use form.put so useForm manages processing and errors
-    form.put(route('items.update', id), {
+    form.put(route('item.update', id), {
       data: payload,
-      onSuccess: (page) => {
+      onSuccess: () => {
         setIsEditModalOpen(false);
-
-        // optimistic update of local items — write both id_kategori and kategori (name)
         setLocalItems((prev) =>
           prev.map((it) =>
             it.id === id
               ? {
                   ...it,
-                  // DB-language fields
                   nama: payload.name,
                   deskripsi: payload.description,
                   kode_item: payload.qrcode,
@@ -192,7 +199,6 @@ export default function Items() {
                   stok_minimal: payload.stock_min,
                   kategori: payload.category,
                   id_kategori: payload.id_kategori ?? it.id_kategori ?? null,
-                  // client fallback fields
                   name: payload.name,
                   description: payload.description,
                   qrcode: payload.qrcode,
@@ -202,19 +208,32 @@ export default function Items() {
               : it
           )
         );
-
         alert('Item berhasil diperbarui');
-      },
-      onError: () => {
-        // form.errors will be populated automatically by Inertia
       },
     });
   };
-  // -------------------------------------------------------------------------
 
+  // pagination meta normalization
   const paginated = items;
-  const totalPages = paginated?.meta?.last_page ?? 1;
-  const currentPage = paginated?.meta?.current_page ?? 1;
+  const extractMeta = (p) => {
+    if (!p) return null;
+    const m = p.meta ?? p;
+    const current_page = Number(m.current_page ?? m.currentPage ?? m.page ?? 1);
+    const last_page = Number(m.last_page ?? m.lastPage ?? m.total_pages ?? 1);
+    const per_page = Number(m.per_page ?? m.perPage ?? perPage);
+    const total = Number(m.total ?? m.count ?? 0);
+    return { current_page, last_page, per_page, total };
+  };
+  const meta = extractMeta(paginated);
+  const totalPages = meta?.last_page ?? 1;
+  const currentPage = meta?.current_page ?? 1;
+  const perPageFromMeta = meta?.per_page ?? perPage;
+
+  const gotoPage = (p) => {
+    if (!meta) return;
+    if (p < 1 || p > meta.last_page) return;
+    handlePage(p);
+  };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -254,6 +273,7 @@ export default function Items() {
           <table className="min-w-full border rounded-xl">
             <thead>
               <tr className="bg-muted">
+                <th className="px-4 py-2 text-left cursor-default select-none">#</th>
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('name')}>
                   Nama {sortIcon('name')}
                 </th>
@@ -270,20 +290,19 @@ export default function Items() {
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <td colSpan={6} className="text-center py-6 text-muted-foreground">
                     Item tidak ditemukan
                   </td>
                 </tr>
               ) : (
-                localItems.map((item) => (
-                  <tr key={item.id} className="border-b last:border-b-0">
+                localItems.map((item, idx) => (
+                  <tr key={item.id} className="border-b last:border-b-0 text-muted-foreground">
+                    <td className="px-4 py-2">{(currentPage - 1) * perPageFromMeta + idx + 1}</td>
                     <td className="px-4 py-2">{item.nama ?? item.name}</td>
                     <td className="px-4 py-2">{item.kode_item ?? item.qrcode}</td>
                     <td className="px-4 py-2">{item.stok ?? item.stock}</td>
                     <td className="px-4 py-2">
-                      {item.kategori ??
-                        item.category ??
-                        (item.kategori_rel ? item.kategori_rel.nama : '-')}
+                      {item.kategori ?? item.category ?? (item.kategori_rel ? item.kategori_rel.nama : '-')}
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <TooltipProvider>
@@ -320,21 +339,8 @@ export default function Items() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-6 flex-wrap">
-            <button onClick={() => handlePage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 rounded border bg-muted disabled:opacity-50">
-              Previous
-            </button>
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <button key={idx} onClick={() => handlePage(idx + 1)} className={`px-3 py-1 rounded border ${currentPage === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}>
-                {idx + 1}
-              </button>
-            ))}
-            <button onClick={() => handlePage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 rounded border bg-muted disabled:opacity-50">
-              Next
-            </button>
-          </div>
-        )}
+        {/* Pagination */}
+        <Pagination meta={meta} onPageChange={gotoPage} siblingCount={1} />
       </div>
 
       {/* View Modal */}
@@ -353,7 +359,7 @@ export default function Items() {
               <p><strong>Stok:</strong> {viewItem.stok ?? viewItem.stock}</p>
               <p><strong>Stok Minimal:</strong> {viewItem.stok_minimal ?? viewItem.stock_min}</p>
               <p><strong>Kategori:</strong> {viewItem.kategori ?? viewItem.category ?? (viewItem.kategori_rel ? viewItem.kategori_rel.nama : '-')}</p>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${viewItem.kode_item ?? viewItem.qrcode}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(viewItem.kode_item ?? viewItem.qrcode ?? '')}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
             </div>
           )}
 
@@ -362,7 +368,7 @@ export default function Items() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
       {/* Edit Modal (Inertia form) */}
       <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open) { form.reset(); setIsEditModalOpen(false); } }}>
         <DialogContent>
@@ -422,7 +428,7 @@ export default function Items() {
                 {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
               </div>
               <div>
-                <label className="block text-sm font-medium">Stok Minimal</label>
+                <label className="block text-sm font.medium">Stok Minimal</label>
                 <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', e.target.value)} className="w-full border rounded px-2 py-1" />
                 {form.errors.stock_min && <div className="text-destructive text-sm">{form.errors.stock_min}</div>}
               </div>
@@ -435,13 +441,8 @@ export default function Items() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {/* View & Edit Modals omitted for brevity (unchanged) */}
     </AppLayout>
   );
-}
-
-// helper used inside component
-function sortIcon(col) {
-  // This function is intentionally simple because sort icon state is controlled in component
-  // It will be overridden by the component's sortIcon logic (kept here for clarity)
-  return '⇅';
 }

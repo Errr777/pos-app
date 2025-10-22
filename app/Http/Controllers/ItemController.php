@@ -14,42 +14,80 @@ class ItemController extends Controller
     public function index(Request $request)
     {
         $perPage = (int) $request->get('per_page', 10);
+        $search  = $request->get('search');
 
-        $items = Item::with('kategoriRelation')
-            ->when($request->get('search'), function ($q, $search) {
+        // Sorting: accept client keys but map to DB column names (whitelist for safety)
+        // Client keys we expect: name | stock | category | kode | created_at (fallback)
+        $clientToDb = [
+            'name'     => 'nama',
+            'stock'    => 'stok',
+            'category' => 'kategori',
+            'kode'     => 'kode_item',
+            'created'  => 'created_at',
+        ];
+
+        // read client-provided sort key and direction
+        $requestedSort = $request->get('sort_by', null);
+        $requestedDir  = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        // determine DB column to sort by; if not provided or unknown, fall back to created_at
+        $sortColumn = 'created_at';
+        if ($requestedSort) {
+            // allow either client keys or direct DB columns (if caller already sends DB column)
+            if (isset($clientToDb[$requestedSort])) {
+                $sortColumn = $clientToDb[$requestedSort];
+            } elseif (in_array($requestedSort, $clientToDb, true)) {
+                // allowed: request already used DB column name
+                $sortColumn = $requestedSort;
+            }
+        }
+
+        $itemsQuery = Item::with('kategoriRelation')
+            ->when($search, function ($q, $search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('kode_item', 'like', "%{$search}%");
+                ->orWhere('kode_item', 'like', "%{$search}%");
             })
-            ->orderBy('created_at', 'desc')
+            ->orderBy($sortColumn, $requestedDir);
+
+        $items = $itemsQuery
             ->paginate($perPage)
             ->withQueryString()
             ->through(function ($i) {
                 return [
-                    'id' => $i->id,
-                    'nama' => $i->nama,
-                    'deskripsi' => $i->deskripsi,
-                    'kode_item' => $i->kode_item,
-                    'stok' => $i->stok,
-                    'stok_minimal' => $i->stok_minimal,
-                    'kategori' => $i->kategori,
-                    'id_kategori' => $i->id_kategori,
-                    'kategori_rel' => $i->kategoriRelation ? ['id' => $i->kategoriRelation->id, 'nama' => ($i->kategoriRelation->nama ?? $i->kategoriRelation->nama_kategori ?? null)] : null,
+                    'id'            => $i->id,
+                    'nama'          => $i->nama,
+                    'deskripsi'     => $i->deskripsi,
+                    'kode_item'     => $i->kode_item,
+                    'stok'          => $i->stok,
+                    'stok_minimal'  => $i->stok_minimal,
+                    'kategori'      => $i->kategori,
+                    'id_kategori'   => $i->id_kategori,
+                    'kategori_rel'  => $i->kategoriRelation
+                        ? [
+                            'id'   => $i->kategoriRelation->id,
+                            'nama' => $i->kategoriRelation->nama ?? ($i->kategoriRelation->nama_kategori ?? null),
+                        ]
+                        : null,
                 ];
             });
 
-        // Pass kategoris for dropdown. Map possible column names (nama or nama_kategori).
+        // Pass kategoris for dropdown. Normalize possible column names (nama or nama_kategori)
         $kategoris = Kategori::all()->map(function ($k) {
             return [
-                'id' => $k->id,
-                'nama' => $k->nama ?? ($k->nama_kategori ?? null),
+                'id'        => $k->id,
+                'nama'      => $k->nama ?? ($k->nama_kategori ?? null),
                 'deskripsi' => $k->deskripsi ?? null,
             ];
         });
 
+        // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
-            'items' => $items,
-            'filters' => $request->only(['search', 'per_page']),
-            'kategoris' => $kategoris,
+            'items'      => $items,
+            'filters'    => $request->only(['search', 'per_page']) + [
+                'sort_by'  => $requestedSort,
+                'sort_dir' => $requestedDir,
+            ],
+            'kategoris'  => $kategoris,
         ]);
     }
 

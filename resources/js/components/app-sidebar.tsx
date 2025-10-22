@@ -44,7 +44,7 @@ const mainNavItems: NavItem[] = [
       items: [
         {
             title: "Daftar Produk",
-            href: "/items/",
+            href: "/item/",
         },
         {
             title: "Tambah Produk",
@@ -52,7 +52,7 @@ const mainNavItems: NavItem[] = [
         },
         {
             title: "Kategori Produk",
-            href: "/items/categories",
+            href: "/category/",
         },
         {
             title: "Stok Minimum",

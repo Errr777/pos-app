@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\KategoriController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -17,10 +18,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Items/Items');
     })->name('Items'); */
 
-    Route::get('/items', [ItemController::class, 'index'])->name('items.index');
-    Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
-    Route::put('/items/{item}', [ItemController::class, 'update'])->name('items.update');
-    Route::delete('/items/{item}', [ItemController::class, 'destroy'])->name('items.destroy');
+    Route::get('/item', [ItemController::class, 'index'])->name('item.index');
+    Route::get('/item/{item}', [ItemController::class, 'show'])->name('item.show');
+    Route::put('/item/{item}', [ItemController::class, 'update'])->name('item.update');
+    Route::delete('/item/{item}', [ItemController::class, 'destroy'])->name('item.destroy');
+
+    Route::get('/category', [KategoriController::class, 'index'])->name('kategori.index');
+    Route::get('/category/{kategori}', [KategoriController::class, 'show'])->name('kategori.show');
+    Route::post('/category', [KategoriController::class, 'store'])->name('kategori.store');
+    Route::put('/category/{kategori}', [KategoriController::class, 'update'])->name('kategori.update');
+    Route::delete('/category/{kategori}', [KategoriController::class, 'destroy'])->name('kategori.destroy');
+
 
     Route::get('items/add', function () {
         return Inertia::render('Items/Add_Items');
