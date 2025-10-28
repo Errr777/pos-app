@@ -91,7 +91,7 @@ export default function Add_Items() {
     form.post(route("item.store"), {
       onSuccess: () => {
         // Inertia usually follows redirects returned by controller; explicit visit to /items is fine.
-        router.visit("/item");
+        router.visit("/tambah_item");
       },
       onError: () => {
         // server validation errors populate form.errors automatically
@@ -105,7 +105,7 @@ export default function Add_Items() {
       breadcrumbs={[
         { title: "Dashboard", href: "/dashboard" },
         { title: "Item List", href: "/item" },
-        { title: "Tambah Item", href: "/item/tambah" },
+        { title: "Tambah Item", href: "/tambah_item" },
       ]}
     >
       <Head title="Tambah Item" />

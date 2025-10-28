@@ -273,6 +273,84 @@ class ItemController extends Controller
         return redirect()->back()->with('success', 'Item updated successfully');
     }
 
+    public function lowStock(Request $request)
+{
+    // Normalize inputs
+    $search   = trim((string) $request->get('search', ''));
+    $perPage  = (int) $request->get('per_page', 10);
+    $page     = (int) $request->get('page', 1);
+
+    // Sorting params from UI (e.g. 'name', 'stock', 'minimumStock', 'category', 'description')
+    $sortByRaw = $request->get('sort_by', null);
+    $sortDirRaw = strtolower($request->get('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+    // Map client column keys to actual DB columns
+    $allowedSortMap = [
+        'name' => 'nama',
+        'description' => 'deskripsi',
+        'stock' => 'stok',
+        'minimumStock' => 'stok_minimal',
+        'category' => 'kategori',
+        // fallback to DB column names if frontend sends them already
+        'nama' => 'nama',
+        'deskripsi' => 'deskripsi',
+        'stok' => 'stok',
+        'stok_minimal' => 'stok_minimal',
+        'kategori' => 'kategori',
+    ];
+
+    // Determine DB column to sort by; default to 'stok' ascending
+    $sortColumn = $allowedSortMap[$sortByRaw] ?? null;
+    if (! $sortColumn) {
+        // if no valid sort supplied, use default
+        $sortColumn = 'stok';
+        $sortDirRaw = 'asc';
+    }
+
+    // Base query: items where stok < stok_minimal
+    $query = Item::query()
+        ->with('kategoriRelation')
+        ->whereColumn('stok', '<', 'stok_minimal');
+
+    // Search
+    if ($search !== '') {
+        $query->where(function ($q) use ($search) {
+            $q->where('nama', 'like', "%{$search}%")
+              ->orWhere('deskripsi', 'like', "%{$search}%")
+              ->orWhere('kode_item', 'like', "%{$search}%")
+              ->orWhere('kategori', 'like', "%{$search}%");
+        });
+    }
+
+    // Apply sort (safe because we mapped allowed columns)
+    $query->orderBy($sortColumn, $sortDirRaw);
+
+    // Paginate and normalize items for front-end
+    $items = $query
+        ->paginate($perPage)
+        ->withQueryString()
+        ->through(fn($item) => [
+            'id'            => $item->id,
+            'name'          => $item->nama,
+            'description'   => $item->deskripsi,
+            'qrcode'        => $item->kode_item,
+            'stock'         => $item->stok,
+            'minimumStock'  => $item->stok_minimal,
+            'category'      => $item->kategori,
+            'id_kategori'   => $item->id_kategori,
+            'kategori_rel'  => $item->kategoriRelation ? [
+                'id' => $item->kategoriRelation->id,
+                'nama' => $item->kategoriRelation->nama ?? $item->kategoriRelation->nama_kategori ?? null,
+            ] : null,
+        ]);
+
+    // Pass filters back so the UI can keep state (search, per_page, sort_by, sort_dir)
+    return Inertia::render('Items/Stock_alerts', [
+        'items' => $items,
+        'filters' => $request->only(['search', 'per_page', 'page', 'sort_by', 'sort_dir']),
+    ]);
+}
+
     public function destroy(Item $item)
     {
         $item->delete();

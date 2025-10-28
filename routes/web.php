@@ -20,10 +20,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/item', [ItemController::class, 'index'])->name('item.index');
     Route::get('/item/{item}', [ItemController::class, 'show'])->name('item.show');
-    Route::get('/tambah', [ItemController::class, 'create'])->name('item.tambah');
+    Route::get('/tambah_item', [ItemController::class, 'create'])->name('item.tambah');
     Route::post('/item', [ItemController::class, 'store'])->name('item.store');
     Route::put('/item/{item}', [ItemController::class, 'update'])->name('item.update');
     Route::delete('/item/{item}', [ItemController::class, 'destroy'])->name('item.destroy');
+
+    Route::get('/stock_alerts', [ItemController::class, 'lowStock'])->name('item.low_stock');
 
     Route::get('/category', [KategoriController::class, 'index'])->name('kategori.index');
     Route::get('/category/{kategori}', [KategoriController::class, 'show'])->name('kategori.show');
