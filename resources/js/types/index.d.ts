@@ -25,7 +25,7 @@ export interface NavItem {
     items?: { title: string; href: string; icon?: string }[];
 }
 
-export type ModuleKey = 'dashboard' | 'items' | 'inventory' | 'reports' | 'users';
+export type ModuleKey = 'dashboard' | 'items' | 'inventory' | 'warehouses' | 'reports' | 'users';
 
 export interface ModulePermission {
     can_view: boolean;

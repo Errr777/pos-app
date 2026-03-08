@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(sqlite3 /Users/errr/Developer/Project/my/pos-app/db_post \".tables\")"
+      "Bash(sqlite3 /Users/errr/Developer/Project/my/pos-app/db_post \".tables\")",
+      "Bash(python3 -c \":*)"
     ]
   }
 }

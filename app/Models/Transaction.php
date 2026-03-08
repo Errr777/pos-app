@@ -16,6 +16,7 @@ class Transaction extends Model
         'order_id',
         'customer_id',
         'item_id',
+        'warehouse_id',
         'occurred_at',
         'amount',
         'currency',
@@ -34,9 +35,10 @@ class Transaction extends Model
     ];
 
     protected $casts = [
-        'occurred_at' => 'datetime',
+        'occurred_at'  => 'datetime',
+        'warehouse_id' => 'integer',
         'payment_method' => 'array',
-        'metadata' => 'array',
+        'metadata'     => 'array',
     ];
 
     // -----------------------------------------------------

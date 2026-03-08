@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\WarehouseController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -53,6 +54,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('inventory/stock',                 [StockMovementController::class, 'store'])->name('stock.store');
     Route::put('inventory/stock/{transaction}',    [StockMovementController::class, 'update'])->name('stock.update');
     Route::delete('inventory/stock/{transaction}', [StockMovementController::class, 'destroy'])->name('stock.destroy');
+
+    // Warehouses
+    Route::get('warehouses',                                    [WarehouseController::class, 'index'])->name('warehouses.index');
+    Route::get('warehouses/{warehouse}',                        [WarehouseController::class, 'show'])->name('warehouses.show');
+    Route::post('warehouses',                                   [WarehouseController::class, 'store'])->name('warehouses.store');
+    Route::put('warehouses/{warehouse}',                        [WarehouseController::class, 'update'])->name('warehouses.update');
+    Route::delete('warehouses/{warehouse}',                     [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
+    Route::put('warehouses/{warehouse}/items/{item}/min',       [WarehouseController::class, 'updateItemMin'])->name('warehouses.item_min');
 
     // Reports
     Route::get('report/stock',    [ReportController::class, 'stock'])->name('Report_Stock');

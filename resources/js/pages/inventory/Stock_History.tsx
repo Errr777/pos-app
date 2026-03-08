@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Eye, Download, Calendar as CalendarIcon } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -327,30 +328,17 @@ export default function Stock_History() {
           </table>
         </div>
 
-        {/* Pagination + totals */}
-        <div className="flex justify-between items-center mt-6 flex-wrap gap-2">
-          <div className="text-sm text-muted-foreground space-x-4">
-            <span>IN: <b className="text-emerald-700">{stats.totalIn}</b></span>
-            <span>OUT: <b className="text-rose-700">{stats.totalOut}</b></span>
-            <span>NET: <b className={stats.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}>{stats.net}</b></span>
-            {meta.total > 0 && (
-              <span className="ml-2">· {meta.total} data</span>
-            )}
-          </div>
-          {meta.last_page > 1 && (
-            <div className="flex justify-center gap-2">
-              {Array.from({ length: meta.last_page }).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handlePage(idx + 1)}
-                  className={`px-3 py-1 rounded border ${meta.current_page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <Pagination
+          meta={meta}
+          onPageChange={handlePage}
+          summary={
+            <span className="flex items-center gap-3">
+              <span>IN: <b className="text-emerald-700">{stats.totalIn}</b></span>
+              <span>OUT: <b className="text-rose-700">{stats.totalOut}</b></span>
+              <span>NET: <b className={stats.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}>{stats.net >= 0 ? '+' : ''}{stats.net}</b></span>
+            </span>
+          }
+        />
       </div>
 
       {/* Detail Dialog */}

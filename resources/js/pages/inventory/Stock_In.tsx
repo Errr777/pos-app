@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
+import Pagination from '@/components/Pagination';
 import { Search, Plus, Eye, Pencil, Trash, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +39,7 @@ interface StockInRow {
   reference?: string | null;
   qrcode?: string | null;
   note?: string | null;
+  warehouseId?: number | null;
 }
 
 interface ItemOption {
@@ -74,9 +76,17 @@ interface Filters {
   per_page?: string | number;
 }
 
+interface WarehouseOption {
+  id: number;
+  code: string;
+  name: string;
+  is_default: boolean;
+}
+
 interface PageProps {
   movements: PaginatedMovements;
   items: ItemOption[];
+  warehouses: WarehouseOption[];
   totalQty: number;
   filters: Filters;
   [key: string]: unknown;
@@ -92,7 +102,7 @@ function formatDateISO(d: string | Date | null | undefined): string {
 
 export default function Stock_In() {
   const { props } = usePage<PageProps>();
-  const { movements, items: itemOptions, totalQty, filters } = props;
+  const { movements, items: itemOptions, warehouses, totalQty, filters } = props;
 
   const [query, setQuery] = useState<string>(filters.search ?? '');
   const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'date');
@@ -135,6 +145,7 @@ export default function Stock_In() {
     id: 0,
     date: formatDateISO(new Date()),
     itemId: itemOptions[0]?.id ?? 0,
+    warehouseId: warehouses[0]?.id ?? 0,
     quantity: 1,
     supplier: '',
     reference: '',
@@ -203,6 +214,7 @@ export default function Stock_In() {
       id: 0,
       date: formatDateISO(new Date()),
       itemId: itemOptions[0]?.id ?? 0,
+      warehouseId: warehouses[0]?.id ?? 0,
       quantity: 1,
       supplier: '',
       reference: '',
@@ -220,6 +232,7 @@ export default function Stock_In() {
       id: row.id,
       date: formatDateISO(row.date),
       itemId: row.itemId ?? (itemOptions[0]?.id ?? 0),
+      warehouseId: row.warehouseId ?? (warehouses[0]?.id ?? 0),
       quantity: row.quantity,
       supplier: row.supplier ?? '',
       reference: row.reference ?? '',
@@ -235,8 +248,9 @@ export default function Stock_In() {
     setFormErrors({});
 
     const payload = {
-      type:      'stock_in',
-      item_id:   form.itemId,
+      type:         'stock_in',
+      item_id:      form.itemId,
+      warehouse_id: form.warehouseId || null,
       quantity:  form.quantity,
       date:      form.date,
       party:     form.supplier || null,
@@ -367,6 +381,7 @@ export default function Stock_In() {
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('itemName')}>
                   Item {sortIcon('itemName')}
                 </th>
+                <th className="px-4 py-2 text-left">Gudang</th>
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('quantity')}>
                   Qty In {sortIcon('quantity')}
                 </th>
@@ -382,7 +397,7 @@ export default function Stock_In() {
             <tbody>
               {movements.data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-6 text-muted-foreground">
                     Data tidak ditemukan
                   </td>
                 </tr>
@@ -391,6 +406,7 @@ export default function Stock_In() {
                   <tr key={row.id} className="border-b last:border-b-0">
                     <td className="px-4 py-2">{formatDateISO(row.date)}</td>
                     <td className="px-4 py-2">{row.itemName}</td>
+                    <td className="px-4 py-2 text-muted-foreground text-sm">{(warehouses.find((w) => w.id === row.warehouseId)?.name) ?? '-'}</td>
                     <td className="px-4 py-2">{row.quantity}</td>
                     <td className="px-4 py-2">{row.supplier || '-'}</td>
                     <td className="px-4 py-2">{row.reference || '-'}</td>
@@ -429,30 +445,11 @@ export default function Stock_In() {
           </table>
         </div>
 
-        {/* Pagination + total */}
-        <div className="flex justify-between items-center mt-6 flex-wrap gap-2">
-          <div className="text-sm text-muted-foreground">
-            Total qty (filtered): <b>{totalQty}</b>
-            {meta.total > 0 && (
-              <span className="ml-4">
-                Halaman {meta.current_page} / {meta.last_page} &nbsp;·&nbsp; {meta.total} data
-              </span>
-            )}
-          </div>
-          {meta.last_page > 1 && (
-            <div className="flex justify-center gap-2">
-              {Array.from({ length: meta.last_page }).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handlePage(idx + 1)}
-                  className={`px-3 py-1 rounded border ${meta.current_page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <Pagination
+          meta={meta}
+          onPageChange={handlePage}
+          summary={<>Total qty masuk (filter): <span className="font-semibold text-foreground">{totalQty}</span></>}
+        />
       </div>
 
       {/* Detail Dialog */}
@@ -505,6 +502,22 @@ export default function Stock_In() {
                   required
                 />
                 {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Gudang</label>
+                <select
+                  value={form.warehouseId}
+                  onChange={(e) => setForm((f) => ({ ...f, warehouseId: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                  ))}
+                </select>
+                {formErrors.warehouse_id && <p className="text-destructive text-sm mt-1">{formErrors.warehouse_id}</p>}
+                {formMode === 'edit' && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Gudang hanya bisa dipindah jika stok lama belum terpakai.</p>
+                )}
               </div>
               <div>
                 <label className="block font-semibold mb-1">Item</label>

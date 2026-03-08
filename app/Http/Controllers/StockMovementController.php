@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\Transaction;
+use App\Models\Warehouse;
+use App\Models\WarehouseItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,31 @@ class StockMovementController extends Controller
             ]);
     }
 
+    /** Return active warehouses for the dropdown. */
+    private function warehouseOptions(): \Illuminate\Support\Collection
+    {
+        return Warehouse::where('is_active', true)
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get()
+            ->map(fn($w) => [
+                'id'         => $w->id,
+                'code'       => $w->code,
+                'name'       => $w->name,
+                'is_default' => $w->is_default,
+            ]);
+    }
+
+    /** Resolve warehouse_id: use provided value or fall back to default warehouse. */
+    private function resolveWarehouseId(?int $warehouseId): int
+    {
+        if ($warehouseId) {
+            return $warehouseId;
+        }
+        return (int) (Warehouse::where('is_default', true)->value('id')
+            ?? Warehouse::first()->value('id'));
+    }
+
     // -------------------------------------------------------------------------
     // GET: Stock In page
     // -------------------------------------------------------------------------
@@ -116,22 +143,24 @@ class StockMovementController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($t) => [
-                'id'        => $t->id,
-                'date'      => $t->occurred_at?->toISOString(),
-                'itemId'    => $t->item_id,
-                'itemName'  => $t->item?->nama ?? '(item deleted)',
-                'quantity'  => (int) abs($t->amount),
-                'supplier'  => $t->party,
-                'reference' => $t->reference,
-                'qrcode'    => $t->qrcode,
-                'note'      => $t->note,
+                'id'          => $t->id,
+                'date'        => $t->occurred_at?->toISOString(),
+                'itemId'      => $t->item_id,
+                'itemName'    => $t->item?->nama ?? '(item deleted)',
+                'quantity'    => (int) abs($t->amount),
+                'supplier'    => $t->party,
+                'reference'   => $t->reference,
+                'qrcode'      => $t->qrcode,
+                'note'        => $t->note,
+                'warehouseId' => $t->warehouse_id,
             ]);
 
         return Inertia::render('inventory/Stock_In', [
-            'movements' => $movements,
-            'items'     => $this->itemOptions(),
-            'totalQty'  => (int) $totalQty,
-            'filters'   => array_merge(
+            'movements'  => $movements,
+            'items'      => $this->itemOptions(),
+            'warehouses' => $this->warehouseOptions(),
+            'totalQty'   => (int) $totalQty,
+            'filters'    => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),
                 ['sort_by' => $requestedSort, 'sort_dir' => $sortDir]
             ),
@@ -180,22 +209,24 @@ class StockMovementController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($t) => [
-                'id'        => $t->id,
-                'date'      => $t->occurred_at?->toISOString(),
-                'itemId'    => $t->item_id,
-                'itemName'  => $t->item?->nama ?? '(item deleted)',
-                'quantity'  => (int) abs($t->amount),
-                'receiver'  => $t->party,
-                'reference' => $t->reference,
-                'qrcode'    => $t->qrcode,
-                'note'      => $t->note,
+                'id'          => $t->id,
+                'date'        => $t->occurred_at?->toISOString(),
+                'itemId'      => $t->item_id,
+                'itemName'    => $t->item?->nama ?? '(item deleted)',
+                'quantity'    => (int) abs($t->amount),
+                'receiver'    => $t->party,
+                'reference'   => $t->reference,
+                'qrcode'      => $t->qrcode,
+                'note'        => $t->note,
+                'warehouseId' => $t->warehouse_id,
             ]);
 
         return Inertia::render('inventory/Stock_Out', [
-            'movements' => $movements,
-            'items'     => $this->itemOptions(),
-            'totalQty'  => (int) $totalQty,
-            'filters'   => array_merge(
+            'movements'  => $movements,
+            'items'      => $this->itemOptions(),
+            'warehouses' => $this->warehouseOptions(),
+            'totalQty'   => (int) $totalQty,
+            'filters'    => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),
                 ['sort_by' => $requestedSort, 'sort_dir' => $sortDir]
             ),
@@ -354,16 +385,17 @@ class StockMovementController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'type'      => 'required|in:stock_in,stock_out',
-            'item_id'   => 'required|integer|exists:items,id',
-            'quantity'  => 'required|integer|min:1|max:99999',
-            'date'      => 'required|date_format:Y-m-d',
-            'party'     => 'nullable|string|max:255',
-            'reference' => 'nullable|string|max:255',
-            'source'    => 'nullable|string|max:100',
-            'category'  => 'nullable|string|max:100',
-            'qrcode'    => 'nullable|string|max:255',
-            'note'      => 'nullable|string|max:1000',
+            'type'         => 'required|in:stock_in,stock_out',
+            'item_id'      => 'required|integer|exists:items,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
+            'quantity'     => 'required|integer|min:1|max:99999',
+            'date'         => 'required|date_format:Y-m-d',
+            'party'        => 'nullable|string|max:255',
+            'reference'    => 'nullable|string|max:255',
+            'source'       => 'nullable|string|max:100',
+            'category'     => 'nullable|string|max:100',
+            'qrcode'       => 'nullable|string|max:255',
+            'note'         => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -372,42 +404,67 @@ class StockMovementController extends Controller
                 : back()->withErrors($validator)->withInput();
         }
 
-        $data = $validator->validated();
-        $qty  = (int) $data['quantity'];
-        $type = $data['type'];
+        $data        = $validator->validated();
+        $qty         = (int) $data['quantity'];
+        $type        = $data['type'];
+        $warehouseId = $this->resolveWarehouseId($data['warehouse_id'] ?? null);
 
         $errorResponse = null;
 
-        DB::transaction(function () use ($data, $qty, $type, $request, &$errorResponse) {
+        DB::transaction(function () use ($data, $qty, $type, $warehouseId, &$errorResponse) {
+            // Lock item for global stock recalculation
             $item = Item::lockForUpdate()->findOrFail($data['item_id']);
 
-            if ($type === 'stock_out' && $item->stok < $qty) {
-                $errorResponse = ['quantity' => ["Stok tidak mencukupi. Stok saat ini: {$item->stok}"]];
+            // Get or create the warehouse-specific stock record
+            $wi = WarehouseItem::where('warehouse_id', $warehouseId)
+                ->where('item_id', $item->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$wi) {
+                $wi = WarehouseItem::create([
+                    'warehouse_id' => $warehouseId,
+                    'item_id'      => $item->id,
+                    'stok'         => 0,
+                    'stok_minimal' => 0,
+                ]);
+            }
+
+            if ($type === 'stock_out' && $wi->stok < $qty) {
+                $errorResponse = ['quantity' => ["Stok di gudang tidak mencukupi. Stok saat ini: {$wi->stok}"]];
                 return;
             }
 
-            $newBalance = $type === 'stock_in' ? $item->stok + $qty : $item->stok - $qty;
+            $warehouseBalance = $type === 'stock_in' ? $wi->stok + $qty : $wi->stok - $qty;
+            $wi->stok = $warehouseBalance;
+            $wi->save();
+
+            // Recalculate global item stock as sum of all warehouses
+            $globalStock = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
+            $item->stok  = $globalStock;
+            $item->save();
 
             Transaction::create([
-                'txn_id'      => 'STK-' . strtoupper(Str::random(10)),
-                'item_id'     => $item->id,
-                'occurred_at' => $data['date'] . ' 00:00:00',
-                'amount'      => $qty,
-                'currency'    => 'unit',
-                'status'      => 'completed',
-                'type'        => $type,
-                'actor'       => Auth::user()?->name ?? 'System',
-                'source'      => $data['source'] ?? 'Manual',
-                'party'       => $data['party'] ?? null,
-                'reference'   => $data['reference'] ?? null,
-                'category'    => $data['category'] ?? null,
-                'qrcode'      => $data['qrcode'] ?? null,
-                'note'        => $data['note'] ?? null,
-                'metadata'    => ['balance_after' => $newBalance],
+                'txn_id'       => 'STK-' . strtoupper(Str::random(10)),
+                'item_id'      => $item->id,
+                'warehouse_id' => $warehouseId,
+                'occurred_at'  => $data['date'] . ' 00:00:00',
+                'amount'       => $qty,
+                'currency'     => 'unit',
+                'status'       => 'completed',
+                'type'         => $type,
+                'actor'        => Auth::user()?->name ?? 'System',
+                'source'       => $data['source'] ?? 'Manual',
+                'party'        => $data['party'] ?? null,
+                'reference'    => $data['reference'] ?? null,
+                'category'     => $data['category'] ?? null,
+                'qrcode'       => $data['qrcode'] ?? null,
+                'note'         => $data['note'] ?? null,
+                'metadata'     => [
+                    'balance_after'        => $warehouseBalance,
+                    'global_balance_after' => $globalStock,
+                ],
             ]);
-
-            $item->stok = $newBalance;
-            $item->save();
         });
 
         if ($errorResponse) {
@@ -435,15 +492,16 @@ class StockMovementController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'item_id'   => 'required|integer|exists:items,id',
-            'quantity'  => 'required|integer|min:1|max:99999',
-            'date'      => 'required|date_format:Y-m-d',
-            'party'     => 'nullable|string|max:255',
-            'reference' => 'nullable|string|max:255',
-            'source'    => 'nullable|string|max:100',
-            'category'  => 'nullable|string|max:100',
-            'qrcode'    => 'nullable|string|max:255',
-            'note'      => 'nullable|string|max:1000',
+            'item_id'      => 'required|integer|exists:items,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
+            'quantity'     => 'required|integer|min:1|max:99999',
+            'date'         => 'required|date_format:Y-m-d',
+            'party'        => 'nullable|string|max:255',
+            'reference'    => 'nullable|string|max:255',
+            'source'       => 'nullable|string|max:100',
+            'category'     => 'nullable|string|max:100',
+            'qrcode'       => 'nullable|string|max:255',
+            'note'         => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -452,48 +510,104 @@ class StockMovementController extends Controller
                 : back()->withErrors($validator)->withInput();
         }
 
-        $data   = $validator->validated();
-        $newQty = (int) $data['quantity'];
-        $oldQty = (int) abs($transaction->amount);
-        $type   = $transaction->type;
+        $data           = $validator->validated();
+        $newQty         = (int) $data['quantity'];
+        $oldQty         = (int) abs($transaction->amount);
+        $type           = $transaction->type;
+        $oldWarehouseId = $this->resolveWarehouseId($transaction->warehouse_id);
+        $newWarehouseId = $this->resolveWarehouseId($data['warehouse_id'] ?? null);
+        $warehouseChanged = $oldWarehouseId !== $newWarehouseId;
 
         $errorResponse = null;
 
-        DB::transaction(function () use ($transaction, $data, $newQty, $oldQty, $type, &$errorResponse) {
+        DB::transaction(function () use (
+            $transaction, $data, $newQty, $oldQty, $type,
+            $oldWarehouseId, $newWarehouseId, $warehouseChanged, &$errorResponse
+        ) {
             $item = Item::lockForUpdate()->findOrFail($data['item_id']);
 
-            // Reverse old effect
-            $stockAfterReversal = $type === 'stock_in'
-                ? $item->stok - $oldQty
-                : $item->stok + $oldQty;
+            // ── Step 1: Validate reversal on the old warehouse ───────────────
+            $oldWi = WarehouseItem::where('warehouse_id', $oldWarehouseId)
+                ->where('item_id', $item->id)
+                ->lockForUpdate()
+                ->first();
 
-            // Validate new effect
-            if ($type === 'stock_out' && $stockAfterReversal < $newQty) {
-                $errorResponse = ['quantity' => ['Stok tidak mencukupi setelah penyesuaian.']];
+            $oldStok = $oldWi ? $oldWi->stok : 0;
+
+            // For stock_in: reversing means removing stock from old warehouse.
+            // If old warehouse stock < old qty, it means that stock was already
+            // consumed by other stock_outs — cannot move the warehouse.
+            if ($warehouseChanged && $type === 'stock_in' && $oldStok < $oldQty) {
+                $errorResponse = ['warehouse_id' => [
+                    "Gudang tidak bisa dipindah. Stok di gudang lama sudah terpakai (tersisa: {$oldStok}, dibutuhkan: {$oldQty} untuk pembalikan)."
+                ]];
                 return;
             }
 
-            $newBalance = $type === 'stock_in'
-                ? $stockAfterReversal + $newQty
-                : $stockAfterReversal - $newQty;
+            // ── Step 2: Apply the reversal on the old warehouse ──────────────
+            if ($oldWi) {
+                $oldWi->stok = $type === 'stock_in'
+                    ? $oldWi->stok - $oldQty
+                    : $oldWi->stok + $oldQty;
+                $oldWi->save();
+            }
 
-            $existingMeta = is_array($transaction->metadata) ? $transaction->metadata : [];
+            // ── Step 3: Apply the new transaction on the new warehouse ────────
+            $newWi = $warehouseChanged
+                ? WarehouseItem::where('warehouse_id', $newWarehouseId)
+                    ->where('item_id', $item->id)
+                    ->lockForUpdate()
+                    ->first()
+                : $oldWi; // same warehouse — reuse the already-updated record
 
-            $transaction->update([
-                'item_id'     => $data['item_id'],
-                'occurred_at' => $data['date'] . ' 00:00:00',
-                'amount'      => $newQty,
-                'party'       => $data['party'] ?? null,
-                'reference'   => $data['reference'] ?? null,
-                'source'      => $data['source'] ?? null,
-                'category'    => $data['category'] ?? null,
-                'qrcode'      => $data['qrcode'] ?? null,
-                'note'        => $data['note'] ?? null,
-                'metadata'    => array_merge($existingMeta, ['balance_after' => $newBalance]),
-            ]);
+            if (!$newWi) {
+                $newWi = WarehouseItem::create([
+                    'warehouse_id' => $newWarehouseId,
+                    'item_id'      => $item->id,
+                    'stok'         => 0,
+                    'stok_minimal' => 0,
+                ]);
+            }
 
-            $item->stok = $newBalance;
+            // Re-read stok after reversal (in case $newWi === $oldWi)
+            $stockAvailable = $warehouseChanged ? $newWi->stok : $newWi->fresh()->stok;
+
+            // For stock_out: new warehouse must have enough stock
+            if ($type === 'stock_out' && $stockAvailable < $newQty) {
+                $errorResponse = ['quantity' => ["Stok di gudang tidak mencukupi. Stok tersedia: {$stockAvailable}"]];
+                return;
+            }
+
+            $newWarehouseBalance = $type === 'stock_in'
+                ? $stockAvailable + $newQty
+                : $stockAvailable - $newQty;
+
+            $newWi->stok = $newWarehouseBalance;
+            $newWi->save();
+
+            // ── Step 4: Recalculate global item stock ─────────────────────────
+            $globalStock = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
+            $item->stok  = $globalStock;
             $item->save();
+
+            // ── Step 5: Update the transaction record ─────────────────────────
+            $existingMeta = is_array($transaction->metadata) ? $transaction->metadata : [];
+            $transaction->update([
+                'item_id'      => $data['item_id'],
+                'warehouse_id' => $newWarehouseId,
+                'occurred_at'  => $data['date'] . ' 00:00:00',
+                'amount'       => $newQty,
+                'party'        => $data['party'] ?? null,
+                'reference'    => $data['reference'] ?? null,
+                'source'       => $data['source'] ?? null,
+                'category'     => $data['category'] ?? null,
+                'qrcode'       => $data['qrcode'] ?? null,
+                'note'         => $data['note'] ?? null,
+                'metadata'     => array_merge($existingMeta, [
+                    'balance_after'        => $newWarehouseBalance,
+                    'global_balance_after' => $globalStock,
+                ]),
+            ]);
         });
 
         if ($errorResponse) {
@@ -520,16 +634,45 @@ class StockMovementController extends Controller
             abort(403, 'Tipe transaksi ini tidak dapat dihapus di sini.');
         }
 
-        $type = $transaction->type;
-        $qty  = (int) abs($transaction->amount);
+        $type        = $transaction->type;
+        $qty         = (int) abs($transaction->amount);
+        $warehouseId = $transaction->warehouse_id;
 
-        DB::transaction(function () use ($transaction, $type, $qty) {
+        DB::transaction(function () use ($transaction, $type, $qty, $warehouseId) {
             if ($transaction->item_id) {
                 $item = Item::lockForUpdate()->find($transaction->item_id);
                 if ($item) {
-                    $item->stok = $type === 'stock_in'
-                        ? max(0, $item->stok - $qty)
-                        : $item->stok + $qty;
+                    if ($warehouseId) {
+                        $wi = WarehouseItem::where('warehouse_id', $warehouseId)
+                            ->where('item_id', $item->id)
+                            ->lockForUpdate()
+                            ->first();
+                        if ($wi) {
+                            $wi->stok = $type === 'stock_in'
+                                ? max(0, $wi->stok - $qty)
+                                : $wi->stok + $qty;
+                            $wi->save();
+                        }
+                        $item->stok = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
+                    } else {
+                        // Legacy: resolve to default warehouse and sync
+                        $fallbackWhId = $this->resolveWarehouseId(null);
+                        $wi = WarehouseItem::where('warehouse_id', $fallbackWhId)
+                            ->where('item_id', $item->id)
+                            ->lockForUpdate()
+                            ->first();
+                        if ($wi) {
+                            $wi->stok = $type === 'stock_in'
+                                ? max(0, $wi->stok - $qty)
+                                : $wi->stok + $qty;
+                            $wi->save();
+                            $item->stok = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
+                        } else {
+                            $item->stok = $type === 'stock_in'
+                                ? max(0, $item->stok - $qty)
+                                : $item->stok + $qty;
+                        }
+                    }
                     $item->save();
                 }
             }

@@ -10,6 +10,7 @@ import {
   ClipboardList,
   BoxIcon,
   LayoutList,
+  Warehouse,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -46,6 +47,13 @@ const allNavItems: NavItem[] = [
             { title: 'Stok Masuk',         href: '/inventory/stock_in' },
             { title: 'Stok Keluar',        href: '/inventory/stock_out' },
         ],
+    },
+    {
+        title: 'Gudang',
+        href: '/warehouses',
+        icon: Warehouse,
+        single: true,
+        module: 'warehouses',
     },
     {
         title: 'Laporan',
