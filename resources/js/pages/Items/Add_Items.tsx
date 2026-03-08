@@ -76,7 +76,7 @@ export default function Add_Items() {
     // small client-side checks (server will validate)
     const clientErrors: Record<string, string> = {};
     if (!form.data.nama) clientErrors.nama = "Nama wajib diisi";
-    if (!form.data.deskripsi) clientErrors.deskripsi = "Deskripsi wajib diisi";
+    // deskripsi is optional per backend validation
     if (!form.data.stok || isNaN(Number(form.data.stok))) clientErrors.stok = "Stok harus angka";
     if (!form.data.stok_minimal || isNaN(Number(form.data.stok_minimal))) clientErrors.stok_minimal = "Stok minimal harus angka";
     if (!form.data.kode_item) clientErrors.kode_item = "QR Code wajib diisi";
@@ -113,7 +113,7 @@ export default function Add_Items() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.visit("/items")}
+          onClick={() => router.visit("/item")}
           className="mb-4 flex items-center gap-2"
         >
           <ArrowLeft size={16} /> Kembali ke Daftar Item
@@ -158,7 +158,7 @@ export default function Add_Items() {
             </div>
 
             <div>
-              <label className="block mb-1">Deskripsi *</label>
+              <label className="block mb-1">Deskripsi</label>
               <Textarea
                 name="deskripsi"
                 placeholder="Deskripsi item"
@@ -235,7 +235,7 @@ export default function Add_Items() {
                 {form.processing ? "Menyimpan..." : "Simpan Item"}
               </Button>
 
-              <Button type="button" variant="outline" onClick={() => router.visit("/tambah")}>
+              <Button type="button" variant="outline" onClick={() => router.visit("/item")}>
                 Batal
               </Button>
             </div>

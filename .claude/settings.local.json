@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 /Users/errr/Developer/Project/my/pos-app/db_post \".tables\")"
+    ]
+  }
+}

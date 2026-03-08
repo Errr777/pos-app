@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Eye, Pencil, Trash, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,69 +19,110 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-// ⬇️ ShadCN Calendar + Popover
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { DateRange } from 'react-day-picker';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Stock In', href: '/stock-in' },
+  { title: 'Stock In', href: '/inventory/stock_in' },
 ];
 
-const itemsMaster = Array.from({ length: 12 }).map((_, idx) => ({
-  id: idx + 1,
-  name: `Item ${String.fromCharCode(65 + (idx % 26))}`,
-  category: ['General', 'Special', 'Minuman', 'Makanan'][idx % 4],
-}));
-
-type StockInRow = {
+interface StockInRow {
   id: number;
-  date: string;        // ISO
-  itemId: number;
+  date: string;
+  itemId: number | null;
   itemName: string;
   quantity: number;
-  supplier?: string;
-  reference?: string;
-  note?: string;
-};
+  supplier?: string | null;
+  reference?: string | null;
+  qrcode?: string | null;
+  note?: string | null;
+}
 
-const initialStockIns: StockInRow[] = Array.from({ length: 37 }).map((_, idx) => {
-  const item = itemsMaster[idx % itemsMaster.length];
-  const day = (idx % 27) + 1;
-  return {
-    id: idx + 1,
-    date: new Date(2025, 6, day, 10, 0, 0).toISOString(), // July 2025
-    itemId: item.id,
-    itemName: item.name,
-    quantity: Math.floor(Math.random() * 50) + 1,
-    supplier: ['PT Sumber Rejeki', 'CV Mitra Abadi', 'UD Maju Jaya'][idx % 3],
-    reference: `REF-${1000 + idx}`,
-    note: idx % 2 ? 'Restock harian' : 'Promo event',
-  };
-});
+interface ItemOption {
+  id: number;
+  name: string;
+  category: string | null;
+  stock: number;
+  kode: string | null;
+}
 
-const ITEMS_PER_PAGE = 20;
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
+}
+
+interface PaginatedMovements {
+  data: StockInRow[];
+  links: PaginationLink[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
+interface Filters {
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  sort_by?: string;
+  sort_dir?: string;
+  per_page?: string | number;
+}
+
+interface PageProps {
+  movements: PaginatedMovements;
+  items: ItemOption[];
+  totalQty: number;
+  filters: Filters;
+  [key: string]: unknown;
+}
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
-function formatDateISO(d: string | Date) {
+function formatDateISO(d: string | Date | null | undefined): string {
+  if (!d) return '';
   const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '';
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }
-function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
-function endOfDay(d: Date) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
 
 export default function Stock_In() {
-  const [rows, setRows] = useState<StockInRow[]>(initialStockIns);
+  const { props } = usePage<PageProps>();
+  const { movements, items: itemOptions, totalQty, filters } = props;
 
-  // table states
-  const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'itemName' | 'quantity' | 'supplier' | 'reference'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState<string>(filters.search ?? '');
+  const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
+    filters.sort_dir === 'asc' ? 'asc' : 'desc'
+  );
+  const [range, setRange] = useState<DateRange | undefined>(() => {
+    if (filters.date_from) {
+      return {
+        from: new Date(filters.date_from),
+        to: filters.date_to ? new Date(filters.date_to) : undefined,
+      };
+    }
+    return undefined;
+  });
 
-  // 🔥 NEW: Date range (react-day-picker)
-  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  // Sync local state when Inertia navigates and passes new filters
+  useEffect(() => {
+    setQuery(filters.search ?? '');
+    setSortBy(filters.sort_by ?? 'date');
+    setSortDir(filters.sort_dir === 'asc' ? 'asc' : 'desc');
+    if (filters.date_from) {
+      setRange({
+        from: new Date(filters.date_from),
+        to: filters.date_to ? new Date(filters.date_to) : undefined,
+      });
+    } else {
+      setRange(undefined);
+    }
+  }, [filters]);
 
   // detail modal
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -93,149 +134,137 @@ export default function Stock_In() {
   const [form, setForm] = useState({
     id: 0,
     date: formatDateISO(new Date()),
-    itemId: itemsMaster[0].id,
+    itemId: itemOptions[0]?.id ?? 0,
     quantity: 1,
     supplier: '',
     reference: '',
+    qrcode: '',
     note: '',
+    source: 'Manual',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // ===== FILTER + SORT + PAGINATE =====
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-
-    let res = rows.filter(r =>
-      formatDateISO(r.date).includes(q) ||
-      r.itemName.toLowerCase().includes(q) ||
-      String(r.quantity).includes(q) ||
-      (r.supplier?.toLowerCase().includes(q) ?? false) ||
-      (r.reference?.toLowerCase().includes(q) ?? false) ||
-      (r.note?.toLowerCase().includes(q) ?? false)
+  // ===== Navigation helper =====
+  const navigate = (overrides: Record<string, unknown> = {}) => {
+    router.get(
+      route('Stock_In'),
+      {
+        search:    query,
+        date_from: range?.from ? formatDateISO(range.from) : undefined,
+        date_to:   range?.to   ? formatDateISO(range.to)   : undefined,
+        sort_by:   sortBy,
+        sort_dir:  sortDir,
+        per_page:  filters.per_page ?? 20,
+        ...overrides,
+      },
+      { preserveState: true, replace: true }
     );
-
-    if (range?.from || range?.to) {
-      const from = range?.from ? startOfDay(range.from).getTime() : -Infinity;
-      const to = range?.to ? endOfDay(range.to).getTime() : Infinity;
-      res = res.filter(r => {
-        const t = new Date(r.date).getTime();
-        return t >= from && t <= to;
-      });
-    }
-
-    return res;
-  }, [rows, query, range]);
-
-  const sorted = useMemo(() => {
-    const copy = [...filtered];
-    copy.sort((a, b) => {
-      let valA: any = a[sortBy];
-      let valB: any = b[sortBy];
-      if (sortBy === 'date') {
-        valA = new Date(a.date).getTime();
-        valB = new Date(b.date).getTime();
-      } else {
-        if (typeof valA === 'string') valA = valA.toLowerCase();
-        if (typeof valB === 'string') valB = valB.toLowerCase();
-      }
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return copy;
-  }, [filtered, sortBy, sortDir]);
-
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
-  const paginated = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-  const handleSort = (col: typeof sortBy) => {
-    if (sortBy === col) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(col);
-      setSortDir(col === 'date' ? 'desc' : 'asc');
-    }
   };
-  const sortIcon = (col: typeof sortBy) =>
+
+  const handleSort = (col: string) => {
+    const newDir: 'asc' | 'desc' = sortBy === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc';
+    setSortBy(col);
+    setSortDir(newDir);
+    navigate({ sort_by: col, sort_dir: newDir });
+  };
+
+  const sortIcon = (col: string) =>
     sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅';
 
-  const gotoPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => { setQuery(e.target.value); setPage(1); };
-  const clearDateRange = () => { setRange(undefined); setPage(1); };
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigate({ search: query, page: 1 });
+  };
 
-  // ===== DETAIL =====
+  const handleDateRangeChange = (r: DateRange | undefined) => {
+    setRange(r);
+    navigate({
+      date_from: r?.from ? formatDateISO(r.from) : undefined,
+      date_to:   r?.to   ? formatDateISO(r.to)   : undefined,
+      page: 1,
+    });
+  };
+
+  const clearDateRange = () => handleDateRangeChange(undefined);
+
+  const handlePage = (page: number) => {
+    navigate({ page });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ===== Detail =====
   const openDetail = (row: StockInRow) => { setSelected(row); setIsDetailOpen(true); };
 
-  // ===== ADD / EDIT =====
+  // ===== Add / Edit =====
   const openAddForm = () => {
     setFormMode('add');
+    setFormErrors({});
     setForm({
       id: 0,
       date: formatDateISO(new Date()),
-      itemId: itemsMaster[0].id,
+      itemId: itemOptions[0]?.id ?? 0,
       quantity: 1,
       supplier: '',
       reference: '',
+      qrcode: itemOptions[0]?.kode ?? '',
       note: '',
+      source: 'Manual',
     });
     setIsFormOpen(true);
   };
+
   const openEditForm = (row: StockInRow) => {
     setFormMode('edit');
+    setFormErrors({});
     setForm({
       id: row.id,
       date: formatDateISO(row.date),
-      itemId: row.itemId,
+      itemId: row.itemId ?? (itemOptions[0]?.id ?? 0),
       quantity: row.quantity,
       supplier: row.supplier ?? '',
       reference: row.reference ?? '',
+      qrcode: row.qrcode ?? '',
       note: row.note ?? '',
+      source: 'Manual',
     });
     setIsFormOpen(true);
   };
-  const handleDelete = (id: number) => { if (confirm('Hapus data stock-in ini?')) setRows(prev => prev.filter(r => r.id !== id)); };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetItem = itemsMaster.find(i => i.id === form.itemId)!;
+    setFormErrors({});
+
+    const payload = {
+      type:      'stock_in',
+      item_id:   form.itemId,
+      quantity:  form.quantity,
+      date:      form.date,
+      party:     form.supplier || null,
+      reference: form.reference || null,
+      qrcode:    form.qrcode || null,
+      note:      form.note || null,
+      source:    form.source,
+    };
+
+    const onError = (errors: Record<string, string>) => setFormErrors(errors);
+    const onSuccess = () => setIsFormOpen(false);
+
     if (formMode === 'add') {
-      const newRow: StockInRow = {
-        id: Date.now(),
-        date: new Date(form.date + 'T00:00:00').toISOString(),
-        itemId: targetItem.id,
-        itemName: targetItem.name,
-        quantity: Math.max(0, Number(form.quantity)),
-        supplier: form.supplier || undefined,
-        reference: form.reference || undefined,
-        note: form.note || undefined,
-      };
-      setRows(prev => [newRow, ...prev]);
+      router.post(route('stock.store'), payload, { onSuccess, onError });
     } else {
-      setRows(prev =>
-        prev.map(r =>
-          r.id === form.id
-            ? {
-                ...r,
-                date: new Date(form.date + 'T00:00:00').toISOString(),
-                itemId: targetItem.id,
-                itemName: targetItem.name,
-                quantity: Math.max(0, Number(form.quantity)),
-                supplier: form.supplier || undefined,
-                reference: form.reference || undefined,
-                note: form.note || undefined,
-              }
-            : r
-        )
-      );
+      router.put(route('stock.update', { transaction: form.id }), payload, { onSuccess, onError });
     }
-    setIsFormOpen(false);
   };
 
-  // ===== TOTALS =====
-  const totalQty = useMemo(() => filtered.reduce((s, r) => s + r.quantity, 0), [filtered]);
+  const handleDelete = (id: number) => {
+    if (!confirm('Hapus data stock-in ini? Stok item akan dikurangi kembali.')) return;
+    router.delete(route('stock.destroy', { transaction: id }));
+  };
 
-  // ===== CSV EXPORT (filtered + sorted) =====
+  // ===== CSV Export (current page) =====
   const exportCSV = () => {
-    const header = ['Tanggal','Item','Qty','Supplier','Ref/No','Catatan'];
-    const lines = sorted.map(r => [
+    const header = ['Tanggal', 'Item', 'Qty', 'Supplier', 'Ref/No', 'Catatan'];
+    const lines = movements.data.map(r => [
       formatDateISO(r.date),
       r.itemName,
       r.quantity,
@@ -246,28 +275,26 @@ export default function Stock_In() {
     const csv = [header, ...lines]
       .map(row => row.map((cell) => {
         const s = String(cell);
-        const needQuote = /[",\n]/.test(s);
-        const escaped = s.replace(/"/g, '""');
-        return needQuote ? `"${escaped}"` : escaped;
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       }).join(','))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const today = formatDateISO(new Date());
     a.href = url;
-    a.download = `stock-in_${today}.csv`;
+    a.download = `stock-in_${formatDateISO(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Label display untuk tombol date-range
   const rangeLabel = (() => {
     if (range?.from && range?.to) return `${formatDateISO(range.from)} s/d ${formatDateISO(range.to)}`;
     if (range?.from) return `${formatDateISO(range.from)} s/d …`;
     return 'Pilih tanggal';
   })();
+
+  const meta = movements;
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -276,23 +303,24 @@ export default function Stock_In() {
         {/* Header actions */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
           {/* Search */}
-          <div className="flex-1">
+          <form className="flex-1" onSubmit={handleSearchSubmit}>
             <div className="relative w-full max-w-md">
               <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground pointer-events-none">
                 <Search size={18} />
               </span>
               <input
                 type="text"
-                placeholder="Cari tanggal / item / supplier / ref / catatan..."
+                placeholder="Cari item / supplier / ref / catatan..."
                 className="w-full px-10 py-2 border rounded-lg bg-muted pl-12"
                 value={query}
-                onChange={handleQueryChange}
+                onChange={(e) => setQuery(e.target.value)}
+                onBlur={() => navigate({ search: query, page: 1 })}
                 style={{ minWidth: 240 }}
               />
             </div>
-          </div>
+          </form>
 
-          {/* 🔥 Date Range Picker (Open Calendar) */}
+          {/* Date Range Picker */}
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -305,32 +333,25 @@ export default function Stock_In() {
                 <Calendar
                   mode="range"
                   selected={range}
-                  onSelect={(r) => { setRange(r); setPage(1); }}
+                  onSelect={handleDateRangeChange}
                   numberOfMonths={1}
                   defaultMonth={range?.from}
-                    className="w-auto max-w-md"
+                  className="w-auto max-w-md"
                 />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" onClick={clearDateRange}>
-              Clear
-            </Button>
+            <Button variant="outline" onClick={clearDateRange}>Clear</Button>
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={exportCSV}
-              disabled={sorted.length === 0}
-            >
+            <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={movements.data.length === 0}>
               <Download size={16} />
               Export CSV
             </Button>
             <Button onClick={openAddForm} className="gap-2">
               <Plus size={16} />
-              <span>Tambah Stock-In</span>
+              Tambah Stock-In
             </Button>
           </div>
         </div>
@@ -359,14 +380,14 @@ export default function Stock_In() {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {movements.data.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-6 text-muted-foreground">
                     Data tidak ditemukan
                   </td>
                 </tr>
               ) : (
-                paginated.map((row) => (
+                movements.data.map((row) => (
                   <tr key={row.id} className="border-b last:border-b-0">
                     <td className="px-4 py-2">{formatDateISO(row.date)}</td>
                     <td className="px-4 py-2">{row.itemName}</td>
@@ -374,15 +395,10 @@ export default function Stock_In() {
                     <td className="px-4 py-2">{row.supplier || '-'}</td>
                     <td className="px-4 py-2">{row.reference || '-'}</td>
                     <td className="px-4 py-2 flex gap-2">
-                      {/* tooltips dibiarkan seperti sebelumnya */}
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              onClick={() => openDetail(row)}
-                              className="text-primary border border-white hover:bg-primary hover:text-slate-600 hover:border-0 p-2 rounded-full transition"
-                              aria-label="Lihat"
-                            >
+                            <button onClick={() => openDetail(row)} className="text-primary border border-white hover:bg-primary hover:text-slate-600 hover:border-0 p-2 rounded-full transition" aria-label="Lihat">
                               <Eye size={18} />
                             </button>
                           </TooltipTrigger>
@@ -390,11 +406,7 @@ export default function Stock_In() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              onClick={() => openEditForm(row)}
-                              className="text-primary border border-white hover:bg-primary hover:text-slate-600 hover:border-0 p-2 rounded-full transition"
-                              aria-label="Edit"
-                            >
+                            <button onClick={() => openEditForm(row)} className="text-primary border border-white hover:bg-primary hover:text-slate-600 hover:border-0 p-2 rounded-full transition" aria-label="Edit">
                               <Pencil size={18} />
                             </button>
                           </TooltipTrigger>
@@ -402,11 +414,7 @@ export default function Stock_In() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              onClick={() => handleDelete(row.id)}
-                              className="text-destructive bg-amber-50 hover:bg-destructive hover:text-amber-50 p-2 rounded-full transition"
-                              aria-label="Hapus"
-                            >
+                            <button onClick={() => handleDelete(row.id)} className="text-destructive bg-amber-50 hover:bg-destructive hover:text-amber-50 p-2 rounded-full transition" aria-label="Hapus">
                               <Trash size={18} />
                             </button>
                           </TooltipTrigger>
@@ -422,24 +430,29 @@ export default function Stock_In() {
         </div>
 
         {/* Pagination + total */}
-        {sorted.length > 0 && (
-          <div className="flex justify-between items-center mt-6 flex-wrap gap-2">
-            <div className="text-sm text-muted-foreground">
-              Total qty (filtered): <b>{totalQty}</b>
-            </div>
+        <div className="flex justify-between items-center mt-6 flex-wrap gap-2">
+          <div className="text-sm text-muted-foreground">
+            Total qty (filtered): <b>{totalQty}</b>
+            {meta.total > 0 && (
+              <span className="ml-4">
+                Halaman {meta.current_page} / {meta.last_page} &nbsp;·&nbsp; {meta.total} data
+              </span>
+            )}
+          </div>
+          {meta.last_page > 1 && (
             <div className="flex justify-center gap-2">
-              {Array.from({ length: Math.max(totalPages, 1) }).map((_, idx) => (
+              {Array.from({ length: meta.last_page }).map((_, idx) => (
                 <button
                   key={idx}
-                  onClick={() => gotoPage(idx + 1)}
-                  className={`px-3 py-1 rounded border ${page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
+                  onClick={() => handlePage(idx + 1)}
+                  className={`px-3 py-1 rounded border ${meta.current_page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
                 >
                   {idx + 1}
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Detail Dialog */}
@@ -456,7 +469,15 @@ export default function Stock_In() {
               <p><strong>Qty:</strong> {selected.quantity}</p>
               <p><strong>Supplier:</strong> {selected.supplier || '-'}</p>
               <p><strong>Ref/No:</strong> {selected.reference || '-'}</p>
+              <p><strong>Kode QR:</strong> {selected.qrcode || '-'}</p>
               <p><strong>Catatan:</strong> {selected.note || '-'}</p>
+              {selected.qrcode && (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selected.qrcode)}`}
+                  alt="QR Code"
+                  className="mx-auto mt-2 rounded-lg border p-3"
+                />
+              )}
             </div>
           )}
           <DialogFooter>
@@ -483,31 +504,38 @@ export default function Stock_In() {
                   className="w-full px-3 py-2 border rounded-lg"
                   required
                 />
+                {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
               </div>
               <div>
                 <label className="block font-semibold mb-1">Item</label>
                 <select
                   value={form.itemId}
-                  onChange={(e) => setForm((f) => ({ ...f, itemId: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    const item = itemOptions.find((it) => it.id === id);
+                    setForm((f) => ({ ...f, itemId: id, qrcode: item?.kode ?? '' }));
+                  }}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
-                  {itemsMaster.map((it) => (
+                  {itemOptions.map((it) => (
                     <option key={it.id} value={it.id}>
-                      {it.name} — {it.category}
+                      {it.name}{it.category ? ` — ${it.category}` : ''} (stok: {it.stock})
                     </option>
                   ))}
                 </select>
+                {formErrors.item_id && <p className="text-destructive text-sm mt-1">{formErrors.item_id}</p>}
               </div>
               <div>
                 <label className="block font-semibold mb-1">Qty</label>
                 <input
                   type="number"
-                  min={0}
+                  min={1}
                   value={form.quantity}
                   onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
                   className="w-full px-3 py-2 border rounded-lg"
                   required
                 />
+                {formErrors.quantity && <p className="text-destructive text-sm mt-1">{formErrors.quantity}</p>}
               </div>
               <div>
                 <label className="block font-semibold mb-1">Supplier</label>
@@ -526,6 +554,22 @@ export default function Stock_In() {
                   placeholder="No faktur / DO"
                   className="w-full px-3 py-2 border rounded-lg"
                 />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Kode QR</label>
+                <input
+                  value={form.qrcode}
+                  onChange={(e) => setForm((f) => ({ ...f, qrcode: e.target.value }))}
+                  placeholder="Kode / serial number (opsional)"
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+                {form.qrcode && (
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(form.qrcode)}`}
+                    alt="QR Preview"
+                    className="mt-2 rounded border p-1"
+                  />
+                )}
               </div>
               <div>
                 <label className="block font-semibold mb-1">Catatan</label>

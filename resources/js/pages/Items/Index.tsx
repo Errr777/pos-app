@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
 import { Search, Plus, Pencil, Trash, Eye } from 'lucide-react';
+
+interface Item {
+  id: number;
+  name: string;
+  description: string | null;
+  qrcode: string;
+  stock: number;
+  stock_min: number;
+  category: string | null;
+  id_kategori: number | null;
+  kategori_rel: { id: number; nama: string } | null;
+}
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -26,28 +38,44 @@ const breadcrumbs = [
 
 const ITEMS_PER_PAGE = 10;
 
+interface PageProps {
+  items: { data: Item[]; meta: Record<string, unknown> };
+  filters: Record<string, string>;
+  kategoris: { id: number; nama: string; deskripsi?: string | null }[];
+  [key: string]: unknown;
+}
+
 export default function Items() {
-  const { props } = usePage();
-  const { items = { data: [], meta: {} }, filters = {}, kategoris = [] } = props;
+  const { props } = usePage<PageProps>();
+  const { items = { data: [], meta: {} }, filters = {} as Record<string, string>, kategoris = [] } = props;
 
   // --- sort key mappings (client <> server)
-  const clientToServer = { name: 'nama', stock: 'stok', category: 'kategori' };
-  const serverToClient = { nama: 'name', stok: 'stock', kategori: 'category' };
+  const clientToServer: Record<string, string> = { name: 'nama', stock: 'stok', category: 'kategori' };
+  const serverToClient: Record<string, string> = { nama: 'name', stok: 'stock', kategori: 'category' };
 
   // Local state copies so we can do optimistic updates
-  const [localItems, setLocalItems] = useState(items.data ?? []);
+  const [localItems, setLocalItems] = useState<Item[]>(items.data ?? []);
   // normalize incoming filters.sort_by (server key) to client key
   const initialSortBy = serverToClient[filters.sort_by] ?? (filters.sort_by ?? 'name');
-  const [query, setQuery] = useState(filters.search ?? '');
-  const [sortBy, setSortBy] = useState(initialSortBy);
-  const [sortDir, setSortDir] = useState(filters.sort_dir ?? 'asc');
-  const [perPage, setPerPage] = useState(filters.per_page ?? ITEMS_PER_PAGE);
+  const [query, setQuery] = useState<string>(filters.search ?? '');
+  const [sortBy, setSortBy] = useState<string>(initialSortBy);
+  const [sortDir, setSortDir] = useState<string>(filters.sort_dir ?? 'asc');
+  const [perPage, setPerPage] = useState<number>(Number(filters.per_page) || ITEMS_PER_PAGE);
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewItem, setViewItem] = useState(null);
+  const [viewItem, setViewItem] = useState<Item | null>(null);
 
   // edit modal state handled by Inertia useForm
-  const form = useForm({
+  const form = useForm<{
+    id: number | null;
+    name: string;
+    description: string;
+    qrcode: string;
+    stock: number;
+    stock_min: number;
+    category: string;
+    id_kategori: number | null;
+  }>({
     id: null,
     name: '',
     description: '',
@@ -62,7 +90,7 @@ export default function Items() {
   useEffect(() => {
     setLocalItems(items.data ?? []);
     if (items?.meta?.per_page) {
-      setPerPage(items.meta.per_page);
+      setPerPage(Number(items.meta.per_page));
     }
 
     // If server filter changes, sync sortBy & sortDir to client keys
@@ -75,12 +103,12 @@ export default function Items() {
     }
   }, [items, filters]);
 
-  const mapSortBy = (col) => clientToServer[col] ?? col;
+  const mapSortBy = (col: string) => clientToServer[col] ?? col;
 
   // helper to get server key to send
   const serverSortKey = () => mapSortBy(sortBy);
 
-  const handleSearchSubmit = (e) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e?.preventDefault();
     router.get(
       route('item.index'),
@@ -89,7 +117,7 @@ export default function Items() {
     );
   };
 
-  const handleSort = (col) => {
+  const handleSort = (col: string) => {
     // col is client-key ('name'|'stock'|'category')
     let newDir = 'asc';
     if (sortBy === col) newDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -104,9 +132,9 @@ export default function Items() {
     );
   };
 
-  const sortIcon = (col) => (sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅');
+  const sortIcon = (col: string) => (sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅');
 
-  const handlePage = (page) => {
+  const handlePage = (page: number) => {
     router.get(
       route('item.index'),
       { search: query, per_page: perPage, sort_by: serverSortKey(), sort_dir: sortDir, page },
@@ -115,7 +143,7 @@ export default function Items() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handlePerPageChange = (e) => {
+  const handlePerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const pp = parseInt(e.target.value, 10) || ITEMS_PER_PAGE;
     setPerPage(pp);
     router.get(
@@ -126,33 +154,33 @@ export default function Items() {
   };
 
   const handleAddItem = () => {
-    alert('Fitur tambah item coming soon!');
+    router.visit(route('item.tambah'));
   };
 
-  const openView = (item) => {
+  const openView = (item: Item) => {
     setViewItem(item);
     setIsViewModalOpen(true);
   };
 
-  const openEditModal = (item) => {
+  const openEditModal = (item: Item) => {
     form.reset();
     const idKategori =
       item.id_kategori ??
       (item.kategori_rel ? item.kategori_rel.id : null) ??
-      (item.kategori ? (kategoris.find((k) => k.nama === item.kategori) || {}).id : null);
+      (item.category ? (kategoris.find((k) => k.nama === item.category) || {}).id : null);
 
     const kategoriName =
-      item.kategori ??
+      item.category ??
       (item.kategori_rel ? item.kategori_rel.nama : null) ??
       (idKategori ? (kategoris.find((k) => k.id === idKategori) || {}).nama : '');
 
     form.setData({
       id: item.id,
-      name: item.nama ?? item.name ?? '',
-      description: item.deskripsi ?? item.description ?? '',
-      qrcode: item.kode_item ?? item.qrcode ?? '',
-      stock: item.stok ?? item.stock ?? 0,
-      stock_min: item.stok_minimal ?? item.stock_min ?? 0,
+      name: item.name ?? '',
+      description: item.description ?? '',
+      qrcode: item.qrcode ?? '',
+      stock: item.stock ?? 0,
+      stock_min: item.stock_min ?? 0,
       category: kategoriName ?? '',
       id_kategori: idKategori ?? null,
     });
@@ -160,7 +188,7 @@ export default function Items() {
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: number) => {
     if (!confirm('Yakin ingin menghapus item ini?')) return;
     const snapshot = [...localItems];
     setLocalItems((prev) => prev.filter((i) => i.id !== id));
@@ -175,16 +203,15 @@ export default function Items() {
     });
   };
 
-  const submitEdit = (e) => {
+  const submitEdit = (e: React.FormEvent) => {
     e.preventDefault();
     const id = form.data.id;
-    const payload = {
-      ...form.data,
-      category: form.data.category ?? (kategoris.find((k) => k.id === form.data.id_kategori) || {}).nama ?? '',
-    };
+    if (!id) return;
+    // Ensure category name is set from the selected id_kategori before submitting
+    const resolvedCategory = form.data.category || (kategoris.find((k) => k.id === form.data.id_kategori) || {}).nama || '';
+    form.setData('category', resolvedCategory);
 
     form.put(route('item.update', id), {
-      data: payload,
       onSuccess: () => {
         setIsEditModalOpen(false);
         setLocalItems((prev) =>
@@ -192,18 +219,13 @@ export default function Items() {
             it.id === id
               ? {
                   ...it,
-                  nama: payload.name,
-                  deskripsi: payload.description,
-                  kode_item: payload.qrcode,
-                  stok: payload.stock,
-                  stok_minimal: payload.stock_min,
-                  kategori: payload.category,
-                  id_kategori: payload.id_kategori ?? it.id_kategori ?? null,
-                  name: payload.name,
-                  description: payload.description,
-                  qrcode: payload.qrcode,
-                  stock: payload.stock,
-                  stock_min: payload.stock_min,
+                  name: form.data.name,
+                  description: form.data.description,
+                  qrcode: form.data.qrcode,
+                  stock: form.data.stock,
+                  stock_min: form.data.stock_min,
+                  category: form.data.category,
+                  id_kategori: form.data.id_kategori ?? it.id_kategori ?? null,
                 }
               : it
           )
@@ -215,7 +237,7 @@ export default function Items() {
 
   // pagination meta normalization
   const paginated = items;
-  const extractMeta = (p) => {
+  const extractMeta = (p: typeof items | null) => {
     if (!p) return null;
     const m = p.meta ?? p;
     const current_page = Number(m.current_page ?? m.currentPage ?? m.page ?? 1);
@@ -229,7 +251,7 @@ export default function Items() {
   const currentPage = meta?.current_page ?? 1;
   const perPageFromMeta = meta?.per_page ?? perPage;
 
-  const gotoPage = (p) => {
+  const gotoPage = (p: number) => {
     if (!meta) return;
     if (p < 1 || p > meta.last_page) return;
     handlePage(p);
@@ -298,11 +320,11 @@ export default function Items() {
                 localItems.map((item, idx) => (
                   <tr key={item.id} className="border-b last:border-b-0 text-muted-foreground">
                     <td className="px-4 py-2">{(currentPage - 1) * perPageFromMeta + idx + 1}</td>
-                    <td className="px-4 py-2">{item.nama ?? item.name}</td>
-                    <td className="px-4 py-2">{item.kode_item ?? item.qrcode}</td>
-                    <td className="px-4 py-2">{item.stok ?? item.stock}</td>
+                    <td className="px-4 py-2">{item.name}</td>
+                    <td className="px-4 py-2">{item.qrcode}</td>
+                    <td className="px-4 py-2">{item.stock}</td>
                     <td className="px-4 py-2">
-                      {item.kategori ?? item.category ?? (item.kategori_rel ? item.kategori_rel.nama : '-')}
+                      {item.category ?? (item.kategori_rel ? item.kategori_rel.nama : '-')}
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <TooltipProvider>
@@ -353,13 +375,13 @@ export default function Items() {
 
           {viewItem && (
             <div className="space-y-2 gap-0.5">
-              <p><strong>Nama:</strong> {viewItem.nama ?? viewItem.name}</p>
-              <p><strong>Deskripsi:</strong> {viewItem.deskripsi ?? viewItem.description}</p>
-              <p><strong>QR Code:</strong> {viewItem.kode_item ?? viewItem.qrcode}</p>
-              <p><strong>Stok:</strong> {viewItem.stok ?? viewItem.stock}</p>
-              <p><strong>Stok Minimal:</strong> {viewItem.stok_minimal ?? viewItem.stock_min}</p>
-              <p><strong>Kategori:</strong> {viewItem.kategori ?? viewItem.category ?? (viewItem.kategori_rel ? viewItem.kategori_rel.nama : '-')}</p>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(viewItem.kode_item ?? viewItem.qrcode ?? '')}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
+              <p><strong>Nama:</strong> {viewItem.name}</p>
+              <p><strong>Deskripsi:</strong> {viewItem.description}</p>
+              <p><strong>QR Code:</strong> {viewItem.qrcode}</p>
+              <p><strong>Stok:</strong> {viewItem.stock}</p>
+              <p><strong>Stok Minimal:</strong> {viewItem.stock_min}</p>
+              <p><strong>Kategori:</strong> {viewItem.category ?? (viewItem.kategori_rel ? viewItem.kategori_rel.nama : '-')}</p>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(viewItem.qrcode ?? '')}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
             </div>
           )}
 
@@ -379,7 +401,7 @@ export default function Items() {
 
           <form onSubmit={submitEdit} className="space-y-4">
             <div>
-              <input type='hidden' value={form.data.id} readOnly />
+              <input type='hidden' value={form.data.id ?? ''} readOnly />
               
               <label className="block text-sm font-medium">Nama</label>
               <input type="text" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className="w-full border rounded px-2 py-1" />
@@ -424,12 +446,12 @@ export default function Items() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium">Stok</label>
-                <input type="number" value={form.data.stock} onChange={(e) => form.setData('stock', e.target.value)} className="w-full border rounded px-2 py-1" />
+                <input type="number" value={form.data.stock} onChange={(e) => form.setData('stock', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
                 {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
               </div>
               <div>
                 <label className="block text-sm font.medium">Stok Minimal</label>
-                <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', e.target.value)} className="w-full border rounded px-2 py-1" />
+                <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
                 {form.errors.stock_min && <div className="text-destructive text-sm">{form.errors.stock_min}</div>}
               </div>
             </div>

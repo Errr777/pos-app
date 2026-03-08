@@ -1,27 +1,33 @@
-import React from 'react';
 import AppLayout from '@/layouts/app-layout';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
+
+interface KategoriDetail {
+  id: number;
+  nama: string;
+  deskripsi?: string | null;
+  [key: string]: unknown;
+}
+
+interface PageProps { kategori: KategoriDetail; [key: string]: unknown; }
 
 const breadcrumbs = [
   { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Kategori', href: '/kategoris' },
+  { title: 'Kategori', href: '/category' },
 ];
 
 export default function Show() {
-  const { props } = usePage();
-  const { kategori = {} } = props;
+  const { props } = usePage<PageProps>();
+  const { kategori } = props;
 
   return (
-    <AppLayout breadcrumbs={[...breadcrumbs, { title: kategori.nama ?? 'Detail' }]}>
+    <AppLayout breadcrumbs={[...breadcrumbs, { title: kategori.nama ?? 'Detail', href: '#' }]}>
       <Head title={`Kategori: ${kategori.nama ?? ''}`} />
       <div className="p-4 bg-white rounded shadow">
         <h1 className="text-xl font-semibold mb-2">{kategori.nama}</h1>
         <div className="mb-4">{kategori.deskripsi ?? '-'}</div>
         <div className="space-x-2">
-          <Button as="a" href={route('kategoris.index')}>Kembali</Button>
-          {/* Add an edit button if you have a dedicated edit page */}
-          <Button as="a" href={route('kategoris.index')}>Edit</Button>
+          <Button variant="outline" onClick={() => router.visit(route('kategori.index'))}>Kembali</Button>
         </div>
       </div>
     </AppLayout>

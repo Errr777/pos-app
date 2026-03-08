@@ -20,7 +20,20 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    single?: boolean;
+    module?: string;
+    items?: { title: string; href: string; icon?: string }[];
 }
+
+export type ModuleKey = 'dashboard' | 'items' | 'inventory' | 'reports' | 'users';
+
+export interface ModulePermission {
+    can_view: boolean;
+    can_write: boolean;
+    can_delete: boolean;
+}
+
+export type Permissions = Record<ModuleKey, ModulePermission>;
 
 export interface SharedData {
     name: string;
@@ -28,6 +41,7 @@ export interface SharedData {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
+    permissions: Permissions;
     [key: string]: unknown;
 }
 
@@ -35,9 +49,10 @@ export interface User {
     id: number;
     name: string;
     email: string;
+    role?: string;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
-    [key: string]: unknown; // This allows for additional properties...
+    [key: string]: unknown;
 }

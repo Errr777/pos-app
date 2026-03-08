@@ -2,277 +2,87 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-
+import { type NavItem, type Permissions } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 import {
-  AudioWaveform,
-  BookOpen,
-  Folder, 
-  LayoutGrid, 
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-  Settings,
+  LayoutGrid,
   User2,
   ClipboardList,
-  Coins,
   BoxIcon,
-  Warehouse,
   LayoutList,
-} from "lucide-react"
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
+const allNavItems: NavItem[] = [
     {
         title: 'Dashboard',
         href: '/dashboard',
         icon: LayoutGrid,
         single: true,
+        module: 'dashboard',
     },
     {
-      title: "items",
-      href: "#",
-      icon: BoxIcon,
-      isActive: true,
-      single: false,
-      items: [
-        {
-            title: "Daftar Produk",
-            href: "/item/",
-        },
-        {
-            title: "Tambah Produk",
-            href: "/tambah_item",
-        },
-        {
-            title: "Kategori Produk",
-            href: "/category/",
-        },
-        {
-            title: "Stok Minimum",
-            href: "/stock_alerts",
-        },
-        {
-            title: "Impor Produk",
-            href: "/items/import",
-        },
-        {
-            title: "Ekspor Produk",
-            href: "/items/export",
-        },
+        title: 'Produk',
+        href: '#',
+        icon: BoxIcon,
+        single: false,
+        module: 'items',
+        items: [
+            { title: 'Daftar Produk',   href: '/item/' },
+            { title: 'Tambah Produk',   href: '/tambah_item' },
+            { title: 'Kategori Produk', href: '/category/' },
+            { title: 'Stok Minimum',    href: '/stock_alerts' },
         ],
     },
     {
-      title: "Inventory",
-      href: "#",
-      icon: LayoutList,
-      single: false,
-      items: [
-        {
-            title: "Histori Inventaris",
-            href: "/inventory",
-        },
-        {
-            title: "Log Stok",
-            href: "/inventory/stock_log",
-        },
-        {
-            title: "Stok Masuk",
-            href: "/inventory/stock_in",
-        },
-        {
-            title: "Stok Keluar",
-            href: "/inventory/stock_out",
-        },
-        {
-            title: "Mutasi Stok",
-            href: "/inventory/mutation",
-        },
-        {
-            title: "Ekspor Mutasi",
-            href: "/inventory/export",
-        },
+        title: 'Inventory',
+        href: '#',
+        icon: LayoutList,
+        single: false,
+        module: 'inventory',
+        items: [
+            { title: 'Histori Inventaris', href: '/inventory' },
+            { title: 'Log Stok',           href: '/inventory/stock_log' },
+            { title: 'Stok Masuk',         href: '/inventory/stock_in' },
+            { title: 'Stok Keluar',        href: '/inventory/stock_out' },
         ],
     },
     {
-      title: "Finance",
-      href: "#",
-      icon: Coins,
-      single: false,
-      items: [
-        {
-            title: "Semua Transaksi",
-            href: "/transactions",
-            icon: "list",
-        },
-        {
-            title: "Tambah Transaksi",
-            href: "/transactions/new",
-            icon: "plus-circle",
-        },
-        {
-            title: "Transaksi Masuk",
-            href: "/transactions/income",
-            icon: "arrow-down",
-        },
-        {
-            title: "Transaksi Keluar",
-            href: "/transactions/expense",
-            icon: "arrow-up",
-        },
-        {
-            title: "Kategori Transaksi",
-            href: "/transactions/categories",
-            icon: "layers",
-        },
-        {
-            title: "Ekspor Transaksi",
-            href: "/transactions/export",
-            icon: "download",
-        },
+        title: 'Laporan',
+        href: '#',
+        icon: ClipboardList,
+        single: false,
+        module: 'reports',
+        items: [
+            { title: 'Laporan Stok',      href: '/report/stock' },
+            { title: 'Laporan Penjualan', href: '/report/sales' },
+            { title: 'Laporan Kas',       href: '/report/cashflow' },
         ],
     },
     {
-      title: "Reports",
-      href: "#",
-      icon: ClipboardList,
-      single: false,
-      items: [
-        {
-            title: "Laporan Kas",
-            href: "/reports/cashflow",
-            icon: "file-text",
-        },
-        {
-            title: "Laporan Penjualan",
-            href: "/reports/sales",
-            icon: "shopping-bag",
-        },
-        {
-            title: "Laporan Stok Barang",
-            href: "/report/stock",
-            icon: "package",
-        },
-        {
-            title: "Grafik Penjualan",
-            href: "/report/sales-graph",
-            icon: "bar-chart-2",
-        },
-        {
-            title: "Grafik Kas",
-            href: "/report/cash-graph",
-            icon: "pie-chart",
-        },
-        {
-            title: "Ekspor Laporan",
-            href: "/report/export",
-            icon: "download",
-        },
-        ],
-    },
-    {
-      title: "Settings",
-      href: "#",
-      icon: Settings2,
-      single: false,
-      items: [
-        {
-            title: "Profil Usaha",
-            href: "/settings/business-profile",
-            icon: "briefcase",
-        },
-        {
-            title: "Manajemen User",
-            href: "/settings/users",
-            icon: "users",
-        },
-        {
-            title: "Manajemen Role & Akses",
-            href: "/settings/roles",
-            icon: "key",
-        },
-        {
-            title: "Pengaturan Aplikasi",
-            href: "/settings/app",
-            icon: "settings",
-        },
-        {
-            title: "Backup & Restore Data",
-            href: "/settings/backup",
-            icon: "database",
-        },
-        {
-            title: "Integrasi API",
-            href: "/settings/integrations",
-            icon: "plug",
-        },
-        {
-            title: "Tema & Tampilan",
-            href: "/settings/theme",
-            icon: "moon",
-        },
-        ],
-    },
-    {
-      title: "User Management",
-      href: "#",
-      icon: User2,
-      single: false,
-      items: [
-        {
-            title: "Daftar Pengguna",
-            href: "/users",
-            icon: "users",
-        },
-        {
-            title: "Tambah Pengguna",
-            href: "/users/new",
-            icon: "user-plus",
-        },
-        {
-            title: "Role & Hak Akses",
-            href: "/users/roles",
-            icon: "shield",
-        },
-        {
-            title: "Aktivitas Pengguna",
-            href: "/users/activity",
-            icon: "activity",
-        },
-        {
-            title: "Reset Password",
-            href: "/users/reset-password",
-            icon: "refresh-cw",
-        },
-        {
-            title: "Ekspor Data Pengguna",
-            href: "/users/export",
-            icon: "download",
-        },
+        title: 'Pengguna',
+        href: '#',
+        icon: User2,
+        single: false,
+        module: 'users',
+        items: [
+            { title: 'Daftar Pengguna', href: '/users' },
+            { title: 'Role & Akses',    href: '/users/roles' },
         ],
     },
 ];
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
+const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
+    const { props } = usePage<{ permissions: Permissions }>();
+    const permissions = props.permissions ?? {} as Permissions;
+
+    const visibleItems = allNavItems.filter((item) => {
+        if (!item.module) return true;
+        return permissions[item.module as keyof Permissions]?.can_view ?? false;
+    });
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -288,7 +98,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={visibleItems} />
             </SidebarContent>
 
             <SidebarFooter>

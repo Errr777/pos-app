@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Eye, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,164 +24,163 @@ import type { DateRange } from 'react-day-picker';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Log Stock', href: '/stock-log' },
+  { title: 'Log Stock', href: '/inventory/stock_log' },
 ];
-
-// ---- Mock items master (replace with API)
-const itemsMaster = Array.from({ length: 12 }).map((_, idx) => ({
-  id: idx + 1,
-  name: `Item ${String.fromCharCode(65 + (idx % 26))}`,
-  category: ['General', 'Special', 'Minuman', 'Makanan'][idx % 4],
-}));
 
 type Direction = 'IN' | 'OUT';
 
-type LogRow = {
+interface LogRow {
   id: number;
   date: string;
-  itemId: number;
+  itemId: number | null;
   itemName: string;
   direction: Direction;
   quantity: number;
-  balanceAfter: number;
-  actor: string;
-  source: string;
-  party?: string;
-  reference?: string;
-  category?: string;
-  qrcode?: string;
-  note?: string;
-};
+  balanceAfter: number | null;
+  actor: string | null;
+  source: string | null;
+  party?: string | null;
+  reference?: string | null;
+  category?: string | null;
+  qrcode?: string | null;
+  note?: string | null;
+}
 
-// ---- Sample data for log
-const logStock: LogRow[] = Array.from({ length: 40 }).map((_, idx) => {
-  const item = itemsMaster[idx % itemsMaster.length];
-  const qty = (idx % 2 === 0 ? 1 : -1) * (Math.floor(Math.random() * 10) + 1);
-  const balance = 100 + qty - idx;
-  return {
-    id: idx + 1,
-    date: new Date(2025, 6, (idx % 27) + 1, 9, 0, 0).toISOString(),
-    itemId: item.id,
-    itemName: item.name,
-    direction: qty > 0 ? 'IN' : 'OUT',
-    quantity: qty,
-    balanceAfter: balance,
-    actor: ['Admin', 'Kasir', 'Gudang'][idx % 3],
-    source: ['Pembelian', 'Penjualan', 'Adjustment'][idx % 3],
-    party: ['Supplier A', 'Customer B', 'Produksi'][idx % 3],
-    reference: `LOG-${1000 + idx}`,
-    category: item.category,
-    qrcode: Math.floor(Math.random() * 1000000).toString(),
-    note: idx % 2 ? 'Update rutin' : 'Koreksi stok',
-  } satisfies LogRow;
-});
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
+}
 
-const ITEMS_PER_PAGE = 20;
+interface PaginatedMovements {
+  data: LogRow[];
+  links: PaginationLink[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
+interface Filters {
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  sort_by?: string;
+  sort_dir?: string;
+  per_page?: string | number;
+}
+
+interface PageProps {
+  movements: PaginatedMovements;
+  filters: Filters;
+  [key: string]: unknown;
+}
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
-function formatDateISO(d: string | Date) {
+function formatDateISO(d: string | Date | null | undefined): string {
+  if (!d) return '';
   const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '';
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }
-function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
-function endOfDay(d: Date) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
 
 export default function Stock_Log() {
-  const [rows] = useState<LogRow[]>(logStock);
+  const { props } = usePage<PageProps>();
+  const { movements, filters } = props;
 
-  // table states
-  const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'itemName' | 'direction' | 'quantity' | 'balanceAfter' | 'actor' | 'source'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState<string>(filters.search ?? '');
+  const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
+    filters.sort_dir === 'asc' ? 'asc' : 'desc'
+  );
+  const [range, setRange] = useState<DateRange | undefined>(() => {
+    if (filters.date_from) {
+      return {
+        from: new Date(filters.date_from),
+        to: filters.date_to ? new Date(filters.date_to) : undefined,
+      };
+    }
+    return undefined;
+  });
 
-  // date range
-  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  useEffect(() => {
+    setQuery(filters.search ?? '');
+    setSortBy(filters.sort_by ?? 'date');
+    setSortDir(filters.sort_dir === 'asc' ? 'asc' : 'desc');
+    if (filters.date_from) {
+      setRange({
+        from: new Date(filters.date_from),
+        to: filters.date_to ? new Date(filters.date_to) : undefined,
+      });
+    } else {
+      setRange(undefined);
+    }
+  }, [filters]);
 
-  // detail modal
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selected, setSelected] = useState<LogRow | null>(null);
 
-  // ===== FILTER + SORT + PAGINATE =====
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-
-    let res = rows.filter(r =>
-      formatDateISO(r.date).includes(q) ||
-      r.itemName.toLowerCase().includes(q) ||
-      r.direction.toLowerCase().includes(q) ||
-      String(Math.abs(r.quantity)).includes(q) ||
-      (r.actor?.toLowerCase().includes(q) ?? false) ||
-      (r.source?.toLowerCase().includes(q) ?? false) ||
-      (r.party?.toLowerCase().includes(q) ?? false) ||
-      (r.reference?.toLowerCase().includes(q) ?? false) ||
-      (r.note?.toLowerCase().includes(q) ?? false)
+  const navigate = (overrides: Record<string, unknown> = {}) => {
+    router.get(
+      route('Stock_Log'),
+      {
+        search:    query,
+        date_from: range?.from ? formatDateISO(range.from) : undefined,
+        date_to:   range?.to   ? formatDateISO(range.to)   : undefined,
+        sort_by:   sortBy,
+        sort_dir:  sortDir,
+        per_page:  filters.per_page ?? 20,
+        ...overrides,
+      },
+      { preserveState: true, replace: true }
     );
-
-    if (range?.from || range?.to) {
-      const from = range?.from ? startOfDay(range.from).getTime() : -Infinity;
-      const to = range?.to ? endOfDay(range.to).getTime() : Infinity;
-      res = res.filter(r => {
-        const t = new Date(r.date).getTime();
-        return t >= from && t <= to;
-      });
-    }
-
-    return res;
-  }, [rows, query, range]);
-
-  const sorted = useMemo(() => {
-    const copy = [...filtered];
-    copy.sort((a, b) => {
-      let valA: any = a[sortBy];
-      let valB: any = b[sortBy];
-
-      if (sortBy === 'date') {
-        valA = new Date(a.date).getTime();
-        valB = new Date(b.date).getTime();
-      }
-      if (typeof valA === 'string') valA = valA.toLowerCase();
-      if (typeof valB === 'string') valB = valB.toLowerCase();
-
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return copy;
-  }, [filtered, sortBy, sortDir]);
-
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
-  const paginated = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-  const handleSort = (col: typeof sortBy) => {
-    if (sortBy === col) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(col);
-      setSortDir(col === 'date' ? 'desc' : 'asc');
-    }
   };
-  const sortIcon = (col: typeof sortBy) =>
+
+  const handleSort = (col: string) => {
+    const newDir: 'asc' | 'desc' = sortBy === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc';
+    setSortBy(col);
+    setSortDir(newDir);
+    navigate({ sort_by: col, sort_dir: newDir });
+  };
+
+  const sortIcon = (col: string) =>
     sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅';
 
-  const gotoPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => { setQuery(e.target.value); setPage(1); };
-  const clearDateRange = () => { setRange(undefined); setPage(1); };
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigate({ search: query, page: 1 });
+  };
 
-  // ===== DETAIL =====
+  const handleDateRangeChange = (r: DateRange | undefined) => {
+    setRange(r);
+    navigate({
+      date_from: r?.from ? formatDateISO(r.from) : undefined,
+      date_to:   r?.to   ? formatDateISO(r.to)   : undefined,
+      page: 1,
+    });
+  };
+
+  const clearDateRange = () => handleDateRangeChange(undefined);
+
+  const handlePage = (page: number) => {
+    navigate({ page });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const openDetail = (row: LogRow) => { setSelected(row); setIsDetailOpen(true); };
 
-  // ===== CSV EXPORT =====
   const exportCSV = () => {
-    const header = ['Tanggal','Item','Type','Qty','Saldo Setelah','Aktor','Sumber','Party','Ref','Catatan'];
-    const lines = sorted.map(r => [
+    const header = ['Tanggal', 'Item', 'Type', 'Qty', 'Saldo Setelah', 'Aktor', 'Sumber', 'Party', 'Ref', 'Catatan'];
+    const lines = movements.data.map(r => [
       formatDateISO(r.date),
       r.itemName,
       r.direction,
       r.quantity,
-      r.balanceAfter,
-      r.actor,
-      r.source,
+      r.balanceAfter ?? '',
+      r.actor ?? '',
+      r.source ?? '',
       r.party ?? '',
       r.reference ?? '',
       (r.note ?? '').replace(/\r?\n/g, ' '),
@@ -189,18 +188,15 @@ export default function Stock_Log() {
     const csv = [header, ...lines]
       .map(row => row.map((cell) => {
         const s = String(cell);
-        const needQuote = /[",\n]/.test(s);
-        const escaped = s.replace(/"/g, '""');
-        return needQuote ? `"${escaped}"` : escaped;
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       }).join(','))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const today = formatDateISO(new Date());
     a.href = url;
-    a.download = `stock-log_${today}.csv`;
+    a.download = `stock-log_${formatDateISO(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -211,14 +207,14 @@ export default function Stock_Log() {
     return 'Pilih tanggal';
   })();
 
+  const meta = movements;
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Log Stock" />
       <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border bg-white dark:bg-background p-4">
-        {/* Header actions */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
-          {/* Search */}
-          <div className="flex-1">
+          <form className="flex-1" onSubmit={handleSearchSubmit}>
             <div className="relative w-full max-w-md">
               <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground pointer-events-none">
                 <Search size={18} />
@@ -228,13 +224,13 @@ export default function Stock_Log() {
                 placeholder="Cari item / aktor / sumber / ref / catatan..."
                 className="w-full px-10 py-2 border rounded-lg bg-muted pl-12"
                 value={query}
-                onChange={handleQueryChange}
+                onChange={(e) => setQuery(e.target.value)}
+                onBlur={() => navigate({ search: query, page: 1 })}
                 style={{ minWidth: 240 }}
               />
             </div>
-          </div>
+          </form>
 
-          {/* Date Range Picker */}
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -247,56 +243,47 @@ export default function Stock_Log() {
                 <Calendar
                   mode="range"
                   selected={range}
-                  onSelect={(r) => { setRange(r); setPage(1); }}
+                  onSelect={handleDateRangeChange}
                   numberOfMonths={1}
                   defaultMonth={range?.from}
                   className="w-auto max-w-md"
                 />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" onClick={clearDateRange}>
-              Clear
-            </Button>
+            <Button variant="outline" onClick={clearDateRange}>Clear</Button>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={exportCSV}
-              disabled={sorted.length === 0}
-            >
+            <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={movements.data.length === 0}>
               <Download size={16} />
               Export CSV
             </Button>
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full border rounded-xl">
             <thead>
               <tr className="bg-muted">
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('date')}>Tanggal {sortIcon('date')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('itemName')}>Item {sortIcon('itemName')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('direction')}>Type {sortIcon('direction')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('quantity')}>Qty {sortIcon('quantity')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('balanceAfter')}>Saldo {sortIcon('balanceAfter')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('actor')}>Aktor {sortIcon('actor')}</th>
-                <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('source')}>Sumber {sortIcon('source')}</th>
-                <th className="px-4 py-2">Aksi</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('date')}>Tanggal {sortIcon('date')}</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('itemName')}>Item {sortIcon('itemName')}</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('direction')}>Type {sortIcon('direction')}</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('quantity')}>Qty {sortIcon('quantity')}</th>
+                <th className="px-4 py-2 text-left">Saldo</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('actor')}>Aktor {sortIcon('actor')}</th>
+                <th className="px-4 py-2 cursor-pointer select-none text-left" onClick={() => handleSort('source')}>Sumber {sortIcon('source')}</th>
+                <th className="px-4 py-2 text-left">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {movements.data.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-6 text-muted-foreground">
                     Data tidak ditemukan
                   </td>
                 </tr>
               ) : (
-                paginated.map((row) => (
+                movements.data.map((row) => (
                   <tr key={row.id} className="border-b last:border-b-0">
                     <td className="px-4 py-2">{formatDateISO(row.date)}</td>
                     <td className="px-4 py-2">{row.itemName}</td>
@@ -309,9 +296,9 @@ export default function Stock_Log() {
                     <td className={`px-4 py-2 font-semibold ${row.quantity < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                       {row.quantity}
                     </td>
-                    <td className="px-4 py-2">{row.balanceAfter}</td>
-                    <td className="px-4 py-2">{row.actor}</td>
-                    <td className="px-4 py-2">{row.source}</td>
+                    <td className="px-4 py-2">{row.balanceAfter ?? '-'}</td>
+                    <td className="px-4 py-2">{row.actor ?? '-'}</td>
+                    <td className="px-4 py-2">{row.source ?? '-'}</td>
                     <td className="px-4 py-2">
                       <TooltipProvider>
                         <Tooltip>
@@ -336,19 +323,26 @@ export default function Stock_Log() {
         </div>
 
         {/* Pagination */}
-        {sorted.length > 0 && (
-          <div className="flex justify-center gap-2 mt-6">
-            {Array.from({ length: Math.max(totalPages, 1) }).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => gotoPage(idx + 1)}
-                className={`px-3 py-1 rounded border ${page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
-              >
-                {idx + 1}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex justify-between items-center mt-6 flex-wrap gap-2">
+          {meta.total > 0 && (
+            <div className="text-sm text-muted-foreground">
+              Halaman {meta.current_page} / {meta.last_page} &nbsp;·&nbsp; {meta.total} data
+            </div>
+          )}
+          {meta.last_page > 1 && (
+            <div className="flex justify-center gap-2">
+              {Array.from({ length: meta.last_page }).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handlePage(idx + 1)}
+                  className={`px-3 py-1 rounded border ${meta.current_page === idx + 1 ? 'bg-primary text-white' : 'bg-muted'}`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Detail Dialog */}
@@ -364,19 +358,21 @@ export default function Stock_Log() {
               <p><strong>Item:</strong> {selected.itemName}</p>
               <p><strong>Type:</strong> {selected.direction}</p>
               <p><strong>Qty:</strong> {selected.quantity}</p>
-              <p><strong>Saldo Setelah:</strong> {selected.balanceAfter}</p>
-              <p><strong>Aktor:</strong> {selected.actor}</p>
-              <p><strong>Sumber:</strong> {selected.source}</p>
+              <p><strong>Saldo Setelah:</strong> {selected.balanceAfter ?? '-'}</p>
+              <p><strong>Aktor:</strong> {selected.actor ?? '-'}</p>
+              <p><strong>Sumber:</strong> {selected.source ?? '-'}</p>
               <p><strong>Party:</strong> {selected.party || '-'}</p>
               <p><strong>Ref:</strong> {selected.reference || '-'}</p>
               <p><strong>Kategori:</strong> {selected.category || '-'}</p>
               <p><strong>Kode:</strong> {selected.qrcode || '-'}</p>
               <p><strong>Catatan:</strong> {selected.note || '-'}</p>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selected.qrcode}`}
-                alt="QR Code"
-                className="mx-auto mt-4 rounded-lg border p-3"
-              />
+              {selected.qrcode && (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selected.qrcode}`}
+                  alt="QR Code"
+                  className="mx-auto mt-4 rounded-lg border p-3"
+                />
+              )}
             </div>
           )}
           <DialogFooter>

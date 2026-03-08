@@ -38,7 +38,7 @@ export default function Index() {
   // --- SORT STATE (keeps behavior from before) ---
   const [sortBy, setSortBy] = useState<string | null>(filters.sort_by ?? null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
-    (filters.sort_dir === 'asc' ? 'asc' : 'desc') ?? 'desc'
+    filters.sort_dir === 'asc' ? 'asc' : 'desc'
   );
 
   // modals / view state
@@ -143,9 +143,8 @@ export default function Index() {
         setIsCreateModalOpen(false);
 
         // Prefer server-provided list if available — otherwise optimistic insert
-        if (page.props?.kategoris?.data) {
-          setLocal(page.props.kategoris.data);
-        } else {
+        const fresh = (page.props as Record<string, any>)?.kategoris?.data;
+        if (fresh) setLocal(fresh); else {
           // optimistic: prepend newest
           setLocal((prev) => [{ id: Date.now(), nama: createForm.data.nama, deskripsi: createForm.data.deskripsi }, ...prev]);
         }
@@ -179,9 +178,8 @@ export default function Index() {
         );
 
         // If server returned a fresh list in props, prefer that (keeps pagination consistent)
-        if (page.props?.kategoris?.data) {
-          setLocal(page.props.kategoris.data);
-        }
+        const fresh = (page.props as Record<string, any>)?.kategoris?.data;
+        if (fresh) setLocal(fresh);
 
         editForm.reset();
       },

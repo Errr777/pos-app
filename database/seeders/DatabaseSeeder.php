@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             KategoriSeeder::class,
             ItemSeeder::class,
             UserSeeder::class,
+            TransactionSeeder::class,
         ]
         );
         

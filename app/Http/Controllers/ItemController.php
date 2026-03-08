@@ -54,28 +54,27 @@ class ItemController extends Controller
             ->withQueryString()
             ->through(function ($i) {
                 return [
-                    'id'            => $i->id,
-                    'nama'          => $i->nama,
-                    'deskripsi'     => $i->deskripsi,
-                    'kode_item'     => $i->kode_item,
-                    'stok'          => $i->stok,
-                    'stok_minimal'  => $i->stok_minimal,
-                    'kategori'      => $i->kategori,
-                    'id_kategori'   => $i->id_kategori,
-                    'kategori_rel'  => $i->kategoriRelation
+                    'id'           => $i->id,
+                    'name'         => $i->nama,
+                    'description'  => $i->deskripsi,
+                    'qrcode'       => $i->kode_item,
+                    'stock'        => $i->stok,
+                    'stock_min'    => $i->stok_minimal,
+                    'category'     => $i->kategori,
+                    'id_kategori'  => $i->id_kategori,
+                    'kategori_rel' => $i->kategoriRelation
                         ? [
                             'id'   => $i->kategoriRelation->id,
-                            'nama' => $i->kategoriRelation->nama ?? ($i->kategoriRelation->nama_kategori ?? null),
+                            'nama' => $i->kategoriRelation->nama,
                         ]
                         : null,
                 ];
             });
 
-        // Pass kategoris for dropdown. Normalize possible column names (nama or nama_kategori)
         $kategoris = Kategori::all()->map(function ($k) {
             return [
                 'id'        => $k->id,
-                'nama'      => $k->nama ?? ($k->nama_kategori ?? null),
+                'nama'      => $k->nama,
                 'deskripsi' => $k->deskripsi ?? null,
             ];
         });
@@ -145,44 +144,6 @@ class ItemController extends Controller
         return redirect()
             ->route('item.tambah')
             ->with('success', "Item '{$item->nama}' berhasil ditambahkan.");
-    }
-
-    public function edit(Item $item, Request $request)
-    {
-        // Load kategori relation if available
-        $item->load('kategoriRelation');
-
-        // Prepare item payload in a frontend-friendly shape
-        $payload = [
-            'id' => $item->id,
-            'name' => $item->nama,
-            'description' => $item->deskripsi,
-            'qrcode' => $item->kode_item,
-            'stock' => $item->stok,
-            'stock_min' => $item->stok_minimal,
-            'id_kategori' => $item->id_kategori,
-            'kategori' => $item->kategori,
-            'kategori_rel' => $item->kategoriRelation ? ['id' => $item->kategoriRelation->id, 'nama' => ($item->kategoriRelation->nama ?? null)] : null,
-        ];
-
-        // provide kategoris list for dropdown
-        $kategoris = Kategori::all()->map(function ($k) {
-            return [
-                'id' => $k->id,
-                'nama' => $k->nama ?? ($k->nama_kategori ?? null),
-                'deskripsi' => $k->deskripsi ?? null,
-            ];
-        });
-
-        if ($request->wantsJson()) {
-            return response()->json(['item' => $payload, 'kategoris' => $kategoris], 200);
-        }
-
-        // If you have a dedicated edit page (optional), render it:
-        return Inertia::render('Items/Edit', [
-            'item' => $payload,
-            'kategoris' => $kategoris,
-        ]);
     }
 
     /**
