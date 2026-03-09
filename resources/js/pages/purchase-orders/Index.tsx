@@ -66,11 +66,11 @@ interface PageProps {
 interface CartLine { itemId: number; name: string; orderedQty: number; unitPrice: number; }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  draft:     { label: 'Draft',     cls: 'bg-gray-100 text-gray-600' },
-  ordered:   { label: 'Dipesan',   cls: 'bg-blue-100 text-blue-700' },
-  partial:   { label: 'Sebagian',  cls: 'bg-yellow-100 text-yellow-700' },
-  received:  { label: 'Diterima',  cls: 'bg-emerald-100 text-emerald-700' },
-  cancelled: { label: 'Dibatalkan',cls: 'bg-red-100 text-red-600' },
+  draft:     { label: 'Draft',      cls: 'bg-slate-100 text-slate-600' },
+  ordered:   { label: 'Dipesan',    cls: 'bg-indigo-100 text-indigo-700' },
+  partial:   { label: 'Sebagian',   cls: 'bg-amber-100 text-amber-700' },
+  received:  { label: 'Diterima',   cls: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'Dibatalkan', cls: 'bg-rose-100 text-rose-700' },
 };
 
 function formatRp(n: number) { return 'Rp ' + n.toLocaleString('id-ID'); }
@@ -247,7 +247,7 @@ export default function PurchaseOrdersIndex() {
               {pos.data.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada PO ditemukan</td></tr>
               ) : pos.data.map(po => {
-                const sc = STATUS_CONFIG[po.status] ?? { label: po.status, cls: 'bg-gray-100 text-gray-600' };
+                const sc = STATUS_CONFIG[po.status] ?? { label: po.status, cls: 'bg-slate-100 text-slate-600' };
                 return (
                   <tr key={po.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3"><span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{po.poNumber}</span></td>
@@ -274,7 +274,7 @@ export default function PurchaseOrdersIndex() {
                             onClick={() => setDeleteTarget(po)}><Trash2 size={15} /></button>
                         )}
                         {(po.status === 'draft' || po.status === 'ordered') && (
-                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Batalkan"
+                          <button className="p-1.5 rounded hover:bg-slate-100 text-slate-600" title="Batalkan"
                             onClick={() => handleStatusChange(po, 'cancelled')}><XCircle size={15} /></button>
                         )}
                       </div>

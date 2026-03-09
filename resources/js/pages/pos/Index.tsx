@@ -129,12 +129,12 @@ export default function PosIndex() {
   };
 
   const statusBadge = (s: string) => {
-    const cls = s === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600';
+    const cls = s === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
     return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{s === 'completed' ? 'Selesai' : 'Void'}</span>;
   };
 
   const payBadge = (m: string) => (
-    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">{METHOD_LABEL[m] ?? m}</span>
+    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">{METHOD_LABEL[m] ?? m}</span>
   );
 
   const meta: PaginationMeta = {

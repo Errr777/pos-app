@@ -278,8 +278,8 @@ export default function ReturnsIndex() {
                             {returns.data.length === 0 ? (
                                 <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada retur ditemukan</td></tr>
                             ) : returns.data.map(r => {
-                                const tc = TYPE_CONFIG[r.type]   ?? { label: r.type,   cls: 'bg-gray-100 text-gray-600' };
-                                const sc = STATUS_CONFIG[r.status] ?? { label: r.status, cls: 'bg-gray-100 text-gray-600' };
+                                const tc = TYPE_CONFIG[r.type]   ?? { label: r.type,   cls: 'bg-slate-100 text-slate-600' };
+                                const sc = STATUS_CONFIG[r.status] ?? { label: r.status, cls: 'bg-slate-100 text-slate-600' };
                                 return (
                                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
                                         <td className="px-4 py-3"><span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.returnNumber}</span></td>

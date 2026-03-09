@@ -94,7 +94,7 @@ export default function PosShow() {
             <div className="font-mono text-lg font-bold">{sale.saleNumber}</div>
             <div className="text-sm text-muted-foreground">{formatDate(sale.date)}</div>
             {sale.status === 'void' && (
-              <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">VOID</span>
+              <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700">VOID</span>
             )}
           </div>
 

@@ -53,7 +53,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
     completed: { label: 'Selesai',    cls: 'bg-emerald-100 text-emerald-700' },
-    void:      { label: 'Dibatalkan', cls: 'bg-red-100 text-red-600' },
+    void:      { label: 'Dibatalkan', cls: 'bg-rose-100 text-rose-700' },
 };
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -73,7 +73,7 @@ export default function ReturnsShow() {
     const [showVoid, setShowVoid] = useState(false);
     const [voiding, setVoiding]   = useState(false);
 
-    const sc = STATUS_CONFIG[returnData.status] ?? { label: returnData.status, cls: 'bg-gray-100 text-gray-600' };
+    const sc = STATUS_CONFIG[returnData.status] ?? { label: returnData.status, cls: 'bg-slate-100 text-slate-600' };
 
     const partyLabel = returnData.type === 'customer_return' ? 'Pelanggan' : 'Supplier';
     const partyName  = returnData.type === 'customer_return'
@@ -168,8 +168,8 @@ export default function ReturnsShow() {
                                     <td className="px-4 py-3 text-center">
                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                                             ri.condition === 'good' ? 'bg-emerald-100 text-emerald-700' :
-                                            ri.condition === 'damaged' ? 'bg-red-100 text-red-600' :
-                                            'bg-yellow-100 text-yellow-700'
+                                            ri.condition === 'damaged' ? 'bg-rose-100 text-rose-700' :
+                                            'bg-amber-100 text-amber-700'
                                         }`}>
                                             {CONDITION_LABELS[ri.condition] ?? ri.condition}
                                         </span>
