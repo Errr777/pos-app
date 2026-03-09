@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class StockTransfer extends Model
+{
+    protected $fillable = [
+        'txn_id',
+        'from_warehouse_id',
+        'to_warehouse_id',
+        'item_id',
+        'quantity',
+        'occurred_at',
+        'reference',
+        'actor',
+        'note',
+        'status',
+    ];
+
+    protected $casts = [
+        'occurred_at'       => 'datetime',
+        'from_warehouse_id' => 'integer',
+        'to_warehouse_id'   => 'integer',
+        'item_id'           => 'integer',
+        'quantity'          => 'integer',
+    ];
+
+    public function fromWarehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+    }
+
+    public function toWarehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
+    }
+
+    public function item()
+    {
+        return $this->belongsTo(Item::class, 'item_id');
+    }
+}

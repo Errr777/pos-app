@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\RolePermission;
 
 class User extends Authenticatable
 {
@@ -45,7 +46,13 @@ class User extends Authenticatable
     {
         if ($this->role === 'admin') return true;
 
-        $perm = $this->userPermissions->firstWhere('module', $module);
+        // User-specific override takes precedence; fall back to role-level permission
+        $perm = $this->userPermissions->firstWhere('module', $module)
+            ?? RolePermission::join('roles', 'roles.id', '=', 'role_permissions.role_id')
+                ->where('roles.name', $this->role)
+                ->where('role_permissions.module', $module)
+                ->first(['role_permissions.can_view', 'role_permissions.can_write', 'role_permissions.can_delete']);
+
         if (!$perm) return false;
 
         return match($action) {

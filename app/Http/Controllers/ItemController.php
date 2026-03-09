@@ -60,6 +60,8 @@ class ItemController extends Controller
                     'qrcode'       => $i->kode_item,
                     'stock'        => $i->stok,
                     'stock_min'    => $i->stok_minimal,
+                    'harga_beli'   => $i->harga_beli,
+                    'harga_jual'   => $i->harga_jual,
                     'category'     => $i->kategori,
                     'id_kategori'  => $i->id_kategori,
                     'kategori_rel' => $i->kategoriRelation
@@ -114,13 +116,15 @@ class ItemController extends Controller
     {
         // ✅ Validate the input
         $validated = $request->validate([
-            'nama' => 'required|string|max:255',
-            'deskripsi' => 'nullable|string|max:1000',
-            'kode_item' => 'required|string|max:255|unique:items,kode_item',
-            'stok' => 'required|numeric|min:0',
+            'nama'         => 'required|string|max:255',
+            'deskripsi'    => 'nullable|string|max:1000',
+            'kode_item'    => 'required|string|max:255|unique:items,kode_item',
+            'stok'         => 'required|numeric|min:0',
             'stok_minimal' => 'required|numeric|min:0',
-            'kategori' => 'nullable|string|max:255',
-            'id_kategori' => 'nullable|exists:kategoris,id',
+            'harga_beli'   => 'nullable|integer|min:0',
+            'harga_jual'   => 'nullable|integer|min:0',
+            'kategori'     => 'nullable|string|max:255',
+            'id_kategori'  => 'nullable|exists:kategoris,id',
         ]);
 
         // ✅ Set kategori (normalize category name if linked by ID)
@@ -131,13 +135,15 @@ class ItemController extends Controller
 
         // ✅ Save to DB
         $item = Item::create([
-            'nama' => $validated['nama'],
-            'deskripsi' => $validated['deskripsi'] ?? null,
-            'kode_item' => $validated['kode_item'],
-            'stok' => $validated['stok'],
+            'nama'         => $validated['nama'],
+            'deskripsi'    => $validated['deskripsi'] ?? null,
+            'kode_item'    => $validated['kode_item'],
+            'stok'         => $validated['stok'],
             'stok_minimal' => $validated['stok_minimal'],
-            'kategori' => $validated['kategori'] ?? null,
-            'id_kategori' => $validated['id_kategori'] ?? null,
+            'harga_beli'   => (int) ($validated['harga_beli'] ?? 0),
+            'harga_jual'   => (int) ($validated['harga_jual'] ?? 0),
+            'kategori'     => $validated['kategori'] ?? null,
+            'id_kategori'  => $validated['id_kategori'] ?? null,
         ]);
 
         // ✅ Redirect with Inertia flash message
@@ -158,27 +164,33 @@ class ItemController extends Controller
             'qrcode',      // -> kode_item
             'stock',       // -> stok
             'stock_min',   // -> stok_minimal
+            'harga_beli',
+            'harga_jual',
             'id_kategori',
             'category',
         ]);
 
         // Normalize for validation
         $payloadForValidation = [
-            'nama' => $data['name'] ?? $item->nama,
-            'deskripsi' => $data['description'] ?? $item->deskripsi,
-            'kode_item' => $data['qrcode'] ?? $item->kode_item,
-            'stok' => isset($data['stock']) ? (int) $data['stock'] : $item->stok,
+            'nama'         => $data['name'] ?? $item->nama,
+            'deskripsi'    => $data['description'] ?? $item->deskripsi,
+            'kode_item'    => $data['qrcode'] ?? $item->kode_item,
+            'stok'         => isset($data['stock']) ? (int) $data['stock'] : $item->stok,
             'stok_minimal' => isset($data['stock_min']) ? (int) $data['stock_min'] : $item->stok_minimal,
-            'id_kategori' => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? (int) $data['id_kategori'] : null,
+            'harga_beli'   => isset($data['harga_beli']) ? (int) $data['harga_beli'] : $item->harga_beli,
+            'harga_jual'   => isset($data['harga_jual']) ? (int) $data['harga_jual'] : $item->harga_jual,
+            'id_kategori'  => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? (int) $data['id_kategori'] : null,
         ];
 
         $validator = Validator::make($payloadForValidation, [
-            'nama' => 'required|string|max:100',
-            'deskripsi' => 'nullable|string|max:1000',
-            'kode_item' => 'required|string|max:100|unique:items,kode_item,' . $item->id,
-            'stok' => 'required|integer|min:0',
+            'nama'         => 'required|string|max:100',
+            'deskripsi'    => 'nullable|string|max:1000',
+            'kode_item'    => 'required|string|max:100|unique:items,kode_item,' . $item->id,
+            'stok'         => 'required|integer|min:0',
             'stok_minimal' => 'required|integer|min:0',
-            'id_kategori' => 'nullable|integer|exists:kategoris,id',
+            'harga_beli'   => 'nullable|integer|min:0',
+            'harga_jual'   => 'nullable|integer|min:0',
+            'id_kategori'  => 'nullable|integer|exists:kategoris,id',
         ]);
 
         if ($validator->fails()) {
@@ -203,13 +215,15 @@ class ItemController extends Controller
         }
 
         $updatePayload = [
-            'nama' => $payloadForValidation['nama'],
-            'deskripsi' => $payloadForValidation['deskripsi'],
-            'kode_item' => $payloadForValidation['kode_item'],
-            'stok' => $payloadForValidation['stok'],
+            'nama'         => $payloadForValidation['nama'],
+            'deskripsi'    => $payloadForValidation['deskripsi'],
+            'kode_item'    => $payloadForValidation['kode_item'],
+            'stok'         => $payloadForValidation['stok'],
             'stok_minimal' => $payloadForValidation['stok_minimal'],
-            'id_kategori' => $payloadForValidation['id_kategori'] ?? null,
-            'kategori' => $kategoriName,
+            'harga_beli'   => $payloadForValidation['harga_beli'],
+            'harga_jual'   => $payloadForValidation['harga_jual'],
+            'id_kategori'  => $payloadForValidation['id_kategori'] ?? null,
+            'kategori'     => $kategoriName,
         ];
 
         $item->update($updatePayload);
@@ -219,14 +233,16 @@ class ItemController extends Controller
             return response()->json([
                 'message' => 'Item updated',
                 'item' => [
-                    'id' => $item->id,
-                    'name' => $item->nama,
+                    'id'          => $item->id,
+                    'name'        => $item->nama,
                     'description' => $item->deskripsi,
-                    'qrcode' => $item->kode_item,
-                    'stock' => $item->stok,
-                    'stock_min' => $item->stok_minimal,
+                    'qrcode'      => $item->kode_item,
+                    'stock'       => $item->stok,
+                    'stock_min'   => $item->stok_minimal,
+                    'harga_beli'  => $item->harga_beli,
+                    'harga_jual'  => $item->harga_jual,
                     'id_kategori' => $item->id_kategori,
-                    'kategori' => $item->kategori,
+                    'kategori'    => $item->kategori,
                 ],
             ], 200);
         }

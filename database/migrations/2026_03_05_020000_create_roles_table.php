@@ -46,15 +46,25 @@ return new class extends Migration
             ['module' => 'inventory',  'can_view' => true,  'can_write' => true,  'can_delete' => false],
             ['module' => 'warehouses', 'can_view' => true,  'can_write' => true,  'can_delete' => false],
             ['module' => 'reports',    'can_view' => true,  'can_write' => false, 'can_delete' => false],
-            ['module' => 'users',      'can_view' => false, 'can_write' => false, 'can_delete' => false],
+            ['module' => 'suppliers',       'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'customers',       'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'pos',             'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'purchase_orders', 'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'returns',         'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'users',           'can_view' => false, 'can_write' => false, 'can_delete' => false],
         ];
         $kasirPerms = [
-            ['module' => 'dashboard',  'can_view' => true,  'can_write' => false, 'can_delete' => false],
-            ['module' => 'items',      'can_view' => true,  'can_write' => false, 'can_delete' => false],
-            ['module' => 'inventory',  'can_view' => false, 'can_write' => false, 'can_delete' => false],
-            ['module' => 'warehouses', 'can_view' => true,  'can_write' => false, 'can_delete' => false],
-            ['module' => 'reports',    'can_view' => true,  'can_write' => false, 'can_delete' => false],
-            ['module' => 'users',      'can_view' => false, 'can_write' => false, 'can_delete' => false],
+            ['module' => 'dashboard',       'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'items',           'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'inventory',       'can_view' => false, 'can_write' => false, 'can_delete' => false],
+            ['module' => 'warehouses',      'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'reports',         'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'suppliers',       'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'customers',       'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'pos',             'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'purchase_orders', 'can_view' => true,  'can_write' => false, 'can_delete' => false],
+            ['module' => 'returns',         'can_view' => true,  'can_write' => true,  'can_delete' => false],
+            ['module' => 'users',           'can_view' => false, 'can_write' => false, 'can_delete' => false],
         ];
 
         foreach ($staffPerms as $p) {

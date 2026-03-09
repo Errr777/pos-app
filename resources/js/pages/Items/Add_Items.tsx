@@ -32,6 +32,8 @@ export default function Add_Items() {
     deskripsi: "",
     stok: "",
     stok_minimal: "",
+    harga_beli: "" as string | number,
+    harga_jual: "" as string | number,
     // store id_kategori as string (Select uses string values). We'll convert on server if needed.
     id_kategori: "" as string | number | null,
     kategori: "",
@@ -192,6 +194,33 @@ export default function Add_Items() {
                 min={0}
               />
               {form.errors.stok_minimal && <div className="text-red-600 text-xs mt-1">{form.errors.stok_minimal}</div>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-1">Harga Beli (Rp)</label>
+                <Input
+                  name="harga_beli"
+                  placeholder="0"
+                  value={String(form.data.harga_beli)}
+                  onChange={(e) => form.setData("harga_beli", e.target.value)}
+                  type="number"
+                  min={0}
+                />
+                {form.errors.harga_beli && <div className="text-red-600 text-xs mt-1">{form.errors.harga_beli}</div>}
+              </div>
+              <div>
+                <label className="block mb-1">Harga Jual (Rp)</label>
+                <Input
+                  name="harga_jual"
+                  placeholder="0"
+                  value={String(form.data.harga_jual)}
+                  onChange={(e) => form.setData("harga_jual", e.target.value)}
+                  type="number"
+                  min={0}
+                />
+                {form.errors.harga_jual && <div className="text-red-600 text-xs mt-1">{form.errors.harga_jual}</div>}
+              </div>
             </div>
 
             <div>

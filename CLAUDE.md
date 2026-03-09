@@ -69,23 +69,57 @@ The codebase uses Indonesian field names in the database and PHP models, with so
 | `stok` | `stock` |
 | `stok_minimal` | `stock_min` / `minimumStock` |
 | `kategori` | `category` |
+| `harga_beli` | `purchase_price` |
+| `harga_jual` | `selling_price` |
 
 Controllers perform this mapping when building Inertia props. The `kategori` field is stored as both a string name (`kategori`) and a foreign key (`id_kategori`) on the `items` table — both are maintained on write.
 
 ### Backend Structure
 - `app/Http/Controllers/` — Resource controllers. Both JSON and Inertia responses are supported in the same controller methods (checked via `$request->wantsJson()`).
-- `app/Models/` — Eloquent models. `Item` belongs to `Kategori` via `id_kategori` FK (relation: `kategoriRelation()`). `Transaction` belongs to `User` (as customer) with audits via `TransactionAudit`.
+- `app/Models/` — Eloquent models. `Item` belongs to `Kategori` via `id_kategori` FK (relation: `kategoriRelation()`). `Transaction` is a flexible ledger model with audits via `TransactionAudit`.
 - `routes/web.php` — All routes require `auth` + `verified` middleware except the welcome page. Auth and settings routes are split into `routes/auth.php` and `routes/settings.php`.
 
+### Feature Modules
+Each module has a controller, model(s), routes, and a `resources/js/pages/<module>/` directory:
+
+| Module | Model(s) | Routes |
+|---|---|---|
+| Items | `Item`, `Kategori` | `/items` |
+| Warehouses | `Warehouse`, `WarehouseItem` | `/warehouses` |
+| Inventory | `StockTransfer`, `StockAdjustment` | `/inventory/transfers`, `/inventory/adjustments` |
+| Suppliers | `Supplier` | `/suppliers` |
+| Customers | `Customer` | `/customers` |
+| Purchase Orders | `PurchaseOrder`, `PurchaseOrderItem` | `/purchase-orders` |
+| POS / Kasir | `SaleHeader`, `SaleItem` | `/pos`, `/pos/terminal` |
+| Reports | — | `/report` |
+
+### Warehouse System
+`WarehouseItem` tracks per-warehouse stock with its own `stok_minimal`. `Warehouse` has `is_active` and `is_default` flags. Update warehouse-specific minimums via `PATCH /warehouses/{warehouse}/items/{item}/min`.
+
+### Permission System
+Two-tier hierarchy: role-level (`RolePermission`) plus user-level overrides (`UserPermission`). Users with `role='admin'` bypass all checks.
+
+- **Roles**: `admin`, `staff`, `kasir`
+- **Modules**: `dashboard`, `items`, `inventory`, `warehouses`, `reports`, `suppliers`, `customers`, `pos`, `purchase_orders`, `returns`, `users`
+- **Actions per module**: `can_view`, `can_write`, `can_delete`
+- **Backend check**: `$user->hasPermission($moduleKey, 'can_write')`
+- **Frontend check**: `usePage().props.permissions[moduleKey].can_write` — permissions are shared globally via `HandleInertiaRequests.php`
+
+### Monetary Values
+All currency amounts (prices, totals, discounts) are stored as **integers** (smallest currency unit — no decimals). Format for display only; never store floats. Affected models: `Item` (`harga_beli`, `harga_jual`), `SaleHeader`, `PurchaseOrder`, `Transaction`.
+
 ### Frontend Structure
-- `resources/js/pages/` — Inertia page components, organized by feature: `Items/`, `category/`, `inventory/`, `report/`
+- `resources/js/pages/` — Inertia page components, organized by feature: `Items/`, `category/`, `inventory/`, `customers/`, `supplier/`, `pos/`, `purchase-orders/`, `report/`
 - `resources/js/layouts/` — `app-layout.tsx` wraps the sidebar layout (`app/app-sidebar-layout.tsx`). Use `AppLayout` as the root layout for authenticated pages.
 - `resources/js/components/ui/` — shadcn/ui-style components (Button, Dialog, Input, Select, etc.)
 - `resources/js/components/` — App-specific components (Pagination, app-sidebar, nav-main, etc.)
-- `resources/js/types/index.d.ts` — Shared TypeScript types (`User`, `Auth`, `NavItem`, `SharedData`, `BreadcrumbItem`)
+- `resources/js/types/index.d.ts` — Shared TypeScript types (`User`, `Auth`, `NavItem`, `SharedData`, `BreadcrumbItem`, `ModuleKey`, `ModulePermission`)
 
 ### Sorting Pattern
 Controllers whitelist sort columns and map client-facing keys to DB column names. Always use the whitelist pattern to prevent SQL injection via sort params. Frontend sends `sort_by` and `sort_dir` query params; controllers return them back in `filters` so the UI can initialize state correctly.
+
+### Dual Response Pattern
+Controllers support both JSON (AJAX) and Inertia responses in the same method, checked via `$request->wantsJson()`. Implement both in all resource controllers.
 
 ### UI Component Pattern
 Pages use Radix UI primitives wrapped as shadcn-style components from `@/components/ui/`. Import from `@/components/ui/button`, `@/components/ui/dialog`, etc. Lucide React is used for icons.

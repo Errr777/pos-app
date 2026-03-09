@@ -11,6 +11,11 @@ import {
   BoxIcon,
   LayoutList,
   Warehouse,
+  Truck,
+  Users,
+  ShoppingCart,
+  FileText,
+  RotateCcw,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -46,6 +51,8 @@ const allNavItems: NavItem[] = [
             { title: 'Log Stok',           href: '/inventory/stock_log' },
             { title: 'Stok Masuk',         href: '/inventory/stock_in' },
             { title: 'Stok Keluar',        href: '/inventory/stock_out' },
+            { title: 'Transfer Stok',      href: '/inventory/transfers' },
+            { title: 'Penyesuaian Stok',   href: '/inventory/adjustments' },
         ],
     },
     {
@@ -54,6 +61,45 @@ const allNavItems: NavItem[] = [
         icon: Warehouse,
         single: true,
         module: 'warehouses',
+    },
+    {
+        title: 'Supplier',
+        href: '/suppliers',
+        icon: Truck,
+        single: true,
+        module: 'suppliers',
+    },
+    {
+        title: 'Pelanggan',
+        href: '/customers',
+        icon: Users,
+        single: true,
+        module: 'customers',
+    },
+    {
+        title: 'Kasir',
+        href: '#',
+        icon: ShoppingCart,
+        single: false,
+        module: 'pos',
+        items: [
+            { title: 'Terminal POS',      href: '/pos/terminal' },
+            { title: 'Riwayat Penjualan', href: '/pos' },
+        ],
+    },
+    {
+        title: 'Purchase Order',
+        href: '/purchase-orders',
+        icon: FileText,
+        single: true,
+        module: 'purchase_orders',
+    },
+    {
+        title: 'Retur',
+        href: '/returns',
+        icon: RotateCcw,
+        single: true,
+        module: 'returns',
     },
     {
         title: 'Laporan',

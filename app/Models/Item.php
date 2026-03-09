@@ -17,13 +17,17 @@ class Item extends Model
         'deskripsi',
         'stok',
         'stok_minimal',
+        'harga_beli',
+        'harga_jual',
         'kategori',
         'id_kategori',
     ];
 
     protected $casts = [
-        'stok' => 'integer',
-        'stok_minimal' => 'integer',
+        'stok'        => 'integer',
+        'stok_minimal'=> 'integer',
+        'harga_beli'  => 'integer',
+        'harga_jual'  => 'integer',
         'id_kategori' => 'integer',
     ];
 

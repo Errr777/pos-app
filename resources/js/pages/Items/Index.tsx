@@ -10,6 +10,8 @@ interface Item {
   qrcode: string;
   stock: number;
   stock_min: number;
+  harga_beli: number;
+  harga_jual: number;
   category: string | null;
   id_kategori: number | null;
   kategori_rel: { id: number; nama: string } | null;
@@ -73,6 +75,8 @@ export default function Items() {
     qrcode: string;
     stock: number;
     stock_min: number;
+    harga_beli: number;
+    harga_jual: number;
     category: string;
     id_kategori: number | null;
   }>({
@@ -82,6 +86,8 @@ export default function Items() {
     qrcode: '',
     stock: 0,
     stock_min: 0,
+    harga_beli: 0,
+    harga_jual: 0,
     category: '',
     id_kategori: null,
   });
@@ -181,6 +187,8 @@ export default function Items() {
       qrcode: item.qrcode ?? '',
       stock: item.stock ?? 0,
       stock_min: item.stock_min ?? 0,
+      harga_beli: item.harga_beli ?? 0,
+      harga_jual: item.harga_jual ?? 0,
       category: kategoriName ?? '',
       id_kategori: idKategori ?? null,
     });
@@ -306,13 +314,14 @@ export default function Items() {
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('category')}>
                   Kategori {sortIcon('category')}
                 </th>
+                <th className="px-4 py-2 text-right">Harga Jual</th>
                 <th className="px-4 py-2 text-left">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-6 text-muted-foreground">
                     Item tidak ditemukan
                   </td>
                 </tr>
@@ -325,6 +334,11 @@ export default function Items() {
                     <td className="px-4 py-2">{item.stock}</td>
                     <td className="px-4 py-2">
                       {item.category ?? (item.kategori_rel ? item.kategori_rel.nama : '-')}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {item.harga_jual > 0
+                        ? `Rp ${item.harga_jual.toLocaleString('id-ID')}`
+                        : <span className="text-muted-foreground">-</span>}
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <TooltipProvider>
@@ -380,6 +394,8 @@ export default function Items() {
               <p><strong>QR Code:</strong> {viewItem.qrcode}</p>
               <p><strong>Stok:</strong> {viewItem.stock}</p>
               <p><strong>Stok Minimal:</strong> {viewItem.stock_min}</p>
+              <p><strong>Harga Beli:</strong> Rp {viewItem.harga_beli?.toLocaleString('id-ID')}</p>
+              <p><strong>Harga Jual:</strong> Rp {viewItem.harga_jual?.toLocaleString('id-ID')}</p>
               <p><strong>Kategori:</strong> {viewItem.category ?? (viewItem.kategori_rel ? viewItem.kategori_rel.nama : '-')}</p>
               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(viewItem.qrcode ?? '')}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
             </div>
@@ -450,9 +466,22 @@ export default function Items() {
                 {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
               </div>
               <div>
-                <label className="block text-sm font.medium">Stok Minimal</label>
+                <label className="block text-sm font-medium">Stok Minimal</label>
                 <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
                 {form.errors.stock_min && <div className="text-destructive text-sm">{form.errors.stock_min}</div>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium">Harga Beli (Rp)</label>
+                <input type="number" min={0} value={form.data.harga_beli} onChange={(e) => form.setData('harga_beli', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
+                {form.errors.harga_beli && <div className="text-destructive text-sm">{form.errors.harga_beli}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Harga Jual (Rp)</label>
+                <input type="number" min={0} value={form.data.harga_jual} onChange={(e) => form.setData('harga_jual', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
+                {form.errors.harga_jual && <div className="text-destructive text-sm">{form.errors.harga_jual}</div>}
               </div>
             </div>
 

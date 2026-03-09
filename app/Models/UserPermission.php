@@ -30,7 +30,12 @@ class UserPermission extends Model
         'inventory'  => ['label' => 'Inventaris',           'actions' => ['view', 'write', 'delete']],
         'warehouses' => ['label' => 'Gudang',               'actions' => ['view', 'write', 'delete']],
         'reports'    => ['label' => 'Laporan',              'actions' => ['view']],
-        'users'      => ['label' => 'Manajemen Pengguna',   'actions' => ['view', 'write', 'delete']],
+        'suppliers'       => ['label' => 'Supplier',           'actions' => ['view', 'write', 'delete']],
+        'customers'       => ['label' => 'Pelanggan',          'actions' => ['view', 'write', 'delete']],
+        'pos'             => ['label' => 'Kasir / POS',        'actions' => ['view', 'write', 'delete']],
+        'purchase_orders' => ['label' => 'Purchase Order',     'actions' => ['view', 'write', 'delete']],
+        'returns'         => ['label' => 'Retur Barang',       'actions' => ['view', 'write', 'delete']],
+        'users'           => ['label' => 'Manajemen Pengguna', 'actions' => ['view', 'write', 'delete']],
     ];
 
     public function user()
