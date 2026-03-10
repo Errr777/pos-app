@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Item;
+use App\Models\Promotion;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
 use App\Models\Warehouse;
@@ -125,7 +126,7 @@ class PosController extends Controller
             ->orderBy('name')
             ->get()->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'code' => $c->code]);
 
-        $promotions = \App\Models\Promotion::active()
+        $promotions = Promotion::active()
             ->get()
             ->map(fn ($p) => [
                 'id'          => $p->id,
