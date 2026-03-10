@@ -158,7 +158,7 @@ export default function PosTerminal() {
       const newQty = Math.max(1, Math.min(c.availableStock, c.quantity + delta));
       const item = items.find(i => i.id === itemId);
       const best = item ? getBestPromo(item, newQty, promotions) : null;
-      return { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName };
+      return { ...c, quantity: newQty, discountAmount: best?.discount ?? 0, promoName: best?.promo.name ?? null };
     }));
   };
 
@@ -313,7 +313,7 @@ export default function PosTerminal() {
                     <div className="font-medium text-sm truncate">{c.name}</div>
                     <div className="text-xs text-muted-foreground">{formatRp(c.unitPrice)} / pcs</div>
                     {c.promoName && (
-                      <div className="text-xs text-rose-600 dark:text-rose-400">🏷 {c.promoName}</div>
+                      <div className="text-xs text-rose-600 dark:text-rose-400">Promo: {c.promoName}</div>
                     )}
                     {c.discountAmount > 0 && (
                       <div className="text-xs text-rose-600 dark:text-rose-400">

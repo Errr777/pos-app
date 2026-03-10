@@ -255,7 +255,7 @@ class ReportController extends Controller
             $cogs = (int) SaleItem::whereHas('saleHeader', fn($q) =>
                 $q->where('status', 'completed')
                   ->whereBetween('occurred_at', [$start, $end])
-                  ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                  ->when(!empty($effectiveIds), fn($q2) => $q2->whereIn('warehouse_id', $effectiveIds))
             )->join('items', 'items.id', '=', 'sale_items.item_id')
              ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
