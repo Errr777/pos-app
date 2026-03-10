@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, ReceiptText, ChevronDown } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, ReceiptText, ChevronDown, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -94,6 +94,7 @@ export default function PosTerminal() {
   const [errors, setErrors]     = useState<Record<string, string>>({});
 
   const [receiptModal, setReceiptModal] = useState<{ saleNumber: string; grandTotal: number; changeAmount: number } | null>(null);
+  const [density, setDensity] = useState<'grid' | 'compact'>('grid');
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -238,47 +239,89 @@ export default function PosTerminal() {
               value={warehouseId ?? ''} onChange={e => setWarehouseId(parseInt(e.target.value))}>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setDensity('grid')}
+                className={`p-1.5 rounded ${density === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                title="Tampilan grid"
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                onClick={() => setDensity('compact')}
+                className={`p-1.5 rounded ${density === 'compact' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                title="Tampilan list"
+              >
+                <List size={15} />
+              </button>
+            </div>
           </div>
 
-          {/* Item grid */}
+          {/* Item grid / compact list */}
           <div className="flex-1 overflow-y-auto p-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-              {filteredItems.map(item => (
-                <button key={item.id}
-                  onClick={() => addToCart(item)}
-                  disabled={item.stock <= 0}
-                  className={`text-left border rounded-lg p-3 transition-all hover:shadow-md hover:border-primary ${
-                    item.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/5'
-                  }`}
-                >
-                  <div className="font-medium text-sm leading-tight line-clamp-2">{item.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{item.code}</div>
-                  <div className="mt-2 flex items-end justify-between">
-                    <span className="text-sm font-semibold text-primary">{formatRp(item.price)}</span>
-                    <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                      Stok: {item.stock}
-                    </span>
+            {density === 'compact' ? (
+              <div className="flex flex-col divide-y">
+                {filteredItems.map(item => (
+                  <button key={item.id}
+                    onClick={() => addToCart(item)}
+                    disabled={item.stock <= 0}
+                    className={`text-left px-3 py-2 flex items-center justify-between transition hover:bg-primary/5 ${
+                      item.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium leading-tight truncate">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{item.code}</span>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0 ml-3">
+                      <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>Stok: {item.stock}</span>
+                      <span className="text-sm font-bold text-primary">{formatRp(item.price)}</span>
+                    </div>
+                  </button>
+                ))}
+                {filteredItems.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">Tidak ada item ditemukan</div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2">
+                {filteredItems.map(item => (
+                  <button key={item.id}
+                    onClick={() => addToCart(item)}
+                    disabled={item.stock <= 0}
+                    className={`text-left border rounded-lg p-3.5 transition-all hover:shadow-md hover:border-primary ${
+                      item.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/5'
+                    }`}
+                  >
+                    <div className="font-medium text-base leading-tight line-clamp-2">{item.name}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{item.code}</div>
+                    <div className="mt-2 flex items-end justify-between">
+                      <span className="text-base font-bold text-primary">{formatRp(item.price)}</span>
+                      <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                        Stok: {item.stock}
+                      </span>
+                    </div>
+                    {(() => {
+                      const best = getBestPromo(item, 1, promotions);
+                      if (!best) return null;
+                      return (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                            {best.promo.type === 'percentage' ? `-${best.promo.value}%` : `-Rp ${best.promo.value.toLocaleString('id-ID')}`}
+                            {' '}{best.promo.name}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </button>
+                ))}
+                {filteredItems.length === 0 && (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    Tidak ada item ditemukan
                   </div>
-                  {(() => {
-                    const best = getBestPromo(item, 1, promotions);
-                    if (!best) return null;
-                    return (
-                      <div className="mt-1">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                          {best.promo.type === 'percentage' ? `-${best.promo.value}%` : `-Rp ${best.promo.value.toLocaleString('id-ID')}`}
-                          {' '}{best.promo.name}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </button>
-              ))}
-              {filteredItems.length === 0 && (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  Tidak ada item ditemukan
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
