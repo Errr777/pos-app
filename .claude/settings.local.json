@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(sqlite3 /Users/errr/Developer/Project/my/pos-app/db_post \".tables\")",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(head -5 grep -n \"empty\\\\|Tidak ada\\\\|ditemukan\\\\|belum ada\" /Users/errr/Developer/Project/my/pos-app/resources/js/pages/customers/Index.tsx)",
+      "Bash(head -5 grep -n \"empty\\\\|Tidak ada\\\\|ditemukan\\\\|belum ada\" /Users/errr/Developer/Project/my/pos-app/resources/js/pages/purchase-orders/Index.tsx)",
+      "Bash(head -5 grep -n \"empty\\\\|Tidak ada\\\\|ditemukan\\\\|belum ada\" /Users/errr/Developer/Project/my/pos-app/resources/js/pages/returns/Index.tsx)",
+      "Bash(head -5 grep -n \"empty\\\\|Tidak ada\\\\|ditemukan\\\\|belum ada\" /Users/errr/Developer/Project/my/pos-app/resources/js/pages/inventory/Stock_Transfer.tsx)",
+      "Bash(head -5 grep -n \"empty\\\\|Tidak ada\\\\|ditemukan\\\\|belum ada\" /Users/errr/Developer/Project/my/pos-app/resources/js/pages/inventory/Stock_Adjustment.tsx)"
     ]
   },
   "enabledPlugins": {

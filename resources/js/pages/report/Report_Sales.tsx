@@ -2,8 +2,10 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Download, Search } from 'lucide-react';
+import { CalendarIcon, Download, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -48,17 +50,29 @@ export default function ReportSales() {
     const { sales, summary, filters, warehouses = [] } = usePage<PageProps>().props;
 
     const [search, setSearch]         = useState(filters?.search ?? '');
-    const [dateFrom, setDateFrom]     = useState(filters?.date_from ?? '');
-    const [dateTo, setDateTo]         = useState(filters?.date_to ?? '');
+    const [dateFrom, setDateFrom]     = useState<Date | undefined>(
+        filters?.date_from ? new Date(filters.date_from + 'T00:00:00') : undefined
+    );
+    const [dateTo, setDateTo]         = useState<Date | undefined>(
+        filters?.date_to ? new Date(filters.date_to + 'T00:00:00') : undefined
+    );
+    const [dateFromOpen, setDateFromOpen] = useState(false);
+    const [dateToOpen, setDateToOpen]     = useState(false);
     const [method, setMethod]         = useState(filters?.method ?? '');
     const [warehouseId, setWarehouseId] = useState(filters?.warehouse_id ?? '');
 
     const safeSales  = sales  ?? { data: [], current_page: 1, last_page: 1, total: 0 };
     const safeSummary: Summary = { ...(summary ?? { totalTrx: 0, totalRevenue: 0, totalDiscount: 0 }) };
 
+    const toDateStr = (d: Date | undefined) =>
+        d ? d.toISOString().slice(0, 10) : '';
+
     const navigate = (overrides: Record<string, unknown> = {}) => {
         router.get(route('Report_Sales'), {
-            search, date_from: dateFrom, date_to: dateTo, method,
+            search,
+            date_from: toDateStr(dateFrom),
+            date_to: toDateStr(dateTo),
+            method,
             warehouse_id: warehouseId,
             per_page: filters?.per_page ?? 20,
             ...overrides,
@@ -66,9 +80,12 @@ export default function ReportSales() {
     };
 
     const exportUrl = () => {
-        const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+        const params = new URLSearchParams({ date_from: toDateStr(dateFrom), date_to: toDateStr(dateTo) });
         return `/report/sales/export/excel?${params.toString()}`;
     };
+
+    const formatDisplayDate = (d: Date | undefined) =>
+        d ? d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -104,11 +121,71 @@ export default function ReportSales() {
                             onKeyDown={e => e.key === 'Enter' && navigate({ search, page: 1 })}
                         />
                     </div>
-                    <input type="date" className="border rounded-md px-3 py-2 text-sm bg-background" value={dateFrom}
-                        onChange={e => { setDateFrom(e.target.value); navigate({ date_from: e.target.value, page: 1 }); }} />
+                    {/* Date From picker */}
+                    <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-40 justify-start gap-2 text-sm font-normal">
+                                <CalendarIcon size={14} className="text-muted-foreground shrink-0" />
+                                <span className={dateFrom ? '' : 'text-muted-foreground'}>
+                                    {formatDisplayDate(dateFrom) ?? 'Dari tanggal'}
+                                </span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={dateFrom}
+                                onSelect={(date) => {
+                                    setDateFrom(date);
+                                    setDateFromOpen(false);
+                                    navigate({ date_from: date ? date.toISOString().slice(0, 10) : '', page: 1 });
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    {dateFrom && (
+                        <button
+                            className="text-muted-foreground hover:text-foreground text-sm -ml-1"
+                            onClick={() => { setDateFrom(undefined); navigate({ date_from: '', page: 1 }); }}
+                            aria-label="Hapus tanggal awal"
+                        >
+                            ×
+                        </button>
+                    )}
                     <span className="text-muted-foreground text-sm self-center">s/d</span>
-                    <input type="date" className="border rounded-md px-3 py-2 text-sm bg-background" value={dateTo}
-                        onChange={e => { setDateTo(e.target.value); navigate({ date_to: e.target.value, page: 1 }); }} />
+                    {/* Date To picker */}
+                    <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-40 justify-start gap-2 text-sm font-normal">
+                                <CalendarIcon size={14} className="text-muted-foreground shrink-0" />
+                                <span className={dateTo ? '' : 'text-muted-foreground'}>
+                                    {formatDisplayDate(dateTo) ?? 'Sampai tanggal'}
+                                </span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={dateTo}
+                                onSelect={(date) => {
+                                    setDateTo(date);
+                                    setDateToOpen(false);
+                                    navigate({ date_to: date ? date.toISOString().slice(0, 10) : '', page: 1 });
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    {dateTo && (
+                        <button
+                            className="text-muted-foreground hover:text-foreground text-sm -ml-1"
+                            onClick={() => { setDateTo(undefined); navigate({ date_to: '', page: 1 }); }}
+                            aria-label="Hapus tanggal akhir"
+                        >
+                            ×
+                        </button>
+                    )}
                     <select className="border rounded-md px-3 py-2 text-sm bg-background" value={method}
                         onChange={e => { setMethod(e.target.value); navigate({ method: e.target.value, page: 1 }); }}>
                         <option value="">Semua Metode</option>

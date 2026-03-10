@@ -127,18 +127,27 @@ export default function ReportProfitLoss() {
                 {/* Chart */}
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                     <h2 className="text-sm font-semibold mb-4">Tren Bulanan {year}</h2>
-                    <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={monthly} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tickFormatter={v => formatRp(v)} tick={{ fontSize: 10 }} width={80} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                            <Bar dataKey="revenue"      name="Omzet"      fill="oklch(0.511 0.262 277)" radius={[4,4,0,0]} />
-                            <Bar dataKey="cogs"         name="HPP"        fill="oklch(0.645 0.246 16)"  radius={[4,4,0,0]} />
-                            <Bar dataKey="gross_profit" name="Laba Kotor" fill="oklch(0.627 0.194 149)" radius={[4,4,0,0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    {monthly.every(r => r.revenue === 0 && r.cogs === 0) ? (
+                        <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">
+                            Belum ada data transaksi untuk tahun {year}
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={280}>
+                            <BarChart
+                                data={monthly.filter(r => r.revenue > 0 || r.cogs > 0)}
+                                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                <YAxis tickFormatter={v => formatRp(v)} tick={{ fontSize: 10 }} width={80} />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Legend />
+                                <Bar dataKey="revenue"      name="Omzet"      fill="#6366f1" radius={[4,4,0,0]} />
+                                <Bar dataKey="cogs"         name="HPP"        fill="oklch(0.645 0.246 16)"  radius={[4,4,0,0]} />
+                                <Bar dataKey="gross_profit" name="Laba Kotor" fill="oklch(0.627 0.194 149)" radius={[4,4,0,0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
 
                 {/* Monthly table */}

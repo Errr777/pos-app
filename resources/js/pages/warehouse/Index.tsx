@@ -162,13 +162,15 @@ export default function WarehouseIndex() {
                                     <div className="text-lg font-bold">{wh.totalStock.toLocaleString()}</div>
                                     <div className="text-xs text-muted-foreground">Total Stok</div>
                                 </div>
-                                <div className={`rounded-md px-3 py-2 text-center ${wh.lowStockCount > 0 ? 'bg-red-50' : 'bg-muted'}`}>
-                                    <div className={`text-lg font-bold ${wh.lowStockCount > 0 ? 'text-red-600' : ''}`}>
+                                <div className={`rounded-md px-3 py-2 text-center ${wh.lowStockCount > 0 ? 'bg-red-50 dark:bg-red-950/30' : 'bg-muted'}`}>
+                                    <div className={`text-lg font-bold ${wh.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                                         {wh.lowStockCount}
                                     </div>
                                     <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                                        {wh.lowStockCount > 0 && <AlertTriangle className="h-3 w-3 text-red-500" />}
-                                        <TrendingDown className="h-3 w-3" /> Min
+                                        {wh.lowStockCount > 0
+                                            ? <><AlertTriangle className="h-3 w-3 text-red-500" /> Stok Minim</>
+                                            : <><TrendingDown className="h-3 w-3" /> Minim</>
+                                        }
                                     </div>
                                 </div>
                             </div>
