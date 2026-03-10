@@ -29,7 +29,8 @@ interface Summary {
 interface PageProps {
     sales: { data: SaleRow[]; current_page: number; last_page: number; total: number };
     summary: Summary;
-    filters: { search?: string; date_from?: string; date_to?: string; per_page?: number; method?: string };
+    filters: { search?: string; date_from?: string; date_to?: string; per_page?: number; method?: string; warehouse_id?: string };
+    warehouses: { id: number; name: string }[];
     [key: string]: unknown;
 }
 
@@ -44,12 +45,13 @@ const METHOD_BADGE: Record<string, string> = {
 };
 
 export default function ReportSales() {
-    const { sales, summary, filters } = usePage<PageProps>().props;
+    const { sales, summary, filters, warehouses = [] } = usePage<PageProps>().props;
 
-    const [search, setSearch]     = useState(filters?.search ?? '');
-    const [dateFrom, setDateFrom] = useState(filters?.date_from ?? '');
-    const [dateTo, setDateTo]     = useState(filters?.date_to ?? '');
-    const [method, setMethod]     = useState(filters?.method ?? '');
+    const [search, setSearch]         = useState(filters?.search ?? '');
+    const [dateFrom, setDateFrom]     = useState(filters?.date_from ?? '');
+    const [dateTo, setDateTo]         = useState(filters?.date_to ?? '');
+    const [method, setMethod]         = useState(filters?.method ?? '');
+    const [warehouseId, setWarehouseId] = useState(filters?.warehouse_id ?? '');
 
     const safeSales  = sales  ?? { data: [], current_page: 1, last_page: 1, total: 0 };
     const safeSummary: Summary = { ...(summary ?? { totalTrx: 0, totalRevenue: 0, totalDiscount: 0 }) };
@@ -57,6 +59,7 @@ export default function ReportSales() {
     const navigate = (overrides: Record<string, unknown> = {}) => {
         router.get(route('Report_Sales'), {
             search, date_from: dateFrom, date_to: dateTo, method,
+            warehouse_id: warehouseId,
             per_page: filters?.per_page ?? 20,
             ...overrides,
         }, { preserveState: true, replace: true });
@@ -113,6 +116,16 @@ export default function ReportSales() {
                         <option value="transfer">Transfer</option>
                         <option value="qris">QRIS</option>
                     </select>
+                    {warehouses.length > 1 && (
+                        <select
+                            className="border rounded-md px-3 py-2 text-sm bg-background"
+                            value={warehouseId}
+                            onChange={e => { setWarehouseId(e.target.value); navigate({ warehouse_id: e.target.value, page: 1 }); }}
+                        >
+                            <option value="">Semua Gudang</option>
+                            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        </select>
+                    )}
                     <div className="ml-auto">
                         <a href={exportUrl()}>
                             <Button variant="outline" className="gap-2 bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400">
