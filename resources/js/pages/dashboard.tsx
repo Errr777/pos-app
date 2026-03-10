@@ -191,7 +191,7 @@ export default function Dashboard() {
                                     margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                                    <XAxis type="number" tick={{ fontSize: 10 }} />
+                                    <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} domain={[0, 'dataMax']} />
                                     <YAxis
                                         type="category"
                                         dataKey="name"
