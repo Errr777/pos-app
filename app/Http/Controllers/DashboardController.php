@@ -7,11 +7,15 @@ use App\Models\Kategori;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
 use App\Models\Transaction;
+use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    use FiltersWarehouseByUser;
+
     public function index()
     {
         $now        = now();
@@ -20,6 +24,8 @@ class DashboardController extends Controller
         $monthStart = $now->copy()->startOfMonth();
         $monthEnd   = $now->copy()->endOfMonth();
 
+        $allowedIds = $this->allowedWarehouseIds(); // empty = all warehouses
+
         // ── KPI ─────────────────────────────────────────────────────────────
         $totalItems      = Item::count();
         $lowStockCount   = Item::whereColumn('stok', '<', 'stok_minimal')->count();
@@ -27,16 +33,19 @@ class DashboardController extends Controller
 
         $salesToday = (int) SaleHeader::where('status', 'completed')
             ->whereBetween('occurred_at', [$todayStart, $todayEnd])
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
             ->sum('grand_total');
 
         $salesThisMonth = (int) SaleHeader::where('status', 'completed')
             ->whereBetween('occurred_at', [$monthStart, $monthEnd])
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
             ->sum('grand_total');
 
         // Net revenue = sales - purchase cost of items sold this month
         $costThisMonth = (int) SaleItem::whereHas('saleHeader', fn($q) =>
             $q->where('status', 'completed')
               ->whereBetween('occurred_at', [$monthStart, $monthEnd])
+              ->when(!empty($allowedIds), fn($q2) => $q2->whereIn('warehouse_id', $allowedIds))
         )->join('items', 'items.id', '=', 'sale_items.item_id')
          ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
@@ -46,6 +55,7 @@ class DashboardController extends Controller
         $sevenDaysAgo = $now->copy()->subDays(6)->startOfDay();
         $dailySales = SaleHeader::where('status', 'completed')
             ->whereBetween('occurred_at', [$sevenDaysAgo, $todayEnd])
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
             ->selectRaw("DATE(occurred_at) as date, SUM(grand_total) as total, COUNT(*) as count")
             ->groupBy('date')
             ->orderBy('date')
@@ -66,6 +76,7 @@ class DashboardController extends Controller
         $topItems = SaleItem::whereHas('saleHeader', fn($q) =>
             $q->where('status', 'completed')
               ->whereBetween('occurred_at', [$monthStart, $monthEnd])
+              ->when(!empty($allowedIds), fn($q2) => $q2->whereIn('warehouse_id', $allowedIds))
         )->selectRaw('item_name_snapshot as name, SUM(quantity) as qty')
          ->groupBy('item_name_snapshot')
          ->orderByDesc('qty')
@@ -77,6 +88,7 @@ class DashboardController extends Controller
         // ── Recent sales ─────────────────────────────────────────────────
         $recentSales = SaleHeader::with('cashier')
             ->where('status', 'completed')
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
             ->orderByDesc('occurred_at')
             ->limit(8)
             ->get()
@@ -89,18 +101,36 @@ class DashboardController extends Controller
             ]);
 
         // ── Low stock alert ──────────────────────────────────────────────
-        $lowStockItems = Item::whereColumn('stok', '<', 'stok_minimal')
-            ->select('id', 'nama', 'stok', 'stok_minimal')
-            ->orderByRaw('stok_minimal - stok DESC')
-            ->limit(8)
-            ->get()
-            ->map(fn($i) => [
-                'id'      => $i->id,
-                'name'    => $i->nama,
-                'stock'   => $i->stok,
-                'minimum' => $i->stok_minimal,
-                'deficit' => $i->stok_minimal - $i->stok,
-            ]);
+        if (!empty($allowedIds)) {
+            $lowStockItems = WarehouseItem::whereIn('warehouse_id', $allowedIds)
+                ->whereColumn('warehouse_items.stok', '<', 'warehouse_items.stok_minimal')
+                ->where('warehouse_items.stok_minimal', '>', 0)
+                ->join('items', 'items.id', '=', 'warehouse_items.item_id')
+                ->select('items.id', 'items.nama', 'warehouse_items.stok', 'warehouse_items.stok_minimal')
+                ->orderByRaw('warehouse_items.stok_minimal - warehouse_items.stok DESC')
+                ->limit(8)
+                ->get()
+                ->map(fn($i) => [
+                    'id'      => $i->id,
+                    'name'    => $i->nama,
+                    'stock'   => (int) $i->stok,
+                    'minimum' => (int) $i->stok_minimal,
+                    'deficit' => (int) $i->stok_minimal - (int) $i->stok,
+                ]);
+        } else {
+            $lowStockItems = Item::whereColumn('stok', '<', 'stok_minimal')
+                ->select('id', 'nama', 'stok', 'stok_minimal')
+                ->orderByRaw('stok_minimal - stok DESC')
+                ->limit(8)
+                ->get()
+                ->map(fn($i) => [
+                    'id'      => $i->id,
+                    'name'    => $i->nama,
+                    'stock'   => $i->stok,
+                    'minimum' => $i->stok_minimal,
+                    'deficit' => $i->stok_minimal - $i->stok,
+                ]);
+        }
 
         return Inertia::render('dashboard', [
             'stats' => [
@@ -111,10 +141,13 @@ class DashboardController extends Controller
                 'salesThisMonth'     => $salesThisMonth,
                 'netRevenueThisMonth'=> $netRevenueThisMonth,
             ],
-            'salesChart'    => $salesChart,
-            'topItems'      => $topItems,
-            'recentSales'   => $recentSales,
-            'lowStockItems' => $lowStockItems,
+            'salesChart'      => $salesChart,
+            'topItems'        => $topItems,
+            'recentSales'     => $recentSales,
+            'lowStockItems'   => $lowStockItems,
+            'warehouseContext' => !empty($allowedIds)
+                ? \App\Models\Warehouse::whereIn('id', $allowedIds)->pluck('name')->implode(', ')
+                : null,
         ]);
     }
 }
