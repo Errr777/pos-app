@@ -71,6 +71,12 @@ class HandleInertiaRequests extends Middleware
                         ]];
                     })->toArray();
             },
+
+            'allowedWarehouseIds' => function () use ($request) {
+                $user = $request->user();
+                if (!$user) return [];
+                return $user->allowedWarehouseIds(); // empty = all allowed
+            },
         ];
     }
 }

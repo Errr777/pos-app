@@ -46,6 +46,7 @@ export interface SharedData {
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
     permissions: Permissions;
+    allowedWarehouseIds: number[]; // empty = all warehouses allowed
     [key: string]: unknown;
 }
 

@@ -17,6 +17,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReturnController;
+use App\Http\Controllers\PromotionController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -106,9 +107,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('returns/{returnHeader}/void',  [ReturnController::class, 'void']) ->name('returns.void');
 
     // Reports
-    Route::get('report/stock',    [ReportController::class, 'stock'])->name('Report_Stock');
-    Route::get('report/sales',    [ReportController::class, 'salesReport'])->name('Report_Sales');
-    Route::get('report/cashflow', [ReportController::class, 'cashReport'])->name('Report_Cashflow');
+    Route::get('report/stock',              [ReportController::class, 'stock'])->name('Report_Stock');
+    Route::get('report/stock/export/excel', [ReportController::class, 'exportStockExcel'])->name('report.stock.excel');
+    Route::get('report/sales',              [ReportController::class, 'salesReport'])->name('Report_Sales');
+    Route::get('report/sales/export/excel', [ReportController::class, 'exportSalesExcel'])->name('report.sales.excel');
+    Route::get('report/cashflow',           [ReportController::class, 'cashReport'])->name('Report_Cashflow');
+    Route::get('report/profit-loss',        [ReportController::class, 'profitLoss'])->name('Report_ProfitLoss');
+
+    // Promotions
+    Route::get('/promotions',                  [PromotionController::class, 'index'])->name('promotions.index');
+    Route::post('/promotions',                 [PromotionController::class, 'store'])->name('promotions.store');
+    Route::put('/promotions/{promotion}',      [PromotionController::class, 'update'])->name('promotions.update');
+    Route::delete('/promotions/{promotion}',   [PromotionController::class, 'destroy'])->name('promotions.destroy');
+    Route::get('/promotions/active',           [PromotionController::class, 'active'])->name('promotions.active');
 
     // Purchase Orders (create must be before /{purchaseOrder} wildcard)
     Route::get('purchase-orders',                               [PurchaseOrderController::class, 'index'])       ->name('po.index');
@@ -132,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/users/{user}',                [UserController::class, 'destroy'])->name('users.destroy');
     Route::post('/users/{user}/reset-password',  [UserController::class, 'resetPassword'])->name('users.reset_password');
     Route::post('/users/{user}/permissions',      [UserController::class, 'updatePermissions'])->name('users.permissions');
+    Route::post('/users/{user}/warehouses',       [UserController::class, 'updateWarehouses'])->name('users.warehouses');
 });
 
 require __DIR__.'/settings.php';

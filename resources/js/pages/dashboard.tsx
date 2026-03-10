@@ -60,9 +60,7 @@ const TooltipRp = ({ active, payload, label }: any) => {
 export default function Dashboard() {
     const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [] } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
-        totalItems: 0, lowStockCount: 0, categoriesCount: 0,
-        salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0,
-        ...(stats ?? {}),
+        ...(stats ?? { totalItems: 0, lowStockCount: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
     };
 
     const kpiCards = [

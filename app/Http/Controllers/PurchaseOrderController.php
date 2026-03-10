@@ -8,6 +8,7 @@ use App\Models\PurchaseOrderItem;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Inertia\Inertia;
 
 class PurchaseOrderController extends Controller
 {
+    use FiltersWarehouseByUser;
     public function index(Request $request)
     {
         $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -51,6 +53,8 @@ class PurchaseOrderController extends Controller
         if ($dateFrom) $query->where('purchase_orders.created_at', '>=', $dateFrom . ' 00:00:00');
         if ($dateTo)   $query->where('purchase_orders.created_at', '<=', $dateTo   . ' 23:59:59');
 
+        $this->applyWarehouseFilter($query, 'purchase_orders.warehouse_id');
+
         $query->orderBy($sortColumn, $sortDir);
 
         $pos = $query->paginate($perPage)->withQueryString()->through(fn ($po) => [
@@ -70,8 +74,9 @@ class PurchaseOrderController extends Controller
 
         $suppliers  = Supplier::where('is_active', true)->orderBy('name')
             ->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
-        $warehouses = Warehouse::where('is_active', true)->orderBy('is_default', 'desc')->orderBy('name')
-            ->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouseQuery = Warehouse::where('is_active', true)->orderBy('is_default', 'desc')->orderBy('name');
+        $this->applyWarehouseFilter($warehouseQuery, 'id');
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
         $items = Item::select('id', 'nama', 'kode_item', 'harga_beli')->orderBy('nama')
             ->get()->map(fn ($i) => ['id' => $i->id, 'name' => $i->nama, 'code' => $i->kode_item, 'costPrice' => $i->harga_beli]);
 

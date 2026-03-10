@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ use Inertia\Inertia;
 
 class StockTransferController extends Controller
 {
+    use FiltersWarehouseByUser;
     public function index(Request $request)
     {
         $perPage  = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -55,6 +57,14 @@ class StockTransferController extends Controller
         if ($dateFrom) $query->where('stock_transfers.occurred_at', '>=', $dateFrom . ' 00:00:00');
         if ($dateTo)   $query->where('stock_transfers.occurred_at', '<=', $dateTo   . ' 23:59:59');
 
+        $ids = $this->allowedWarehouseIds();
+        if (!empty($ids)) {
+            $query->where(function ($q) use ($ids) {
+                $q->whereIn('stock_transfers.from_warehouse_id', $ids)
+                  ->orWhereIn('stock_transfers.to_warehouse_id', $ids);
+            });
+        }
+
         $query->orderBy($sortColumn, $sortDir);
 
         $transfers = $query->paginate($perPage)->withQueryString()->through(fn ($t) => [
@@ -75,9 +85,10 @@ class StockTransferController extends Controller
         ]);
 
         // Warehouses dropdown
-        $warehouses = Warehouse::where('is_active', true)
-            ->orderBy('is_default', 'desc')->orderBy('name')
-            ->get()->map(fn ($w) => [
+        $warehouseQuery = Warehouse::where('is_active', true)
+            ->orderBy('is_default', 'desc')->orderBy('name');
+        $this->applyWarehouseFilter($warehouseQuery, 'id');
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => [
                 'id'         => $w->id,
                 'code'       => $w->code,
                 'name'       => $w->name,

@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\StockAdjustment;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ use Inertia\Inertia;
 
 class StockAdjustmentController extends Controller
 {
+    use FiltersWarehouseByUser;
     public function index(Request $request)
     {
         $perPage  = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -51,6 +53,8 @@ class StockAdjustmentController extends Controller
         if ($dateFrom) $query->where('stock_adjustments.occurred_at', '>=', $dateFrom . ' 00:00:00');
         if ($dateTo)   $query->where('stock_adjustments.occurred_at', '<=', $dateTo   . ' 23:59:59');
 
+        $this->applyWarehouseFilter($query, 'stock_adjustments.warehouse_id');
+
         $query->orderBy($sortColumn, $sortDir);
 
         $adjustments = $query->paginate($perPage)->withQueryString()->through(fn ($a) => [
@@ -69,9 +73,9 @@ class StockAdjustmentController extends Controller
             'note'         => $a->note,
         ]);
 
-        $warehouses = Warehouse::where('is_active', true)
-            ->orderBy('is_default', 'desc')->orderBy('name')
-            ->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+        $warehouseQuery = Warehouse::where('is_active', true)->orderBy('is_default', 'desc')->orderBy('name');
+        $this->applyWarehouseFilter($warehouseQuery, 'id');
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
 
         $items = Item::select('id', 'nama', 'kategori', 'stok')
             ->orderBy('nama')->get()->map(fn ($i) => [

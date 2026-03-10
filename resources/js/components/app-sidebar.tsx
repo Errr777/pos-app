@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   FileText,
   RotateCcw,
+  Tag,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -111,6 +112,14 @@ const allNavItems: NavItem[] = [
         module: 'returns',
     },
     {
+        title: 'Promo',
+        href: '/promotions',
+        icon: Tag,
+        iconColor: 'text-pink-400',
+        single: true,
+        module: 'items',
+    },
+    {
         title: 'Laporan',
         href: '#',
         icon: ClipboardList,
@@ -121,6 +130,7 @@ const allNavItems: NavItem[] = [
             { title: 'Laporan Stok',      href: '/report/stock' },
             { title: 'Laporan Penjualan', href: '/report/sales' },
             { title: 'Laporan Kas',       href: '/report/cashflow' },
+            { title: 'Laba Rugi',         href: '/report/profit-loss' },
         ],
     },
     {

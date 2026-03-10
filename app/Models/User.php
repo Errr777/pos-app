@@ -39,6 +39,26 @@ class User extends Authenticatable
     }
 
     /**
+     * Warehouses explicitly assigned to this user.
+     * Empty = access all warehouses.
+     */
+    public function assignedWarehouses()
+    {
+        return $this->belongsToMany(Warehouse::class, 'user_warehouses');
+    }
+
+    /**
+     * Returns array of allowed warehouse IDs for this user.
+     * Empty array means "all warehouses allowed" (no restriction).
+     * Admin always returns empty array (= all allowed).
+     */
+    public function allowedWarehouseIds(): array
+    {
+        if ($this->role === 'admin') return [];
+        return $this->assignedWarehouses()->pluck('warehouses.id')->toArray();
+    }
+
+    /**
      * Check if the user has a specific permission on a module.
      * Admin role bypasses all checks.
      */

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Pencil, Trash, KeyRound, Download, ShieldCheck } from 'lucide-react';
+import { Search, Plus, Pencil, Trash, KeyRound, Download, ShieldCheck, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -31,6 +31,7 @@ interface UserRow {
   created: string;
   isMe: boolean;
   permissions: Record<string, UserPermission>;
+  assignedWarehouseIds: number[];
 }
 
 interface ModuleDefinition {
@@ -58,6 +59,7 @@ interface PageProps {
   roles: string[];
   modules: Record<string, ModuleDefinition>;
   filters: Filters;
+  warehouses: { id: number; name: string; code: string }[];
   [key: string]: unknown;
 }
 
@@ -81,7 +83,7 @@ const actionColor: Record<string, string> = {
 
 export default function UsersIndex() {
   const { props } = usePage<PageProps>();
-  const { users, roles, modules, filters } = props;
+  const { users, roles, modules, filters, warehouses = [] } = props;
 
   const [query, setQuery] = useState<string>(filters.search ?? '');
   const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'name');
@@ -111,6 +113,10 @@ export default function UsersIndex() {
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [resetForm, setResetForm] = useState({ password: '', password_confirmation: '' });
   const [resetErrors, setResetErrors] = useState<Record<string, string>>({});
+
+  // --- Warehouse assignment ---
+  const [warehouseTarget, setWarehouseTarget] = useState<UserRow | null>(null);
+  const [selectedWarehouses, setSelectedWarehouses] = useState<number[]>([]);
 
   // --- Permissions form ---
   const [isPermOpen, setIsPermOpen] = useState(false);
@@ -370,6 +376,21 @@ export default function UsersIndex() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
+                            <button
+                              onClick={() => {
+                                setWarehouseTarget(row);
+                                setSelectedWarehouses(row.assignedWarehouseIds ?? []);
+                              }}
+                              className="p-2 rounded-full transition text-cyan-600 border border-white hover:bg-cyan-100 dark:hover:bg-cyan-950/40"
+                              disabled={row.role === 'admin'}
+                            >
+                              <Warehouse size={16} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>{row.role === 'admin' ? 'Admin akses semua gudang' : 'Akses Gudang'}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
                             <button onClick={() => openReset(row)} className="text-amber-600 border border-white hover:bg-amber-100 p-2 rounded-full transition">
                               <KeyRound size={16} />
                             </button>
@@ -594,6 +615,55 @@ export default function UsersIndex() {
               <DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* ── Warehouse Assignment ── */}
+      <Dialog open={!!warehouseTarget} onOpenChange={v => !v && setWarehouseTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Akses Gudang — {warehouseTarget?.name}</DialogTitle>
+            <DialogDescription>
+              Pilih gudang yang bisa diakses. Kosongkan untuk akses semua gudang.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 max-h-60 overflow-y-auto py-2">
+            {warehouses.map(w => (
+              <label key={w.id} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted">
+                <input
+                  type="checkbox"
+                  checked={selectedWarehouses.includes(w.id)}
+                  onChange={e => {
+                    setSelectedWarehouses(prev =>
+                      e.target.checked
+                        ? [...prev, w.id]
+                        : prev.filter(id => id !== w.id)
+                    );
+                  }}
+                  className="rounded"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">{w.name}</span>
+                  <span className="text-xs text-muted-foreground ml-2">({w.code})</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {selectedWarehouses.length === 0 && (
+            <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 rounded px-3 py-2">
+              Tidak ada gudang dipilih = akses ke semua gudang
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWarehouseTarget(null)}>Batal</Button>
+            <Button onClick={() => {
+              if (!warehouseTarget) return;
+              router.post(route('users.warehouses', warehouseTarget.id), {
+                warehouse_ids: selectedWarehouses,
+              }, { onSuccess: () => setWarehouseTarget(null) });
+            }}>
+              Simpan
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppLayout>

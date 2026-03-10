@@ -6,12 +6,14 @@ use App\Models\Item;
 use App\Models\Transaction;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class WarehouseController extends Controller
 {
+    use FiltersWarehouseByUser;
     // -------------------------------------------------------------------------
     // GET: Warehouse list
     // -------------------------------------------------------------------------
@@ -20,7 +22,9 @@ class WarehouseController extends Controller
     {
         $flash = $request->session()->get('success');
 
-        $warehouses = Warehouse::orderBy('is_default', 'desc')->orderBy('name')->get()
+        $query = Warehouse::orderBy('is_default', 'desc')->orderBy('name');
+        $this->applyWarehouseFilter($query, 'id');
+        $warehouses = $query->get()
             ->map(function ($w) {
                 $lowStockCount = WarehouseItem::where('warehouse_id', $w->id)
                     ->whereColumn('stok', '<', 'stok_minimal')
@@ -53,6 +57,10 @@ class WarehouseController extends Controller
 
     public function show(Request $request, Warehouse $warehouse)
     {
+        if (!$this->canAccessWarehouse($warehouse->id)) {
+            abort(403, 'Anda tidak memiliki akses ke gudang ini.');
+        }
+
         $tab     = $request->get('tab', 'items');
         $search  = trim((string) $request->get('search', ''));
         $perPage = 20;

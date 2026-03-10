@@ -88,20 +88,26 @@ class UserController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($u) => [
-                'id'          => $u->id,
-                'name'        => $u->name,
-                'email'       => $u->email,
-                'role'        => $u->role ?? 'staff',
-                'created'     => $u->created_at?->format('Y-m-d'),
-                'isMe'        => $u->id === Auth::id(),
-                'permissions' => $this->getUserPermissions($u),
+                'id'                  => $u->id,
+                'name'                => $u->name,
+                'email'               => $u->email,
+                'role'                => $u->role ?? 'staff',
+                'created'             => $u->created_at?->format('Y-m-d'),
+                'isMe'                => $u->id === Auth::id(),
+                'permissions'         => $this->getUserPermissions($u),
+                'assignedWarehouseIds' => $u->assignedWarehouses()->pluck('warehouses.id')->toArray(),
             ]);
 
+        $allWarehouses = \App\Models\Warehouse::orderBy('name')
+            ->get(['id', 'name', 'code', 'is_active'])
+            ->map(fn($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+
         return Inertia::render('Users/Index', [
-            'users'   => $users,
-            'roles'   => User::$roles,
-            'modules' => UserPermission::$modules,
-            'filters' => array_merge(
+            'users'      => $users,
+            'roles'      => User::$roles,
+            'modules'    => UserPermission::$modules,
+            'warehouses' => $allWarehouses,
+            'filters'    => array_merge(
                 $request->only(['search', 'per_page']),
                 ['sort_by' => $requestedSort, 'sort_dir' => $sortDir]
             ),
@@ -252,5 +258,31 @@ class UserController extends Controller
         return $request->wantsJson()
             ? response()->json(['message' => 'Permissions updated'])
             : redirect()->route('users.index')->with('success', 'Hak akses berhasil diperbarui.');
+    }
+
+    // -------------------------------------------------------------------------
+    // POST: Update warehouse assignments for a user
+    // -------------------------------------------------------------------------
+
+    public function updateWarehouses(Request $request, User $user)
+    {
+        $validator = Validator::make($request->all(), [
+            'warehouse_ids'   => 'nullable|array',
+            'warehouse_ids.*' => 'integer|exists:warehouses,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $request->wantsJson()
+                ? response()->json(['errors' => $validator->errors()], 422)
+                : back()->withErrors($validator)->withInput();
+        }
+
+        // Sync replaces all existing assignments with the new list
+        // Empty array = remove all restrictions (access all)
+        $user->assignedWarehouses()->sync($request->warehouse_ids ?? []);
+
+        return $request->wantsJson()
+            ? response()->json(['message' => 'Warehouse assignments updated'])
+            : redirect()->route('users.index')->with('success', 'Akses gudang berhasil diperbarui.');
     }
 }

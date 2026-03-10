@@ -9,6 +9,7 @@ use App\Models\ReturnItem;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ use Inertia\Inertia;
 
 class ReturnController extends Controller
 {
+    use FiltersWarehouseByUser;
     public function index(Request $request)
     {
         $perPage  = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -57,6 +59,8 @@ class ReturnController extends Controller
         if ($dateFrom) $query->where('return_headers.occurred_at', '>=', $dateFrom . ' 00:00:00');
         if ($dateTo)   $query->where('return_headers.occurred_at', '<=', $dateTo   . ' 23:59:59');
 
+        $this->applyWarehouseFilter($query, 'return_headers.warehouse_id');
+
         $query->orderBy($sortColumn, $sortDir);
 
         $returns = $query->paginate($perPage)->withQueryString()->through(fn ($r) => [
@@ -75,8 +79,9 @@ class ReturnController extends Controller
             'itemCount'    => $r->returnItems->count(),
         ]);
 
-        $warehouses = Warehouse::where('is_active', true)->orderBy('name')
-            ->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouseQuery = Warehouse::where('is_active', true)->orderBy('name');
+        $this->applyWarehouseFilter($warehouseQuery, 'id');
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
 
         $customers = Customer::where('is_active', true)->orderBy('name')
             ->get()->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]);

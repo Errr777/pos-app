@@ -245,8 +245,14 @@ export default function ReportStock() {
 
           <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={items.data.length === 0}>
             <Download size={16} />
-            Export CSV
+            CSV
           </Button>
+          <a href={route('report.stock.excel')}>
+            <Button variant="outline" className="gap-2 bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400">
+              <Download size={16} />
+              Excel
+            </Button>
+          </a>
         </div>
 
         <p className="text-xs text-muted-foreground mb-3">

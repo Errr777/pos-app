@@ -8,6 +8,7 @@ use App\Models\SaleHeader;
 use App\Models\SaleItem;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Inertia\Inertia;
 
 class PosController extends Controller
 {
+    use FiltersWarehouseByUser;
     /**
      * Sale history (index).
      */
@@ -59,6 +61,11 @@ class PosController extends Controller
         if ($payMethod) $query->where('sale_headers.payment_method', $payMethod);
         if ($status)    $query->where('sale_headers.status', $status);
 
+        $ids = $this->allowedWarehouseIds();
+        if (!empty($ids)) {
+            $query->whereIn('sale_headers.warehouse_id', $ids);
+        }
+
         $query->orderBy($sortColumn, $sortDir);
 
         $sales = $query->paginate($perPage)->withQueryString()->through(fn ($s) => [
@@ -93,9 +100,10 @@ class PosController extends Controller
      */
     public function terminal(Request $request)
     {
-        $warehouses = Warehouse::where('is_active', true)
-            ->orderBy('is_default', 'desc')->orderBy('name')
-            ->get()->map(fn ($w) => [
+        $warehouseQuery = Warehouse::where('is_active', true)
+            ->orderBy('is_default', 'desc')->orderBy('name');
+        $this->applyWarehouseFilter($warehouseQuery, 'id');
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => [
                 'id'      => $w->id,
                 'name'    => $w->name,
                 'code'    => $w->code,
