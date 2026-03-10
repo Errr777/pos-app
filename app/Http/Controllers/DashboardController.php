@@ -29,6 +29,7 @@ class DashboardController extends Controller
         // ── KPI ─────────────────────────────────────────────────────────────
         $totalItems      = Item::count();
         $lowStockCount   = Item::whereColumn('stok', '<', 'stok_minimal')->count();
+        $itemsWithNoMinimum = Item::where('stok_minimal', 0)->count();
         $categoriesCount = Kategori::count();
 
         $salesToday = (int) SaleHeader::where('status', 'completed')
@@ -136,6 +137,7 @@ class DashboardController extends Controller
             'stats' => [
                 'totalItems'         => $totalItems,
                 'lowStockCount'      => $lowStockCount,
+                'itemsWithNoMinimum' => $itemsWithNoMinimum,
                 'categoriesCount'    => $categoriesCount,
                 'salesToday'         => $salesToday,
                 'salesThisMonth'     => $salesThisMonth,

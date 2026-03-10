@@ -13,6 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface DashboardStats {
     totalItems: number;
     lowStockCount: number;
+    itemsWithNoMinimum: number;
     categoriesCount: number;
     salesToday: number;
     salesThisMonth: number;
@@ -61,7 +62,7 @@ const TooltipRp = ({ active, payload, label }: any) => {
 export default function Dashboard() {
     const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [], warehouseContext } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
-        ...(stats ?? { totalItems: 0, lowStockCount: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
+        ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
     };
 
     const kpiCards = [
@@ -126,6 +127,18 @@ export default function Dashboard() {
                     <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-800 px-4 py-2 text-sm text-cyan-700 dark:text-cyan-300">
                         <span className="font-medium">Menampilkan data gudang:</span>
                         <span>{warehouseContext}</span>
+                    </div>
+                )}
+
+                {safeStats.itemsWithNoMinimum > 0 && (
+                    <div className="mx-4 mt-4 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium">{safeStats.itemsWithNoMinimum} item belum memiliki stok minimum.</span>
+                            <span className="text-amber-600 dark:text-amber-400">Atur stok minimum agar alert bisa berfungsi.</span>
+                        </div>
+                        <a href="/items" className="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 transition">
+                            Atur sekarang →
+                        </a>
                     </div>
                 )}
 
