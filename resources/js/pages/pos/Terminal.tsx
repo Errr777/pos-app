@@ -19,8 +19,20 @@ interface ItemOption {
   name: string;
   code: string;
   category: string | null;
+  categoryId: number | null;
   stock: number;
   price: number;
+}
+
+interface Promotion {
+  id: number;
+  name: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  appliesTo: 'all' | 'category' | 'item';
+  appliesId: number | null;
+  minPurchase: number;
+  maxDiscount: number;
 }
 
 interface CustomerOption {
@@ -44,12 +56,14 @@ interface CartItem {
   quantity: number;
   discountAmount: number;
   availableStock: number;
+  promoName: string | null;
 }
 
 interface PageProps {
   items: ItemOption[];
   customers: CustomerOption[];
   warehouses: WarehouseOption[];
+  promotions: Promotion[];
   [key: string]: unknown;
 }
 
@@ -63,7 +77,7 @@ function formatRp(n: number) {
 }
 
 export default function PosTerminal() {
-  const { items, customers, warehouses } = usePage<PageProps>().props;
+  const { items, customers, warehouses, promotions = [] } = usePage<PageProps>().props;
 
   const defaultWarehouse = warehouses.find(w => w.isDefault) ?? warehouses[0];
   const [warehouseId, setWarehouseId] = useState(defaultWarehouse?.id ?? null);
@@ -83,6 +97,29 @@ export default function PosTerminal() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
+  function getBestPromo(item: ItemOption, quantity: number, promos: Promotion[]): { promo: Promotion; discount: number } | null {
+    const lineTotal = item.price * quantity;
+    let best: { promo: Promotion; discount: number } | null = null;
+
+    for (const p of promos) {
+      if (p.appliesTo === 'item' && p.appliesId !== item.id) continue;
+      if (p.appliesTo === 'category' && p.appliesId !== item.categoryId) continue;
+      if (p.minPurchase > 0 && lineTotal < p.minPurchase) continue;
+
+      let discount = p.type === 'percentage'
+        ? Math.round(lineTotal * p.value / 100)
+        : p.value;
+
+      if (p.maxDiscount > 0) discount = Math.min(discount, p.maxDiscount);
+      discount = Math.min(discount, lineTotal);
+
+      if (!best || discount > best.discount) {
+        best = { promo: p, discount };
+      }
+    }
+    return best;
+  }
+
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return items;
@@ -96,12 +133,21 @@ export default function PosTerminal() {
       const existing = prev.find(c => c.itemId === item.id);
       if (existing) {
         if (existing.quantity >= item.stock) return prev;
-        return prev.map(c => c.itemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+        const newQty = existing.quantity + 1;
+        const itemData = items.find(i => i.id === item.id) ?? item;
+        const best = getBestPromo(itemData, newQty, promotions);
+        return prev.map(c => c.itemId === item.id
+          ? { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName }
+          : c);
       }
       if (item.stock <= 0) return prev;
+      const best = getBestPromo(item, 1, promotions);
       return [...prev, {
         itemId: item.id, name: item.name, code: item.code,
-        unitPrice: item.price, quantity: 1, discountAmount: 0, availableStock: item.stock,
+        unitPrice: item.price, quantity: 1,
+        discountAmount: best?.discount ?? 0,
+        promoName: best?.promo.name ?? null,
+        availableStock: item.stock,
       }];
     });
   };
@@ -110,7 +156,9 @@ export default function PosTerminal() {
     setCart(prev => prev.map(c => {
       if (c.itemId !== itemId) return c;
       const newQty = Math.max(1, Math.min(c.availableStock, c.quantity + delta));
-      return { ...c, quantity: newQty };
+      const item = items.find(i => i.id === itemId);
+      const best = item ? getBestPromo(item, newQty, promotions) : null;
+      return { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName };
     }));
   };
 
