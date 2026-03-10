@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, Trash, Download, Calendar as CalendarIcon, ArrowRightLeft } from 'lucide-react';
+import { Search, Plus, Eye, Trash, Download, Calendar as CalendarIcon, ArrowRightLeft, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -292,7 +292,23 @@ export default function Stock_Transfer() {
             </thead>
             <tbody>
               {transfers.data.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-6 text-muted-foreground">Data tidak ditemukan</td></tr>
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <ArrowLeftRight className="h-10 w-10 opacity-40" />
+                      <div>
+                        <p className="font-medium text-foreground">Belum ada transfer stok</p>
+                        <p className="text-sm mt-1">Transfer stok untuk memindahkan barang antar gudang.</p>
+                      </div>
+                      <button
+                        onClick={openAdd}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Plus size={15} /> Transfer Stok
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : (
                 transfers.data.map((row) => (
                   <tr key={row.id} className="border-b last:border-b-0">

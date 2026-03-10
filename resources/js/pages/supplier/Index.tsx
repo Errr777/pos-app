@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
   Search, Plus, Pencil, Trash2, Eye, Download,
-  Phone, Mail, MapPin, User, Building2,
+  Phone, Mail, MapPin, User, Building2, Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -295,8 +295,20 @@ export default function SupplierIndex() {
             <tbody className="divide-y">
               {suppliers.data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-10 text-muted-foreground">
-                    Tidak ada supplier ditemukan
+                  <td colSpan={6} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <Truck className="h-10 w-10 opacity-40" />
+                      <div>
+                        <p className="font-medium text-foreground">Belum ada supplier</p>
+                        <p className="text-sm mt-1">Tambahkan supplier untuk mulai membuat Purchase Order.</p>
+                      </div>
+                      <button
+                        onClick={openAdd}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Plus size={15} /> Tambah Supplier
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : suppliers.data.map(s => (

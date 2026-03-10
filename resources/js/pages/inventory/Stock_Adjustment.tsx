@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, Download, Calendar as CalendarIcon, ClipboardCheck } from 'lucide-react';
+import { Search, Plus, Eye, Download, Calendar as CalendarIcon, ClipboardCheck, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -229,7 +229,23 @@ export default function Stock_Adjustment() {
             </thead>
             <tbody>
               {adjustments.data.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-6 text-muted-foreground">Belum ada penyesuaian stok</td></tr>
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <SlidersHorizontal className="h-10 w-10 opacity-40" />
+                      <div>
+                        <p className="font-medium text-foreground">Belum ada penyesuaian stok</p>
+                        <p className="text-sm mt-1">Gunakan penyesuaian stok untuk mengkoreksi jumlah stok yang tidak sesuai.</p>
+                      </div>
+                      <button
+                        onClick={openAdd}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Plus size={15} /> Penyesuaian Stok
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : (
                 adjustments.data.map((row) => (
                   <tr key={row.id} className="border-b last:border-b-0">

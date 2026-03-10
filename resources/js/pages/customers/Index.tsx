@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Pencil, Trash2, Eye, Download, Phone, Mail, MapPin, User } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Eye, Download, Phone, Mail, MapPin, User, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -221,7 +221,23 @@ export default function CustomersIndex() {
             </thead>
             <tbody className="divide-y">
               {customers.data.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">Tidak ada pelanggan ditemukan</td></tr>
+                <tr>
+                  <td colSpan={6} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <Users className="h-10 w-10 opacity-40" />
+                      <div>
+                        <p className="font-medium text-foreground">Belum ada pelanggan</p>
+                        <p className="text-sm mt-1">Tambahkan pelanggan untuk melacak riwayat pembelian mereka.</p>
+                      </div>
+                      <button
+                        onClick={openAdd}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Plus size={15} /> Tambah Pelanggan
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : customers.data.map(c => (
                 <tr key={c.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">

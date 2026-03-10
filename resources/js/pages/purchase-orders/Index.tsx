@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, Trash2, CheckCircle, XCircle, PackageCheck } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, CheckCircle, XCircle, PackageCheck, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -245,7 +245,23 @@ export default function PurchaseOrdersIndex() {
             </thead>
             <tbody className="divide-y">
               {pos.data.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada PO ditemukan</td></tr>
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <ClipboardList className="h-10 w-10 opacity-40" />
+                      <div>
+                        <p className="font-medium text-foreground">Belum ada Purchase Order</p>
+                        <p className="text-sm mt-1">Buat PO untuk memesan barang ke supplier.</p>
+                      </div>
+                      <button
+                        onClick={() => setShowCreate(true)}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        <Plus size={15} /> Buat PO Baru
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : pos.data.map(po => {
                 const sc = STATUS_CONFIG[po.status] ?? { label: po.status, cls: 'bg-slate-100 text-slate-600' };
                 return (

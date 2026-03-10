@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, XCircle, Trash2 } from 'lucide-react';
+import { Search, Plus, Eye, XCircle, Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -276,7 +276,23 @@ export default function ReturnsIndex() {
                         </thead>
                         <tbody className="divide-y">
                             {returns.data.length === 0 ? (
-                                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada retur ditemukan</td></tr>
+                                <tr>
+                                    <td colSpan={8} className="py-16 text-center">
+                                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                            <RotateCcw className="h-10 w-10 opacity-40" />
+                                            <div>
+                                                <p className="font-medium text-foreground">Belum ada retur</p>
+                                                <p className="text-sm mt-1">Buat retur untuk mengembalikan barang dari pelanggan atau ke supplier.</p>
+                                            </div>
+                                            <button
+                                                onClick={() => { resetCreate(); setShowCreate(true); }}
+                                                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+                                            >
+                                                <Plus size={15} /> Buat Retur
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             ) : returns.data.map(r => {
                                 const tc = TYPE_CONFIG[r.type]   ?? { label: r.type,   cls: 'bg-slate-100 text-slate-600' };
                                 const sc = STATUS_CONFIG[r.status] ?? { label: r.status, cls: 'bg-slate-100 text-slate-600' };
