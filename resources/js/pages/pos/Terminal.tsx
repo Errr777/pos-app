@@ -259,6 +259,18 @@ export default function PosTerminal() {
                       Stok: {item.stock}
                     </span>
                   </div>
+                  {(() => {
+                    const best = getBestPromo(item, 1, promotions);
+                    if (!best) return null;
+                    return (
+                      <div className="mt-1">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                          {best.promo.type === 'percentage' ? `-${best.promo.value}%` : `-Rp ${best.promo.value.toLocaleString('id-ID')}`}
+                          {' '}{best.promo.name}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </button>
               ))}
               {filteredItems.length === 0 && (
@@ -300,6 +312,14 @@ export default function PosTerminal() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm truncate">{c.name}</div>
                     <div className="text-xs text-muted-foreground">{formatRp(c.unitPrice)} / pcs</div>
+                    {c.promoName && (
+                      <div className="text-xs text-rose-600 dark:text-rose-400">🏷 {c.promoName}</div>
+                    )}
+                    {c.discountAmount > 0 && (
+                      <div className="text-xs text-rose-600 dark:text-rose-400">
+                        Diskon: -{formatRp(c.discountAmount)}
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => removeFromCart(c.itemId)} className="text-muted-foreground hover:text-destructive shrink-0">
                     <Trash2 size={14} />
