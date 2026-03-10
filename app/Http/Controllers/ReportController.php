@@ -7,6 +7,7 @@ use App\Exports\StockReportExport;
 use App\Models\Item;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
+use App\Traits\FiltersWarehouseByUser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
+    use FiltersWarehouseByUser;
+
     private function allowedPerPage(): array
     {
         return [10, 20, 50, 100];
@@ -122,16 +125,31 @@ class ReportController extends Controller
 
     public function salesReport(Request $request)
     {
-        $perPage  = $this->sanitizePerPage($request);
-        $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $dateTo   = $request->get('date_to', now()->format('Y-m-d'));
-        $search   = trim((string) $request->get('search', ''));
-        $method   = $request->get('method', '');
-        $sortDir  = $this->sanitizeSortDir($request, 'desc');
+        $perPage     = $this->sanitizePerPage($request);
+        $dateFrom    = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
+        $search      = trim((string) $request->get('search', ''));
+        $method      = $request->get('method', '');
+        $warehouseId = $request->get('warehouse_id', '');
+        $sortDir     = $this->sanitizeSortDir($request, 'desc');
+
+        $allowedIds = $this->allowedWarehouseIds();
 
         $query = SaleHeader::with('cashier', 'customer')
             ->where('status', 'completed')
             ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+
+        // Warehouse restriction (user-level)
+        if (!empty($allowedIds)) {
+            $query->whereIn('warehouse_id', $allowedIds);
+        }
+        // UI warehouse filter (optional, within allowed)
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $query->where('warehouse_id', $wId);
+            }
+        }
 
         if ($search !== '') {
             $term = strtolower($search);
@@ -156,19 +174,38 @@ class ReportController extends Controller
             'method'     => $s->payment_method,
         ]);
 
-        $summary = SaleHeader::where('status', 'completed')
-            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+        $summaryQuery = SaleHeader::where('status', 'completed')
+            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+
+        // Warehouse restriction (user-level)
+        if (!empty($allowedIds)) {
+            $summaryQuery->whereIn('warehouse_id', $allowedIds);
+        }
+        // UI warehouse filter (optional, within allowed)
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $summaryQuery->where('warehouse_id', $wId);
+            }
+        }
+
+        $summary = $summaryQuery
             ->selectRaw('COUNT(*) as total_trx, SUM(grand_total) as total_revenue, SUM(discount_amount) as total_discount')
             ->first();
 
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+
         return Inertia::render('report/Report_Sales', [
-            'sales'   => $sales,
-            'summary' => [
+            'sales'      => $sales,
+            'summary'    => [
                 'totalTrx'      => (int) ($summary->total_trx ?? 0),
                 'totalRevenue'  => (int) ($summary->total_revenue ?? 0),
                 'totalDiscount' => (int) ($summary->total_discount ?? 0),
             ],
-            'filters' => $request->only(['search', 'date_from', 'date_to', 'per_page', 'method']),
+            'warehouses' => $warehouses,
+            'filters'    => $request->only(['search', 'date_from', 'date_to', 'per_page', 'method', 'warehouse_id']),
         ]);
     }
 
@@ -193,7 +230,17 @@ class ReportController extends Controller
 
     public function profitLoss(Request $request)
     {
-        $year = (int) $request->get('year', now()->year);
+        $year        = (int) $request->get('year', now()->year);
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+
+        $effectiveIds = $allowedIds; // start with user restriction
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $effectiveIds = [$wId]; // narrow to selected warehouse
+            }
+        }
 
         $monthly = [];
         for ($m = 1; $m <= 12; $m++) {
@@ -202,10 +249,13 @@ class ReportController extends Controller
 
             $revenue = (int) SaleHeader::where('status', 'completed')
                 ->whereBetween('occurred_at', [$start, $end])
+                ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
                 ->sum('grand_total');
 
             $cogs = (int) SaleItem::whereHas('saleHeader', fn($q) =>
-                $q->where('status', 'completed')->whereBetween('occurred_at', [$start, $end])
+                $q->where('status', 'completed')
+                  ->whereBetween('occurred_at', [$start, $end])
+                  ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
             )->join('items', 'items.id', '=', 'sale_items.item_id')
              ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
@@ -227,11 +277,17 @@ class ReportController extends Controller
         $currentYear = now()->year;
         $years       = range($currentYear, max($currentYear - 3, 2020));
 
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+
         return Inertia::render('report/Report_ProfitLoss', [
-            'monthly' => $monthly,
-            'totals'  => $totals,
-            'year'    => $year,
-            'years'   => $years,
+            'monthly'     => $monthly,
+            'totals'      => $totals,
+            'year'        => $year,
+            'years'       => $years,
+            'warehouses'  => $warehouses,
+            'warehouseId' => $warehouseId !== '' ? (int) $warehouseId : null,
         ]);
     }
 }
