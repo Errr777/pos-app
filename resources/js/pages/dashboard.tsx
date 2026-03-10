@@ -30,6 +30,7 @@ interface PageProps {
     topItems: TopItem[];
     recentSales: RecentSale[];
     lowStockItems: LowStockItem[];
+    warehouseContext?: string | null;
     [key: string]: unknown;
 }
 
@@ -58,7 +59,7 @@ const TooltipRp = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-    const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [] } = usePage<PageProps>().props;
+    const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [], warehouseContext } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
         ...(stats ?? { totalItems: 0, lowStockCount: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
     };
@@ -120,6 +121,13 @@ export default function Dashboard() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex flex-col gap-5 p-4 md:p-6">
+
+                {warehouseContext && (
+                    <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-800 px-4 py-2 text-sm text-cyan-700 dark:text-cyan-300">
+                        <span className="font-medium">Menampilkan data gudang:</span>
+                        <span>{warehouseContext}</span>
+                    </div>
+                )}
 
                 {/* ── Row 1: KPI Cards ── */}
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
