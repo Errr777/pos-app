@@ -110,24 +110,39 @@ class PosController extends Controller
                 'isDefault' => (bool) $w->is_default,
             ]);
 
-        $items = Item::select('id', 'nama', 'kode_item', 'kategori', 'stok', 'harga_jual')
+        $items = Item::select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
             ->orderBy('nama')->get()->map(fn ($i) => [
-                'id'       => $i->id,
-                'name'     => $i->nama,
-                'code'     => $i->kode_item,
-                'category' => $i->kategori,
-                'stock'    => $i->stok,
-                'price'    => $i->harga_jual,
+                'id'         => $i->id,
+                'name'       => $i->nama,
+                'code'       => $i->kode_item,
+                'category'   => $i->kategori,
+                'categoryId' => $i->id_kategori,
+                'stock'      => $i->stok,
+                'price'      => $i->harga_jual,
             ]);
 
         $customers = Customer::where('is_active', true)
             ->orderBy('name')
             ->get()->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'code' => $c->code]);
 
+        $promotions = \App\Models\Promotion::active()
+            ->get()
+            ->map(fn ($p) => [
+                'id'          => $p->id,
+                'name'        => $p->name,
+                'type'        => $p->type,
+                'value'       => $p->value,
+                'appliesTo'   => $p->applies_to,
+                'appliesId'   => $p->applies_id,
+                'minPurchase' => $p->min_purchase,
+                'maxDiscount' => $p->max_discount,
+            ]);
+
         return Inertia::render('pos/Terminal', [
             'warehouses' => $warehouses,
             'items'      => $items,
             'customers'  => $customers,
+            'promotions' => $promotions,
         ]);
     }
 
