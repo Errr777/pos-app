@@ -31,6 +31,8 @@ interface PageProps {
     totals: Totals;
     year: number;
     years: number[];
+    warehouses: { id: number; name: string }[];
+    warehouseId: number | null;
     [key: string]: unknown;
 }
 
@@ -57,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function ReportProfitLoss() {
-    const { monthly = [], totals, year, years = [] } = usePage<PageProps>().props;
+    const { monthly = [], totals, year, years = [], warehouses = [], warehouseId } = usePage<PageProps>().props;
 
     const safeTotals: Totals = totals ?? { revenue: 0, cogs: 0, gross_profit: 0 };
 
@@ -73,13 +75,33 @@ export default function ReportProfitLoss() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold">Laporan Laba Rugi {year}</h1>
-                    <select
-                        defaultValue={year}
-                        onChange={e => window.location.href = `/report/profit-loss?year=${e.target.value}`}
-                        className="border rounded-md px-3 py-2 text-sm bg-background"
-                    >
-                        {years.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
+                    <div className="flex items-center gap-2">
+                        {warehouses.length > 1 && (
+                            <select
+                                defaultValue={warehouseId ?? ''}
+                                onChange={e => {
+                                    const params = new URLSearchParams({ year: String(year) });
+                                    if (e.target.value) params.set('warehouse_id', e.target.value);
+                                    window.location.href = `/report/profit-loss?${params.toString()}`;
+                                }}
+                                className="border rounded-md px-3 py-2 text-sm bg-background"
+                            >
+                                <option value="">Semua Gudang</option>
+                                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                            </select>
+                        )}
+                        <select
+                            defaultValue={year}
+                            onChange={e => {
+                                const params = new URLSearchParams({ year: e.target.value });
+                                if (warehouseId) params.set('warehouse_id', String(warehouseId));
+                                window.location.href = `/report/profit-loss?${params.toString()}`;
+                            }}
+                            className="border rounded-md px-3 py-2 text-sm bg-background"
+                        >
+                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Summary cards */}
