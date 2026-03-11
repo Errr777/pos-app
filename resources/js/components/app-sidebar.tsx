@@ -58,6 +58,7 @@ const allNavItems: NavItem[] = [
             { title: 'Stok Keluar',        href: '/inventory/stock_out' },
             { title: 'Transfer Stok',      href: '/inventory/transfers' },
             { title: 'Penyesuaian Stok',   href: '/inventory/adjustments' },
+            { title: 'Stock Opname',       href: '/inventory/opname' },
         ],
     },
     {
