@@ -10,6 +10,8 @@ interface WarehouseInfo {
     name: string;
     location: string | null;
     description: string | null;
+    phone: string | null;
+    city: string | null;
     is_default: boolean;
     is_active: boolean;
 }
@@ -156,6 +158,12 @@ export default function WarehouseShow() {
                     </div>
                     {warehouse.location && (
                         <p className="text-sm text-muted-foreground">{warehouse.location}</p>
+                    )}
+                    {warehouse.city && (
+                        <div className="text-sm text-muted-foreground">{warehouse.city}</div>
+                    )}
+                    {warehouse.phone && (
+                        <div className="text-sm text-muted-foreground">{warehouse.phone}</div>
                     )}
                     {warehouse.description && (
                         <p className="text-sm text-muted-foreground">{warehouse.description}</p>

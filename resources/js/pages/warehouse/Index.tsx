@@ -10,6 +10,8 @@ interface WarehouseRow {
     name: string;
     location: string | null;
     description: string | null;
+    phone: string | null;
+    city: string | null;
     is_active: boolean;
     is_default: boolean;
     itemCount: number;
@@ -32,15 +34,15 @@ export default function WarehouseIndex() {
     const { warehouses, flash, errors } = usePage<PageProps>().props;
 
     const [showAdd, setShowAdd] = useState(false);
-    const [addForm, setAddForm] = useState({ code: '', name: '', location: '', description: '' });
+    const [addForm, setAddForm] = useState({ code: '', name: '', location: '', description: '', phone: '', city: '' });
     const [addErrors, setAddErrors] = useState<Record<string, string>>({});
 
     const [editWh, setEditWh] = useState<WarehouseRow | null>(null);
-    const [editForm, setEditForm] = useState({ name: '', location: '', description: '', is_active: true });
+    const [editForm, setEditForm] = useState({ name: '', location: '', description: '', phone: '', city: '', is_active: true });
 
     function submitAdd() {
         router.post(route('warehouses.store'), addForm, {
-            onSuccess: () => { setShowAdd(false); setAddForm({ code: '', name: '', location: '', description: '' }); },
+            onSuccess: () => { setShowAdd(false); setAddForm({ code: '', name: '', location: '', description: '', phone: '', city: '' }); },
             onError: (errs) => setAddErrors(errs),
         });
     }
@@ -51,6 +53,8 @@ export default function WarehouseIndex() {
             name:        wh.name,
             location:    wh.location ?? '',
             description: wh.description ?? '',
+            phone:       wh.phone ?? '',
+            city:        wh.city ?? '',
             is_active:   wh.is_active,
         });
     }
@@ -129,6 +133,11 @@ export default function WarehouseIndex() {
                                             <span className="text-xs text-muted-foreground">· {wh.location}</span>
                                         )}
                                     </div>
+                                    {(wh.city || wh.phone) && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {[wh.city, wh.phone].filter(Boolean).join(' · ')}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex gap-1 shrink-0">
                                     <button
@@ -237,6 +246,26 @@ export default function WarehouseIndex() {
                                     className="mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                 />
                             </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">No. Telepon</label>
+                                <input
+                                    type="text"
+                                    className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
+                                    placeholder="Contoh: 021-5551234"
+                                    value={addForm.phone}
+                                    onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Kota</label>
+                                <input
+                                    type="text"
+                                    className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
+                                    placeholder="Contoh: Jakarta"
+                                    value={addForm.city}
+                                    onChange={e => setAddForm(f => ({ ...f, city: e.target.value }))}
+                                />
+                            </div>
                             <div>
                                 <label className="text-sm font-medium">Deskripsi (opsional)</label>
                                 <textarea
@@ -278,6 +307,26 @@ export default function WarehouseIndex() {
                                     value={editForm.location}
                                     onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
                                     className="mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">No. Telepon</label>
+                                <input
+                                    type="text"
+                                    className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
+                                    placeholder="Contoh: 021-5551234"
+                                    value={editForm.phone}
+                                    onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium">Kota</label>
+                                <input
+                                    type="text"
+                                    className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
+                                    placeholder="Contoh: Jakarta"
+                                    value={editForm.city}
+                                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
                                 />
                             </div>
                             <div>
