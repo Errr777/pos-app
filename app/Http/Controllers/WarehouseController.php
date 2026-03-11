@@ -40,6 +40,8 @@ class WarehouseController extends Controller
                     'description'   => $w->description,
                     'is_active'     => $w->is_active,
                     'is_default'    => $w->is_default,
+                    'phone'         => $w->phone,
+                    'city'          => $w->city,
                     'itemCount'     => $itemCount,
                     'totalStock'    => $totalStock,
                     'lowStockCount' => $lowStockCount,
@@ -172,6 +174,8 @@ class WarehouseController extends Controller
                 'description' => $warehouse->description,
                 'is_default'  => $warehouse->is_default,
                 'is_active'   => $warehouse->is_active,
+                'phone'       => $warehouse->phone,
+                'city'        => $warehouse->city,
             ],
             'stats'         => $stats,
             'tab'           => $tab,
@@ -193,6 +197,8 @@ class WarehouseController extends Controller
             'name'        => 'required|string|max:100',
             'location'    => 'nullable|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'phone'       => 'nullable|string|max:20',
+            'city'        => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -215,6 +221,8 @@ class WarehouseController extends Controller
             'location'    => 'nullable|string|max:255',
             'description' => 'nullable|string|max:1000',
             'is_active'   => 'boolean',
+            'phone'       => 'nullable|string|max:20',
+            'city'        => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
