@@ -20,7 +20,7 @@ interface Promotion {
     code: string | null;
     type: 'percentage' | 'fixed';
     value: number;
-    applies_to: 'all' | 'category' | 'item';
+    applies_to: 'all' | 'category' | 'item' | 'tag';
     applies_id: number | null;
     min_purchase: number;
     max_discount: number;
@@ -36,6 +36,7 @@ interface PageProps {
     promotions: { data: Promotion[]; current_page: number; last_page: number; total: number };
     categories: CategoryOption[];
     items: ItemOption[];
+    tags: { id: number; name: string; color: string }[];
     filters: { search?: string };
     [key: string]: unknown;
 }
@@ -44,7 +45,7 @@ const today = new Date().toISOString().split('T')[0];
 
 const emptyForm = {
     name: '', code: '', type: 'percentage' as 'percentage' | 'fixed',
-    value: '', applies_to: 'all' as 'all' | 'category' | 'item',
+    value: '', applies_to: 'all' as 'all' | 'category' | 'item' | 'tag',
     applies_id: '', min_purchase: '0', max_discount: '0',
     start_date: today, end_date: today, is_active: true,
 };
@@ -65,10 +66,11 @@ const APPLIES_LABEL: Record<string, string> = {
     all:      'Semua Produk',
     category: 'Kategori',
     item:     'Produk Tertentu',
+    tag:      'Tag Produk',
 };
 
 export default function PromotionsIndex() {
-    const { promotions, categories, items, filters } = usePage<PageProps>().props;
+    const { promotions, categories, items, tags, filters } = usePage<PageProps>().props;
 
     const [search, setSearch] = useState(filters?.search ?? '');
     const [openCreate, setOpenCreate] = useState(false);
@@ -180,7 +182,11 @@ export default function PromotionsIndex() {
                                     <td className="px-4 py-2.5 text-xs font-semibold">
                                         {p.type === 'percentage' ? `${p.value}%` : formatRp(p.value)}
                                     </td>
-                                    <td className="px-4 py-2.5 text-xs">{APPLIES_LABEL[p.applies_to]}</td>
+                                    <td className="px-4 py-2.5 text-xs">
+                                        {p.applies_to === 'tag'
+                                            ? `Tag: ${tags.find(t => t.id === p.applies_id)?.name ?? '—'}`
+                                            : APPLIES_LABEL[p.applies_to]}
+                                    </td>
                                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                         {p.start_date} s/d {p.end_date}
                                     </td>
@@ -227,7 +233,7 @@ export default function PromotionsIndex() {
                         <DialogTitle>Tambah Promo Baru</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={submitCreate} className="space-y-3 mt-2">
-                        <PromoForm form={createForm} categories={categories} items={items} />
+                        <PromoForm form={createForm} categories={categories} items={items} tags={tags} />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpenCreate(false)}>Batal</Button>
                             <Button type="submit" disabled={createForm.processing}>Simpan</Button>
@@ -243,7 +249,7 @@ export default function PromotionsIndex() {
                         <DialogTitle>Edit Promo</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={submitEdit} className="space-y-3 mt-2">
-                        <PromoForm form={editForm} categories={categories} items={items} />
+                        <PromoForm form={editForm} categories={categories} items={items} tags={tags} />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpenEdit(false)}>Batal</Button>
                             <Button type="submit" disabled={editForm.processing}>Simpan</Button>
@@ -273,10 +279,11 @@ export default function PromotionsIndex() {
 
 // ── Shared form fields ──────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PromoForm({ form, categories, items }: {
+function PromoForm({ form, categories, items, tags }: {
     form: any;
     categories: { id: number; nama: string }[];
     items: { id: number; nama: string }[];
+    tags: { id: number; name: string; color: string }[];
 }) {
     return (
         <>
@@ -315,6 +322,7 @@ function PromoForm({ form, categories, items }: {
                     <option value="all">Semua Produk</option>
                     <option value="category">Kategori Tertentu</option>
                     <option value="item">Produk Tertentu</option>
+                    <option value="tag">Tag Produk</option>
                 </select>
             </Field>
 
@@ -334,6 +342,16 @@ function PromoForm({ form, categories, items }: {
                         onChange={e => form.setData('applies_id', e.target.value)}>
                         <option value="">-- Pilih --</option>
                         {items.map(i => <option key={i.id} value={i.id}>{i.nama}</option>)}
+                    </select>
+                </Field>
+            )}
+
+            {form.data.applies_to === 'tag' && (
+                <Field label="Pilih Tag">
+                    <select className={input} value={form.data.applies_id as string}
+                        onChange={e => form.setData('applies_id', e.target.value)}>
+                        <option value="">Pilih Tag</option>
+                        {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                 </Field>
             )}

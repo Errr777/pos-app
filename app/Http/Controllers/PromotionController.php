@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kategori;
 use App\Models\Item;
 use App\Models\Promotion;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -28,11 +29,13 @@ class PromotionController extends Controller
 
         $categories = Kategori::orderBy('nama')->get(['id', 'nama']);
         $items      = Item::orderBy('nama')->get(['id', 'nama']);
+        $tags       = Tag::orderBy('name')->get(['id', 'name', 'color']);
 
         return Inertia::render('promotions/Index', [
             'promotions' => $promotions,
             'categories' => $categories,
             'items'      => $items,
+            'tags'       => $tags,
             'filters'    => ['search' => $search],
         ]);
     }
@@ -44,7 +47,7 @@ class PromotionController extends Controller
             'code'         => 'nullable|string|max:50|unique:promotions,code',
             'type'         => 'required|in:percentage,fixed',
             'value'        => 'required|integer|min:1',
-            'applies_to'   => 'required|in:all,category,item',
+            'applies_to'   => 'required|in:all,category,item,tag',
             'applies_id'   => 'nullable|integer',
             'min_purchase' => 'integer|min:0',
             'max_discount' => 'integer|min:0',
@@ -65,7 +68,7 @@ class PromotionController extends Controller
             'code'       => 'nullable|string|max:50|unique:promotions,code,' . $promotion->id,
             'type'       => 'required|in:percentage,fixed',
             'value'      => 'required|integer|min:1',
-            'applies_to' => 'required|in:all,category,item',
+            'applies_to' => 'required|in:all,category,item,tag',
             'applies_id' => 'nullable|integer',
             'min_purchase'=> 'integer|min:0',
             'max_discount'=> 'integer|min:0',
