@@ -42,7 +42,7 @@ class ItemController extends Controller
             }
         }
 
-        $itemsQuery = Item::with('kategoriRelation')
+        $itemsQuery = Item::with(['kategoriRelation', 'tags'])
             ->when($search, function ($q, $search) {
                 $q->where('nama', 'like', "%{$search}%")
                 ->orWhere('kode_item', 'like', "%{$search}%");
@@ -70,6 +70,11 @@ class ItemController extends Controller
                             'nama' => $i->kategoriRelation->nama,
                         ]
                         : null,
+                    'tags'         => $i->tags->map(fn($t) => [
+                        'id'    => $t->id,
+                        'name'  => $t->name,
+                        'color' => $t->color,
+                    ])->values()->all(),
                 ];
             });
 
@@ -81,6 +86,8 @@ class ItemController extends Controller
             ];
         });
 
+        $allTags = \App\Models\Tag::orderBy('name')->get(['id', 'name', 'color']);
+
         // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
             'items'      => $items,
@@ -89,6 +96,7 @@ class ItemController extends Controller
                 'sort_dir' => $requestedDir,
             ],
             'kategoris'  => $kategoris,
+            'tags'       => $allTags,
         ]);
     }
 
@@ -338,5 +346,21 @@ class ItemController extends Controller
         }
 
         return redirect()->back()->with('success', 'Item deleted');
+    }
+
+    public function syncTags(Request $request, Item $item)
+    {
+        $data = $request->validate([
+            'tag_ids'   => 'array',
+            'tag_ids.*' => 'integer|exists:tags,id',
+        ]);
+
+        $item->tags()->sync($data['tag_ids'] ?? []);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Tags updated']);
+        }
+
+        return back()->with('success', 'Tags produk diperbarui.');
     }
 }

@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/item', [ItemController::class, 'store'])->name('item.store');
     Route::put('/item/{item}', [ItemController::class, 'update'])->name('item.update');
     Route::delete('/item/{item}', [ItemController::class, 'destroy'])->name('item.destroy');
+    Route::patch('/item/{item}/tags', [ItemController::class, 'syncTags'])->name('item.sync_tags');
 
     Route::get('/stock_alerts', [ItemController::class, 'lowStock'])->name('item.low_stock');
 

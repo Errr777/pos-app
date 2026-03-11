@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
-import { Search, Plus, Pencil, Trash, Eye } from 'lucide-react';
+import { Search, Plus, Pencil, Trash, Eye, Tag } from 'lucide-react';
 
 interface Item {
   id: number;
@@ -15,6 +15,7 @@ interface Item {
   category: string | null;
   id_kategori: number | null;
   kategori_rel: { id: number; nama: string } | null;
+  tags: { id: number; name: string; color: string }[];
 }
 import { Button } from '@/components/ui/button';
 import {
@@ -44,12 +45,13 @@ interface PageProps {
   items: { data: Item[]; meta: Record<string, unknown> };
   filters: Record<string, string>;
   kategoris: { id: number; nama: string; deskripsi?: string | null }[];
+  allTags: { id: number; name: string; color: string }[];
   [key: string]: unknown;
 }
 
 export default function Items() {
   const { props } = usePage<PageProps>();
-  const { items = { data: [], meta: {} }, filters = {} as Record<string, string>, kategoris = [] } = props;
+  const { items = { data: [], meta: {} }, filters = {} as Record<string, string>, kategoris = [], allTags = [] } = props;
 
   // --- sort key mappings (client <> server)
   const clientToServer: Record<string, string> = { name: 'nama', stock: 'stok', category: 'kategori' };
@@ -92,6 +94,9 @@ export default function Items() {
     id_kategori: null,
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [tagItem, setTagItem] = useState<Item | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
   useEffect(() => {
     setLocalItems(items.data ?? []);
@@ -243,6 +248,18 @@ export default function Items() {
     });
   };
 
+  function openTagEdit(item: Item) {
+    setTagItem(item);
+    setSelectedTagIds(item.tags.map((t: { id: number }) => t.id));
+  }
+
+  function submitTags() {
+    if (!tagItem) return;
+    router.patch(route('item.sync_tags', { item: tagItem.id }), { tag_ids: selectedTagIds }, {
+      onSuccess: () => setTagItem(null),
+    });
+  }
+
   // pagination meta normalization
   const paginated = items;
   const extractMeta = (p: typeof items | null) => {
@@ -315,13 +332,14 @@ export default function Items() {
                   Kategori {sortIcon('category')}
                 </th>
                 <th className="px-4 py-2 text-right">Harga Jual</th>
+                <th className="px-4 py-2 text-left text-xs font-medium">Tags</th>
                 <th className="px-4 py-2 text-left">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-6 text-muted-foreground">
+                  <td colSpan={8} className="text-center py-6 text-muted-foreground">
                     Item tidak ditemukan
                   </td>
                 </tr>
@@ -340,6 +358,22 @@ export default function Items() {
                         ? `Rp ${item.harga_jual.toLocaleString('id-ID')}`
                         : <span className="text-muted-foreground">-</span>}
                     </td>
+                    <td className="px-4 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags.map((t: { id: number; name: string; color: string }) => (
+                          <span
+                            key={t.id}
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                            style={{ backgroundColor: t.color }}
+                          >
+                            {t.name}
+                          </span>
+                        ))}
+                        {item.tags.length === 0 && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2 flex gap-2">
                       <TooltipProvider>
                         <Tooltip>
@@ -357,6 +391,14 @@ export default function Items() {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>Edit Item</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button onClick={() => openTagEdit(item)} title="Edit Tags" className="rounded p-1.5 hover:bg-accent text-indigo-600" aria-label="Edit Tags">
+                              <Tag className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit Tags</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -494,6 +536,44 @@ export default function Items() {
       </Dialog>
       
       {/* View & Edit Modals omitted for brevity (unchanged) */}
+
+      {/* Tag Assignment Modal */}
+      {tagItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg space-y-4">
+            <h2 className="font-semibold text-lg">Tags — {tagItem.name}</h2>
+            {allTags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Belum ada tag.{' '}
+                <a href="/tags" className="text-primary hover:underline">Buat tag dulu →</a>
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {allTags.map(t => (
+                  <label key={t.id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded-md p-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedTagIds.includes(t.id)}
+                      onChange={e => {
+                        setSelectedTagIds(prev =>
+                          e.target.checked ? [...prev, t.id] : prev.filter(id => id !== t.id)
+                        );
+                      }}
+                      className="h-4 w-4 rounded"
+                    />
+                    <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                    <span className="text-sm">{t.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setTagItem(null)} className="rounded-md border px-3 py-2 text-sm hover:bg-accent">Batal</button>
+              <button onClick={submitTags} className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
