@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import JsBarcode from 'jsbarcode';
+import QRCode from 'qrcode';
 
 interface LabelItem {
     id: number;
@@ -14,6 +15,8 @@ interface PageProps {
     items: LabelItem[];
     [key: string]: unknown;
 }
+
+type PrintMode = 'barcode' | 'qrcode';
 
 function formatRp(n: number) {
     return 'Rp ' + n.toLocaleString('id-ID');
@@ -49,8 +52,35 @@ function BarcodeLabel({ item }: { item: LabelItem }) {
     );
 }
 
+function QRLabel({ item }: { item: LabelItem }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        if (canvasRef.current && item.code) {
+            QRCode.toCanvas(canvasRef.current, item.code, {
+                width: 120,
+                margin: 1,
+                color: { dark: '#111827', light: '#ffffff' },
+            }).catch(() => {});
+        }
+    }, [item.code]);
+
+    return (
+        <div className="label-card label-card-qr">
+            <div className="label-name">{item.name}</div>
+            {item.category && <div className="label-category">{item.category}</div>}
+            <div className="label-qr-wrap">
+                <canvas ref={canvasRef} className="label-qr-canvas" />
+            </div>
+            <div className="label-code">{item.code}</div>
+            <div className="label-price">{formatRp(item.price)}</div>
+        </div>
+    );
+}
+
 export default function PrintLabels() {
     const { items } = usePage<PageProps>().props;
+    const [mode, setMode] = useState<PrintMode>('barcode');
 
     useEffect(() => {
         const t = setTimeout(() => window.print(), 800);
@@ -76,6 +106,15 @@ export default function PrintLabels() {
                         background: white; color: #374151; border: 1px solid #d1d5db;
                         padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;
                     }
+                    .mode-group {
+                        display: flex; gap: 0; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden;
+                    }
+                    .mode-btn {
+                        background: white; color: #374151; border: none; border-right: 1px solid #d1d5db;
+                        padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+                    }
+                    .mode-btn:last-child { border-right: none; }
+                    .mode-btn.active { background: #4f46e5; color: white; }
                     .label-grid {
                         display: grid;
                         grid-template-columns: repeat(4, 62mm);
@@ -103,6 +142,8 @@ export default function PrintLabels() {
                 }
                 .label-category { font-size: 7pt; color: #6b7280; margin-top: 1mm; }
                 .label-barcode { width: 100%; height: auto; display: block; margin: 2mm 0 1mm; }
+                .label-qr-wrap { display: flex; justify-content: center; margin: 2mm 0 1mm; }
+                .label-qr-canvas { width: 30mm !important; height: 30mm !important; }
                 .label-code { font-size: 7pt; font-family: monospace; color: #374151; text-align: center; letter-spacing: 0.5px; }
                 .label-price {
                     font-size: 11pt; font-weight: 800; color: #1d4ed8;
@@ -115,6 +156,20 @@ export default function PrintLabels() {
                 <button className="print-btn" onClick={() => window.print()}>
                     🖨 Cetak Label
                 </button>
+                <div className="mode-group">
+                    <button
+                        className={`mode-btn${mode === 'barcode' ? ' active' : ''}`}
+                        onClick={() => setMode('barcode')}
+                    >
+                        Barcode
+                    </button>
+                    <button
+                        className={`mode-btn${mode === 'qrcode' ? ' active' : ''}`}
+                        onClick={() => setMode('qrcode')}
+                    >
+                        QR Code
+                    </button>
+                </div>
                 <button className="back-btn" onClick={() => window.history.back()}>
                     ← Kembali
                 </button>
@@ -124,9 +179,11 @@ export default function PrintLabels() {
             </div>
 
             <div className="label-grid">
-                {items.map(item => (
-                    <BarcodeLabel key={item.id} item={item} />
-                ))}
+                {items.map(item =>
+                    mode === 'barcode'
+                        ? <BarcodeLabel key={item.id} item={item} />
+                        : <QRLabel key={item.id} item={item} />
+                )}
             </div>
         </>
     );
