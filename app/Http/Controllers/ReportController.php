@@ -383,6 +383,70 @@ class ReportController extends Controller
         ]);
     }
 
+    public function branchComparison(Request $request)
+    {
+        $dateFrom   = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $dateTo     = $request->get('date_to', now()->format('Y-m-d'));
+        $allowedIds = $this->allowedWarehouseIds();
+
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get();
+
+        $branches = $warehouses->map(function ($w) use ($dateFrom, $dateTo) {
+            $baseSales = SaleHeader::where('warehouse_id', $w->id)
+                ->where('status', 'completed')
+                ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+
+            $trxCount = (int) (clone $baseSales)->count();
+            $revenue  = (int) (clone $baseSales)->sum('grand_total');
+            $avgOrder = $trxCount > 0 ? (int) round($revenue / $trxCount) : 0;
+
+            $cogs = (int) SaleItem::whereHas('saleHeader', fn($q) =>
+                $q->where('warehouse_id', $w->id)
+                  ->where('status', 'completed')
+                  ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            )->join('items', 'items.id', '=', 'sale_items.item_id')
+             ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
+
+            $topItem = SaleItem::whereHas('saleHeader', fn($q) =>
+                $q->where('warehouse_id', $w->id)
+                  ->where('status', 'completed')
+                  ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            )->selectRaw('item_name_snapshot, SUM(quantity) as qty')
+             ->groupBy('item_name_snapshot')
+             ->orderByDesc('qty')
+             ->first();
+
+            return [
+                'id'        => $w->id,
+                'name'      => $w->name,
+                'code'      => $w->code,
+                'city'      => $w->city,
+                'phone'     => $w->phone,
+                'isDefault' => (bool) $w->is_default,
+                'trxCount'  => $trxCount,
+                'revenue'   => $revenue,
+                'cogs'      => $cogs,
+                'profit'    => $revenue - $cogs,
+                'avgOrder'  => $avgOrder,
+                'topItem'   => $topItem?->item_name_snapshot,
+            ];
+        })->values()->all();
+
+        $totals = [
+            'trxCount' => array_sum(array_column($branches, 'trxCount')),
+            'revenue'  => array_sum(array_column($branches, 'revenue')),
+            'profit'   => array_sum(array_column($branches, 'profit')),
+        ];
+
+        return Inertia::render('report/Report_Branches', [
+            'branches' => $branches,
+            'totals'   => $totals,
+            'filters'  => $request->only(['date_from', 'date_to']),
+        ]);
+    }
+
     public function peakHours(Request $request)
     {
         $dateFrom    = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));

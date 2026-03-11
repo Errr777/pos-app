@@ -135,6 +135,7 @@ const allNavItems: NavItem[] = [
             { title: 'Laba Rugi',         href: '/report/profit-loss' },
             { title: 'Analisis ABC',      href: '/report/abc' },
             { title: 'Jam Ramai',         href: '/report/peak-hours' },
+            { title: 'Perbandingan Cabang', href: '/report/branches' },
         ],
     },
     {
