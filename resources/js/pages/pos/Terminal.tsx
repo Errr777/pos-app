@@ -65,6 +65,7 @@ interface PageProps {
   customers: CustomerOption[];
   warehouses: WarehouseOption[];
   promotions: Promotion[];
+  autoWarehouseId: number | null;
   [key: string]: unknown;
 }
 
@@ -78,10 +79,14 @@ function formatRp(n: number) {
 }
 
 export default function PosTerminal() {
-  const { items, customers, warehouses, promotions = [] } = usePage<PageProps>().props;
+  const { items, customers, warehouses, promotions = [], autoWarehouseId } = usePage<PageProps>().props;
 
-  const defaultWarehouse = warehouses.find(w => w.isDefault) ?? warehouses[0];
-  const [warehouseId, setWarehouseId] = useState(defaultWarehouse?.id ?? null);
+  const [warehouseId, setWarehouseId] = useState<number | null>(
+    autoWarehouseId
+    ?? warehouses.find(w => w.isDefault)?.id
+    ?? warehouses[0]?.id
+    ?? null
+  );
 
   const [search, setSearch]     = useState('');
   const [cart, setCart]         = useState<CartItem[]>([]);
@@ -237,10 +242,16 @@ export default function PosTerminal() {
                 className="pl-8 pr-3 py-2 text-sm border border-border rounded w-full focus:outline-none focus:ring-2 focus:ring-primary"
                 value={search} onChange={e => setSearch(e.target.value)} autoFocus />
             </div>
-            <select className="text-sm border border-border rounded px-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              value={warehouseId ?? ''} onChange={e => setWarehouseId(parseInt(e.target.value))}>
-              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
+            {warehouses.length > 1 ? (
+              <select className="text-sm border border-border rounded px-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                value={warehouseId ?? ''} onChange={e => setWarehouseId(parseInt(e.target.value))}>
+                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            ) : (
+              <div className="px-3 py-2 text-sm font-medium rounded-lg bg-muted border">
+                {warehouses[0]?.name ?? 'Gudang'}
+              </div>
+            )}
             <div className="flex gap-1">
               <button
                 onClick={() => setDensity('grid')}

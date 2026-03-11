@@ -111,6 +111,9 @@ class PosController extends Controller
                 'isDefault' => (bool) $w->is_default,
             ]);
 
+        // Auto-select: if user can only access one warehouse, lock them to it
+        $autoWarehouseId = $warehouses->count() === 1 ? $warehouses->first()['id'] : null;
+
         $items = Item::with('tags')->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
             ->orderBy('nama')->get()->map(fn ($i) => [
                 'id'         => $i->id,
@@ -141,10 +144,11 @@ class PosController extends Controller
             ]);
 
         return Inertia::render('pos/Terminal', [
-            'warehouses' => $warehouses,
-            'items'      => $items,
-            'customers'  => $customers,
-            'promotions' => $promotions,
+            'warehouses'      => $warehouses,
+            'items'           => $items,
+            'customers'       => $customers,
+            'promotions'      => $promotions,
+            'autoWarehouseId' => $autoWarehouseId,
         ]);
     }
 
@@ -291,6 +295,8 @@ class PosController extends Controller
             'customerName'  => $saleHeader->customer?->name ?? 'Walk-in',
             'customerPhone' => $saleHeader->customer?->phone ?? null,
             'warehouseName' => $saleHeader->warehouse?->name ?? '-',
+            'warehouseCity'  => $saleHeader->warehouse?->city,
+            'warehousePhone' => $saleHeader->warehouse?->phone,
             'subtotal'      => $saleHeader->subtotal,
             'discountAmount'=> $saleHeader->discount_amount,
             'taxAmount'     => $saleHeader->tax_amount,
