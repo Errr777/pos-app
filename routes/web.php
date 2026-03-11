@@ -12,6 +12,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PosController;
@@ -74,6 +75,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('inventory/adjustments',          [StockAdjustmentController::class, 'index'])->name('stock_adjustment.index');
     Route::post('inventory/adjustments',         [StockAdjustmentController::class, 'store'])->name('stock_adjustment.store');
     Route::get('inventory/adjustments/stock',    [StockAdjustmentController::class, 'warehouseStock'])->name('stock_adjustment.warehouse_stock');
+
+    // Stock Opname
+    Route::get('inventory/opname',                    [StockOpnameController::class, 'index'])      ->name('opname.index');
+    Route::post('inventory/opname',                   [StockOpnameController::class, 'store'])      ->name('opname.store');
+    Route::get('inventory/opname/{opname}',           [StockOpnameController::class, 'show'])       ->name('opname.show');
+    Route::put('inventory/opname/{opname}/items',     [StockOpnameController::class, 'updateItems'])->name('opname.update_items');
+    Route::post('inventory/opname/{opname}/submit',   [StockOpnameController::class, 'submit'])     ->name('opname.submit');
+    Route::delete('inventory/opname/{opname}',        [StockOpnameController::class, 'destroy'])    ->name('opname.destroy');
 
     // Warehouses
     Route::get('warehouses',                                    [WarehouseController::class, 'index'])->name('warehouses.index');
