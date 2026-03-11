@@ -43,6 +43,8 @@ interface SaleDetail {
 
 interface PageProps {
   sale: SaleDetail;
+  warehouseCity: string | null;
+  warehousePhone: string | null;
   [key: string]: unknown;
 }
 
@@ -59,7 +61,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function PosShow() {
-  const { sale } = usePage<PageProps>().props;
+  const { sale, warehouseCity, warehousePhone } = usePage<PageProps>().props;
 
   const handleVoid = () => {
     if (!confirm(`Void transaksi ${sale.saleNumber}? Stok akan dikembalikan.`)) return;
@@ -112,6 +114,8 @@ export default function PosShow() {
             <div>
               <div className="text-xs text-muted-foreground mb-0.5">Gudang</div>
               <div className="font-medium">{sale.warehouseName}</div>
+              {warehouseCity && <div className="text-sm text-muted-foreground">{warehouseCity}</div>}
+              {warehousePhone && <div className="text-sm text-muted-foreground">{warehousePhone}</div>}
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-0.5">Metode Bayar</div>
