@@ -65,6 +65,7 @@ export default function Items() {
   const [sortBy, setSortBy] = useState<string>(initialSortBy);
   const [sortDir, setSortDir] = useState<string>(filters.sort_dir ?? 'asc');
   const [perPage, setPerPage] = useState<number>(Number(filters.per_page) || ITEMS_PER_PAGE);
+  const [tagFilter, setTagFilter] = useState<string>(filters.tag_id ?? '');
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewItem, setViewItem] = useState<Item | null>(null);
@@ -119,26 +120,28 @@ export default function Items() {
   // helper to get server key to send
   const serverSortKey = () => mapSortBy(sortBy);
 
+  const navParams = (overrides: Record<string, unknown> = {}) => ({
+    search: query,
+    per_page: perPage,
+    sort_by: serverSortKey(),
+    sort_dir: sortDir,
+    ...(tagFilter ? { tag_id: tagFilter } : {}),
+    ...overrides,
+  });
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e?.preventDefault();
-    router.get(
-      route('item.index'),
-      { search: query, per_page: perPage, sort_by: serverSortKey(), sort_dir: sortDir },
-      { preserveState: true, replace: true }
-    );
+    router.get(route('item.index'), navParams(), { preserveState: true, replace: true });
   };
 
   const handleSort = (col: string) => {
-    // col is client-key ('name'|'stock'|'category')
     let newDir = 'asc';
     if (sortBy === col) newDir = sortDir === 'asc' ? 'desc' : 'asc';
     setSortBy(col);
     setSortDir(newDir);
-
-    // always send server-key
     router.get(
       route('item.index'),
-      { search: query, per_page: perPage, sort_by: clientToServer[col] ?? col, sort_dir: newDir },
+      navParams({ sort_by: clientToServer[col] ?? col, sort_dir: newDir }),
       { preserveState: true, replace: true }
     );
   };
@@ -146,20 +149,21 @@ export default function Items() {
   const sortIcon = (col: string) => (sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅');
 
   const handlePage = (page: number) => {
-    router.get(
-      route('item.index'),
-      { search: query, per_page: perPage, sort_by: serverSortKey(), sort_dir: sortDir, page },
-      { preserveState: true }
-    );
+    router.get(route('item.index'), navParams({ page }), { preserveState: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const pp = parseInt(e.target.value, 10) || ITEMS_PER_PAGE;
     setPerPage(pp);
+    router.get(route('item.index'), navParams({ per_page: pp }), { preserveState: true, replace: true });
+  };
+
+  const handleTagFilter = (tagId: string) => {
+    setTagFilter(tagId);
     router.get(
       route('item.index'),
-      { search: query, per_page: pp, sort_by: serverSortKey(), sort_dir: sortDir },
+      navParams({ tag_id: tagId || undefined, page: 1 }),
       { preserveState: true, replace: true }
     );
   };
@@ -286,20 +290,44 @@ export default function Items() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Items" />
       <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border bg-white dark:bg-background p-4">
-        <div className="flex justify-between mb-4 gap-2">
-          <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs">
-            <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground pointer-events-none">
-              <Search size={18} />
-            </span>
-            <input
-              type="text"
-              placeholder="Pencarian..."
-              className="w-full px-10 py-2 border rounded-lg bg-muted pl-12"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={{ minWidth: 200 }}
-            />
-          </form>
+        <div className="flex flex-wrap justify-between mb-4 gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs">
+              <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground pointer-events-none">
+                <Search size={18} />
+              </span>
+              <input
+                type="text"
+                placeholder="Pencarian..."
+                className="w-full px-10 py-2 border rounded-lg bg-muted pl-12"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ minWidth: 200 }}
+              />
+            </form>
+
+            {/* Tag filter dropdown */}
+            {allTags.length > 0 && (
+              <div className="relative flex items-center">
+                {tagFilter && (
+                  <span
+                    className="absolute left-2.5 h-2.5 w-2.5 rounded-full pointer-events-none"
+                    style={{ backgroundColor: allTags.find(t => String(t.id) === tagFilter)?.color ?? 'transparent' }}
+                  />
+                )}
+                <select
+                  value={tagFilter}
+                  onChange={e => handleTagFilter(e.target.value)}
+                  className={`border rounded-lg py-2 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring ${tagFilter ? 'pl-7' : 'pl-3'}`}
+                >
+                  <option value="">Semua Tag</option>
+                  {allTags.map(t => (
+                    <option key={t.id} value={String(t.id)}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <select value={perPage} onChange={handlePerPageChange} className="border rounded px-2 py-1">
@@ -317,23 +345,33 @@ export default function Items() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full border rounded-xl">
+          <table className="w-full table-fixed border rounded-xl text-sm">
+            <colgroup>
+              <col className="w-10" />   {/* # */}
+              <col className="w-44" />   {/* Nama */}
+              <col className="w-32" />   {/* QR Code */}
+              <col className="w-16" />   {/* Stok */}
+              <col className="w-30" />   {/* Kategori */}
+              <col className="w-20" />   {/* Harga Jual */}
+              <col className="w-44" />   {/* Tags */}
+              <col className="w-36" />   {/* Aksi */}
+            </colgroup>
             <thead>
-              <tr className="bg-muted">
-                <th className="px-4 py-2 text-left cursor-default select-none">#</th>
-                <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('name')}>
+              <tr className="bg-muted text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">#</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('name')}>
                   Nama {sortIcon('name')}
                 </th>
-                <th className="px-4 py-2 text-left">QR Code</th>
-                <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('stock')}>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">QR Code</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('stock')}>
                   Stok {sortIcon('stock')}
                 </th>
-                <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('category')}>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('category')}>
                   Kategori {sortIcon('category')}
                 </th>
-                <th className="px-4 py-2 text-right">Harga Jual</th>
-                <th className="px-4 py-2 text-left text-xs font-medium">Tags</th>
-                <th className="px-4 py-2 text-left">Aksi</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Harga Jual</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tags</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -345,25 +383,27 @@ export default function Items() {
                 </tr>
               ) : (
                 localItems.map((item, idx) => (
-                  <tr key={item.id} className="border-b last:border-b-0 text-muted-foreground">
-                    <td className="px-4 py-2">{(currentPage - 1) * perPageFromMeta + idx + 1}</td>
-                    <td className="px-4 py-2">{item.name}</td>
-                    <td className="px-4 py-2">{item.qrcode}</td>
-                    <td className="px-4 py-2">{item.stock}</td>
-                    <td className="px-4 py-2">
+                  <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
+                      {(currentPage - 1) * perPageFromMeta + idx + 1}
+                    </td>
+                    <td className="px-3 py-2.5 font-medium truncate" title={item.name}>{item.name}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs truncate">{item.qrcode}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{item.stock}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground break-words">
                       {item.category ?? (item.kategori_rel ? item.kategori_rel.nama : '-')}
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-3 py-2.5 text-right tabular-nums">
                       {item.harga_jual > 0
                         ? `Rp ${item.harga_jual.toLocaleString('id-ID')}`
                         : <span className="text-muted-foreground">-</span>}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-2.5">
                       <div className="flex flex-wrap gap-1">
                         {item.tags.map((t: { id: number; name: string; color: string }) => (
                           <span
                             key={t.id}
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white whitespace-nowrap"
                             style={{ backgroundColor: t.color }}
                           >
                             {t.name}
@@ -374,7 +414,8 @@ export default function Items() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2 flex gap-2">
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -409,6 +450,7 @@ export default function Items() {
                           <TooltipContent>Hapus Item</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+                      </div>
                     </td>
                   </tr>
                 ))

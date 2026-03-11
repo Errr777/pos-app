@@ -42,10 +42,15 @@ class ItemController extends Controller
             }
         }
 
+        $tagId = $request->get('tag_id') ? (int) $request->get('tag_id') : null;
+
         $itemsQuery = Item::with(['kategoriRelation', 'tags'])
             ->when($search, function ($q, $search) {
                 $q->where('nama', 'like', "%{$search}%")
                 ->orWhere('kode_item', 'like', "%{$search}%");
+            })
+            ->when($tagId, function ($q) use ($tagId) {
+                $q->whereHas('tags', fn($tq) => $tq->where('tags.id', $tagId));
             })
             ->orderBy($sortColumn, $requestedDir);
 
@@ -91,12 +96,12 @@ class ItemController extends Controller
         // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
             'items'      => $items,
-            'filters'    => $request->only(['search', 'per_page']) + [
+            'filters'    => $request->only(['search', 'per_page', 'tag_id']) + [
                 'sort_by'  => $requestedSort,
                 'sort_dir' => $requestedDir,
             ],
             'kategoris'  => $kategoris,
-            'tags'       => $allTags,
+            'allTags'    => $allTags,
         ]);
     }
 
