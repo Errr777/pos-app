@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Warehouse extends Model
 {
-    protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'is_default'];
+    protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'is_default', 'phone', 'city'];
 
     protected $casts = [
         'is_active'  => 'boolean',
