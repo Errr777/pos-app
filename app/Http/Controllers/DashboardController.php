@@ -133,6 +133,34 @@ class DashboardController extends Controller
                 ]);
         }
 
+        // Per-branch stats — only for admins (no warehouse restriction)
+        $branchStats = null;
+        if (empty($allowedIds)) {
+            $branchStats = \App\Models\Warehouse::where('is_active', true)
+                ->orderBy('is_default', 'desc')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($w) use ($todayStart, $todayEnd, $monthStart, $monthEnd) {
+                    return [
+                        'id'         => $w->id,
+                        'name'       => $w->name,
+                        'city'       => $w->city,
+                        'salesToday' => (int) SaleHeader::where('warehouse_id', $w->id)
+                            ->where('status', 'completed')
+                            ->whereBetween('occurred_at', [$todayStart, $todayEnd])
+                            ->sum('grand_total'),
+                        'salesMonth' => (int) SaleHeader::where('warehouse_id', $w->id)
+                            ->where('status', 'completed')
+                            ->whereBetween('occurred_at', [$monthStart, $monthEnd])
+                            ->sum('grand_total'),
+                        'trxToday'   => (int) SaleHeader::where('warehouse_id', $w->id)
+                            ->where('status', 'completed')
+                            ->whereBetween('occurred_at', [$todayStart, $todayEnd])
+                            ->count(),
+                    ];
+                })->all();
+        }
+
         return Inertia::render('dashboard', [
             'stats' => [
                 'totalItems'         => $totalItems,
@@ -150,6 +178,7 @@ class DashboardController extends Controller
             'warehouseContext' => !empty($allowedIds)
                 ? \App\Models\Warehouse::whereIn('id', $allowedIds)->pluck('name')->implode(', ')
                 : null,
+            'branchStats' => $branchStats,
         ]);
     }
 }

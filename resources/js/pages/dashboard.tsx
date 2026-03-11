@@ -32,6 +32,14 @@ interface PageProps {
     recentSales: RecentSale[];
     lowStockItems: LowStockItem[];
     warehouseContext?: string | null;
+    branchStats: {
+        id: number;
+        name: string;
+        city: string | null;
+        salesToday: number;
+        salesMonth: number;
+        trxToday: number;
+    }[] | null;
     [key: string]: unknown;
 }
 
@@ -60,7 +68,7 @@ const TooltipRp = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-    const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [], warehouseContext } = usePage<PageProps>().props;
+    const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [], warehouseContext, branchStats } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
         ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
     };
@@ -219,6 +227,35 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                {/* ── Branch performance widget (admin only) ── */}
+                {branchStats && branchStats.length > 1 && (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Kinerja Cabang Hari Ini</h2>
+                            <a href="/report/branches" className="text-xs text-primary hover:underline">Lihat Semua →</a>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {branchStats.map(b => (
+                                <div key={b.id} className="rounded-xl border bg-card p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div>
+                                            <div className="font-semibold text-sm">{b.name}</div>
+                                            {b.city && <div className="text-xs text-muted-foreground">{b.city}</div>}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground tabular-nums">{b.trxToday} trx</span>
+                                    </div>
+                                    <div className="text-lg font-bold tabular-nums">
+                                        {'Rp ' + b.salesToday.toLocaleString('id-ID')}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                        Bulan ini: {'Rp ' + b.salesMonth.toLocaleString('id-ID')}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Row 3: Tables ── */}
                 <div className="grid gap-4 lg:grid-cols-2">
