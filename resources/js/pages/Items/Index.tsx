@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
-import { Search, Plus, Pencil, Trash, Eye, Tag } from 'lucide-react';
+import { Search, Plus, Pencil, Trash, Eye, Tag, Printer } from 'lucide-react';
 
 interface Item {
   id: number;
@@ -98,6 +98,7 @@ export default function Items() {
 
   const [tagItem, setTagItem] = useState<Item | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setLocalItems(items.data ?? []);
@@ -264,6 +265,22 @@ export default function Items() {
     });
   }
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+    });
+  };
+  const toggleAll = () => {
+    const allIds = items.data.map((i: Item) => i.id);
+    if (selectedIds.size === allIds.length && allIds.length > 0) {
+        setSelectedIds(new Set());
+    } else {
+        setSelectedIds(new Set(allIds));
+    }
+  };
+
   // pagination meta normalization
   const paginated = items;
   const extractMeta = (p: typeof items | null) => {
@@ -337,6 +354,17 @@ export default function Items() {
               <option value={50}>50</option>
             </select>
 
+            {selectedIds.size > 0 && (
+                <a
+                    href={`/item/print-labels?ids=${[...selectedIds].join(',')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                >
+                    <Printer className="w-4 h-4" />
+                    Print Labels ({selectedIds.size})
+                </a>
+            )}
             <Button onClick={handleAddItem} className="gap-2">
               <Plus size={16} />
               <span>Tambah Item</span>
@@ -347,6 +375,7 @@ export default function Items() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border rounded-xl text-sm">
             <colgroup>
+              <col className="w-8" />    {/* checkbox */}
               <col className="w-10" />   {/* # */}
               <col className="w-44" />   {/* Nama */}
               <col className="w-32" />   {/* QR Code */}
@@ -358,6 +387,14 @@ export default function Items() {
             </colgroup>
             <thead>
               <tr className="bg-muted text-xs uppercase tracking-wide">
+                <th className="px-3 py-3 w-8">
+                    <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={selectedIds.size === items.data.length && items.data.length > 0}
+                        onChange={toggleAll}
+                    />
+                </th>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">#</th>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('name')}>
                   Nama {sortIcon('name')}
@@ -377,13 +414,21 @@ export default function Items() {
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-6 text-muted-foreground">
+                  <td colSpan={9} className="text-center py-6 text-muted-foreground">
                     Item tidak ditemukan
                   </td>
                 </tr>
               ) : (
                 localItems.map((item, idx) => (
                   <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-3 py-2.5">
+                        <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={selectedIds.has(item.id)}
+                            onChange={() => toggleSelect(item.id)}
+                        />
+                    </td>
                     <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
                       {(currentPage - 1) * perPageFromMeta + idx + 1}
                     </td>

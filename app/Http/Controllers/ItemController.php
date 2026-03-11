@@ -368,4 +368,32 @@ class ItemController extends Controller
 
         return back()->with('success', 'Tags produk diperbarui.');
     }
+
+    public function printLabels(Request $request)
+    {
+        $ids = array_filter(array_map('intval', explode(',', $request->get('ids', ''))));
+
+        if (empty($ids)) {
+            return redirect()->route('item.index')->with('error', 'Pilih item terlebih dahulu.');
+        }
+
+        $ids = array_slice($ids, 0, 100);
+
+        $items = Item::whereIn('id', $ids)
+            ->orderBy('nama')
+            ->get()
+            ->map(fn($i) => [
+                'id'       => $i->id,
+                'name'     => $i->nama,
+                'code'     => $i->kode_item,
+                'price'    => $i->harga_jual,
+                'category' => $i->kategori,
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Items/PrintLabels', [
+            'items' => $items,
+        ]);
+    }
 }

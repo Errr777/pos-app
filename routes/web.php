@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Items
     Route::get('/item', [ItemController::class, 'index'])->name('item.index');
+    Route::get('/item/print-labels', [ItemController::class, 'printLabels'])->name('item.print_labels');
     Route::get('/item/{item}', [ItemController::class, 'show'])->name('item.show');
     Route::get('/tambah_item', [ItemController::class, 'create'])->name('item.tambah');
     Route::post('/item', [ItemController::class, 'store'])->name('item.store');
