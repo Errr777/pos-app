@@ -125,6 +125,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('report/sales/export/excel', [ReportController::class, 'exportSalesExcel'])->name('report.sales.excel');
     Route::get('report/cashflow',           [ReportController::class, 'cashReport'])->name('Report_Cashflow');
     Route::get('report/profit-loss',        [ReportController::class, 'profitLoss'])->name('Report_ProfitLoss');
+    Route::get('report/abc',                [ReportController::class, 'abcAnalysis'])->name('report.abc');
+    Route::get('report/peak-hours',         [ReportController::class, 'peakHours'])->name('report.peak_hours');
 
     // Promotions
     Route::get('/promotions',                  [PromotionController::class, 'index'])->name('promotions.index');

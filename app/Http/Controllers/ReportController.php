@@ -290,4 +290,167 @@ class ReportController extends Controller
             'warehouseId' => $warehouseId !== '' ? (int) $warehouseId : null,
         ]);
     }
+
+    public function abcAnalysis(Request $request)
+    {
+        $dateFrom    = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
+        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+
+        // Build subquery for sales aggregates per item
+        $salesSub = SaleItem::select(
+                'sale_items.item_id',
+                DB::raw('SUM(sale_items.quantity) as qty'),
+                DB::raw('SUM(sale_items.line_total) as rev')
+            )
+            ->join('sale_headers', function ($j) use ($dateFrom, $dateTo, $allowedIds, $warehouseId) {
+                $j->on('sale_headers.id', '=', 'sale_items.sale_header_id')
+                  ->where('sale_headers.status', 'completed')
+                  ->whereBetween('sale_headers.occurred_at', [
+                      $dateFrom . ' 00:00:00',
+                      $dateTo   . ' 23:59:59',
+                  ]);
+                if (!empty($allowedIds)) {
+                    $j->whereIn('sale_headers.warehouse_id', $allowedIds);
+                }
+                if ($warehouseId !== '') {
+                    $wId = (int) $warehouseId;
+                    if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                        $j->where('sale_headers.warehouse_id', $wId);
+                    }
+                }
+            })
+            ->groupBy('sale_items.item_id');
+
+        $items = Item::select([
+                'items.id',
+                'items.kode_item',
+                'items.nama',
+                'items.kategori',
+                'items.harga_beli',
+                'items.harga_jual',
+                DB::raw('COALESCE(si.qty, 0) as total_sold'),
+                DB::raw('COALESCE(si.rev, 0) as total_revenue'),
+                DB::raw('COALESCE(si.qty * items.harga_beli, 0) as total_cogs'),
+            ])
+            ->leftJoinSub($salesSub, 'si', 'si.item_id', '=', 'items.id')
+            ->orderByDesc('total_revenue')
+            ->get();
+
+        $grandTotal = (int) $items->sum('total_revenue');
+
+        $cumulative = 0;
+        $result = $items->map(function ($item) use ($grandTotal, &$cumulative) {
+            $cumulative += (int) $item->total_revenue;
+            $cumulativePct = $grandTotal > 0 ? round($cumulative / $grandTotal * 100, 1) : 0;
+            $class  = $cumulativePct <= 80 ? 'A' : ($cumulativePct <= 95 ? 'B' : 'C');
+            $profit = (int) $item->total_revenue - (int) $item->total_cogs;
+            $margin = (int) $item->total_revenue > 0
+                ? round($profit / (int) $item->total_revenue * 100, 1)
+                : 0;
+            return [
+                'id'            => $item->id,
+                'code'          => $item->kode_item,
+                'name'          => $item->nama,
+                'category'      => $item->kategori,
+                'totalSold'     => (int) $item->total_sold,
+                'totalRevenue'  => (int) $item->total_revenue,
+                'totalCogs'     => (int) $item->total_cogs,
+                'profit'        => $profit,
+                'margin'        => $margin,
+                'cumulativePct' => $cumulativePct,
+                'class'         => $class,
+            ];
+        })->values()->all();
+
+        $classSummary = [
+            'A' => collect($result)->where('class', 'A')->count(),
+            'B' => collect($result)->where('class', 'B')->count(),
+            'C' => collect($result)->where('class', 'C')->count(),
+        ];
+
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+
+        return Inertia::render('report/Report_ABC', [
+            'items'        => $result,
+            'grandTotal'   => $grandTotal,
+            'classSummary' => $classSummary,
+            'warehouses'   => $warehouses,
+            'filters'      => $request->only(['date_from', 'date_to', 'warehouse_id']),
+        ]);
+    }
+
+    public function peakHours(Request $request)
+    {
+        $dateFrom    = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));
+        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+
+        $query = SaleHeader::select([
+            DB::raw("CAST(strftime('%H', occurred_at) AS INTEGER) as hour"),
+            DB::raw("CAST(strftime('%w', occurred_at) AS INTEGER) as day_of_week"),
+            DB::raw('COUNT(*) as trx_count'),
+            DB::raw('SUM(grand_total) as revenue'),
+        ])
+        ->where('status', 'completed')
+        ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+        ->groupBy('hour', 'day_of_week')
+        ->orderBy('hour')
+        ->orderBy('day_of_week');
+
+        if (!empty($allowedIds)) {
+            $query->whereIn('warehouse_id', $allowedIds);
+        }
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $query->where('warehouse_id', $wId);
+            }
+        }
+
+        $rows = $query->get();
+
+        // Build 24x7 matrix
+        $matrix = [];
+        for ($h = 0; $h < 24; $h++) {
+            for ($d = 0; $d < 7; $d++) {
+                $matrix[$h][$d] = ['count' => 0, 'revenue' => 0];
+            }
+        }
+        foreach ($rows as $row) {
+            $matrix[(int)$row->hour][(int)$row->day_of_week] = [
+                'count'   => (int) $row->trx_count,
+                'revenue' => (int) $row->revenue,
+            ];
+        }
+
+        $cells = [];
+        for ($h = 0; $h < 24; $h++) {
+            for ($d = 0; $d < 7; $d++) {
+                $cells[] = [
+                    'hour'    => $h,
+                    'day'     => $d,
+                    'count'   => $matrix[$h][$d]['count'],
+                    'revenue' => $matrix[$h][$d]['revenue'],
+                ];
+            }
+        }
+
+        $maxCount = max(1, collect($cells)->max('count'));
+
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+
+        return Inertia::render('report/Report_PeakHours', [
+            'cells'      => $cells,
+            'maxCount'   => $maxCount,
+            'warehouses' => $warehouses,
+            'filters'    => $request->only(['date_from', 'date_to', 'warehouse_id']),
+        ]);
+    }
 }
