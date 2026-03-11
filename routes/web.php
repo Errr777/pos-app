@@ -18,6 +18,7 @@ use App\Http\Controllers\PosController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\TagController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -120,6 +121,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/promotions/{promotion}',      [PromotionController::class, 'update'])->name('promotions.update');
     Route::delete('/promotions/{promotion}',   [PromotionController::class, 'destroy'])->name('promotions.destroy');
     Route::get('/promotions/active',           [PromotionController::class, 'active'])->name('promotions.active');
+
+    // Tags
+    Route::get('/tags',          [TagController::class, 'index'])->name('tags.index');
+    Route::post('/tags',         [TagController::class, 'store'])->name('tags.store');
+    Route::put('/tags/{tag}',    [TagController::class, 'update'])->name('tags.update');
+    Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
 
     // Purchase Orders (create must be before /{purchaseOrder} wildcard)
     Route::get('purchase-orders',                               [PurchaseOrderController::class, 'index'])       ->name('po.index');

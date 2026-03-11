@@ -35,4 +35,9 @@ class Item extends Model
     {
         return $this->belongsTo(Kategori::class, 'id_kategori');
     }
+
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class, 'item_tag');
+    }
 }
