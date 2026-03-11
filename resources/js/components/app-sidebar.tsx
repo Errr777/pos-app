@@ -40,6 +40,7 @@ const allNavItems: NavItem[] = [
             { title: 'Daftar Produk',   href: '/item/' },
             { title: 'Tambah Produk',   href: '/tambah_item' },
             { title: 'Kategori Produk', href: '/category/' },
+            { title: 'Tags Produk',     href: '/tags' },
             { title: 'Stok Minimum',    href: '/stock_alerts' },
         ],
     },

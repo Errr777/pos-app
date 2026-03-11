@@ -22,6 +22,7 @@ interface ItemOption {
   categoryId: number | null;
   stock: number;
   price: number;
+  tagIds: number[];
 }
 
 interface Promotion {
@@ -29,7 +30,7 @@ interface Promotion {
   name: string;
   type: 'percentage' | 'fixed';
   value: number;
-  appliesTo: 'all' | 'category' | 'item';
+  appliesTo: 'all' | 'category' | 'item' | 'tag';
   appliesId: number | null;
   minPurchase: number;
   maxDiscount: number;
@@ -105,6 +106,7 @@ export default function PosTerminal() {
     for (const p of promos) {
       if (p.appliesTo === 'item' && p.appliesId !== item.id) continue;
       if (p.appliesTo === 'category' && p.appliesId !== item.categoryId) continue;
+      if (p.appliesTo === 'tag' && !item.tagIds.includes(p.appliesId!)) continue;
       if (p.minPurchase > 0 && lineTotal < p.minPurchase) continue;
 
       let discount = p.type === 'percentage'

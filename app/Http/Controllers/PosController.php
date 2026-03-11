@@ -111,7 +111,7 @@ class PosController extends Controller
                 'isDefault' => (bool) $w->is_default,
             ]);
 
-        $items = Item::select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
+        $items = Item::with('tags')->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
             ->orderBy('nama')->get()->map(fn ($i) => [
                 'id'         => $i->id,
                 'name'       => $i->nama,
@@ -120,6 +120,7 @@ class PosController extends Controller
                 'categoryId' => $i->id_kategori,
                 'stock'      => $i->stok,
                 'price'      => $i->harga_jual,
+                'tagIds'     => $i->tags->pluck('id')->values()->all(),
             ]);
 
         $customers = Customer::where('is_active', true)
