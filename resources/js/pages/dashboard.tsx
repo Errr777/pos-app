@@ -18,12 +18,17 @@ interface DashboardStats {
     salesToday: number;
     salesThisMonth: number;
     netRevenueThisMonth: number;
+    transactionCountMonth: number;
 }
 
 interface SalesChartPoint { date: string; total: number; count: number; }
 interface TopItem        { name: string; qty: number; }
 interface RecentSale     { id: number; saleNumber: string; cashier: string; grandTotal: number; occurredAt: string; }
 interface LowStockItem   { id: number; name: string; stock: number; minimum: number; deficit: number; }
+interface RevenueTrendPoint { date: string; revenue: number; }
+interface TopProduct    { name: string; qtySold: number; revenue: number; }
+interface RecentTransaction { id: number; saleNumber: string; occurredAt: string; cashierName: string; grandTotal: number; }
+interface StockAlerts   { count: number; items: { name: string; stock: number; stockMin: number; outletName: string | null }[] }
 
 interface PageProps {
     stats: DashboardStats;
@@ -31,6 +36,10 @@ interface PageProps {
     topItems: TopItem[];
     recentSales: RecentSale[];
     lowStockItems: LowStockItem[];
+    revenueTrend: RevenueTrendPoint[];
+    topProducts: TopProduct[];
+    recentTransactions: RecentTransaction[];
+    stockAlerts: StockAlerts;
     warehouseContext?: string | null;
     branchStats: {
         id: number;
@@ -40,6 +49,9 @@ interface PageProps {
         salesMonth: number;
         trxToday: number;
     }[] | null;
+    selectedMonth: string;
+    isCurrentMonth: boolean;
+    availableMonths: { value: string; label: string }[];
     [key: string]: unknown;
 }
 
@@ -68,23 +80,62 @@ const TooltipRp = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-    const { stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [], warehouseContext, branchStats } = usePage<PageProps>().props;
+    const {
+        stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [],
+        revenueTrend = [], topProducts = [], recentTransactions = [],
+        stockAlerts = { count: 0, items: [] },
+        warehouseContext, branchStats,
+        selectedMonth = '', isCurrentMonth = true, availableMonths = [],
+    } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
-        ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0 }),
+        ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0, transactionCountMonth: 0 }),
+    };
+
+    const handleMonthChange = (month: string) => {
+        router.get(route('dashboard'), { month }, { preserveState: false });
+    };
+
+    const monthLabel = selectedMonth
+        ? new Date(selectedMonth + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+        : '';
+
+    // Derive unique years and months from availableMonths
+    const availableYears = [...new Set(availableMonths.map(m => m.value.slice(0, 4)))];
+    const selectedYear = selectedMonth.slice(0, 4);
+    const selectedMonthNum = selectedMonth.slice(5, 7);
+    const monthsForYear = availableMonths.filter(m => m.value.startsWith(selectedYear));
+    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+    const handleYearChange = (year: string) => {
+        // Pick first available month in the new year, or keep same month number if available
+        const sameMonth = availableMonths.find(m => m.value === `${year}-${selectedMonthNum}`);
+        const fallback = availableMonths.find(m => m.value.startsWith(year));
+        const target = sameMonth ?? fallback;
+        if (target) handleMonthChange(target.value);
+    };
+
+    const handleMonthNumChange = (monthNum: string) => {
+        handleMonthChange(`${selectedYear}-${monthNum}`);
     };
 
     const kpiCards = [
-        {
+        isCurrentMonth ? {
             label: 'Penjualan Hari Ini',
             value: formatRp(safeStats.salesToday),
             sub: 'transaksi selesai hari ini',
             cls: 'border-indigo-200 bg-indigo-50 dark:bg-indigo-950/40',
             valCls: 'text-indigo-700 dark:text-indigo-300',
+        } : {
+            label: 'Total Transaksi',
+            value: safeStats.transactionCountMonth.toString(),
+            sub: `transaksi di ${monthLabel}`,
+            cls: 'border-indigo-200 bg-indigo-50 dark:bg-indigo-950/40',
+            valCls: 'text-indigo-700 dark:text-indigo-300',
         },
         {
-            label: 'Penjualan Bulan Ini',
+            label: isCurrentMonth ? 'Penjualan Bulan Ini' : `Omzet ${monthLabel}`,
             value: formatRp(safeStats.salesThisMonth),
-            sub: 'total omzet bulan ini',
+            sub: isCurrentMonth ? 'total omzet bulan ini' : 'total omzet periode ini',
             cls: 'border-violet-200 bg-violet-50 dark:bg-violet-950/40',
             valCls: 'text-violet-700 dark:text-violet-300',
         },
@@ -131,12 +182,59 @@ export default function Dashboard() {
             <Head title="Dashboard" />
             <div className="flex flex-col gap-5 p-4 md:p-6">
 
-                {warehouseContext && (
-                    <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-800 px-4 py-2 text-sm text-cyan-700 dark:text-cyan-300">
-                        <span className="font-medium">Menampilkan data gudang:</span>
-                        <span>{warehouseContext}</span>
+                {/* ── Month filter + context bar ── */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        {warehouseContext && (
+                            <div className="flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-800 px-4 py-2 text-sm text-cyan-700 dark:text-cyan-300">
+                                <span className="font-medium">Gudang:</span>
+                                <span>{warehouseContext}</span>
+                            </div>
+                        )}
+                        {!isCurrentMonth && (
+                            <div className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800 px-3 py-1.5 text-xs text-violet-700 dark:text-violet-300">
+                                <span>Melihat data:</span>
+                                <span className="font-semibold">{monthLabel}</span>
+                            </div>
+                        )}
                     </div>
-                )}
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Filter:</label>
+                        {/* Year dropdown */}
+                        <select
+                            value={selectedYear}
+                            onChange={e => handleYearChange(e.target.value)}
+                            className="rounded-lg border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                            {availableYears.map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+                        {/* Month dropdown — only shows months available in selected year */}
+                        <select
+                            value={selectedMonthNum}
+                            onChange={e => handleMonthNumChange(e.target.value)}
+                            className="rounded-lg border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                            {monthsForYear.map(m => {
+                                const num = m.value.slice(5, 7);
+                                return (
+                                    <option key={m.value} value={num}>
+                                        {MONTH_NAMES[parseInt(num, 10) - 1]}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        {!isCurrentMonth && (
+                            <button
+                                onClick={() => handleMonthChange(new Date().toISOString().slice(0, 7))}
+                                className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                            >
+                                Bulan Ini
+                            </button>
+                        )}
+                    </div>
+                </div>
 
                 {safeStats.itemsWithNoMinimum > 0 && (
                     <div className="mx-4 mt-4 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
@@ -152,7 +250,23 @@ export default function Dashboard() {
 
                 {/* ── Row 1: KPI Cards ── */}
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-                    {kpiCards.map((card) => (
+                    {/* Revenue card with sparkline */}
+                    <div className={`rounded-xl border p-4 flex flex-col gap-1 shadow-sm col-span-2 md:col-span-1 ${kpiCards[0].cls}`}>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">{kpiCards[0].label}</span>
+                        <span className={`text-2xl font-bold mt-0.5 ${kpiCards[0].valCls}`}>{kpiCards[0].value}</span>
+                        <span className="text-xs text-muted-foreground">{kpiCards[0].sub}</span>
+                        {revenueTrend.length > 0 && (
+                            <div className="mt-1 -mx-1">
+                                <ResponsiveContainer width="100%" height={40}>
+                                    <BarChart data={revenueTrend} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                        <Bar dataKey="revenue" fill="oklch(0.511 0.262 277)" radius={[2, 2, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </div>
+                    {/* Remaining KPI cards */}
+                    {kpiCards.slice(1).map((card) => (
                         <div key={card.label} className={`rounded-xl border p-4 flex flex-col gap-1 shadow-sm ${card.cls}`}>
                             <span className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">{card.label}</span>
                             <span className={`text-2xl font-bold mt-0.5 ${card.valCls}`}>{card.value}</span>
@@ -169,12 +283,118 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* ── Row 2: Charts ── */}
+                {/* ── Row 2: New Widgets ── */}
+                <div className="grid gap-4 lg:grid-cols-3">
+
+                    {/* Top 5 Products */}
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <h2 className="text-sm font-semibold">
+                                {isCurrentMonth ? 'Top Produk Hari Ini' : `Top Produk ${monthLabel}`}
+                            </h2>
+                            <a href={route('report.abc')} className="text-xs text-primary hover:underline">Lihat Semua →</a>
+                        </div>
+                        {topProducts.length === 0 ? (
+                            <div className="flex items-center justify-center h-28 text-xs text-muted-foreground">
+                                {isCurrentMonth ? 'Belum ada penjualan hari ini' : `Tidak ada data untuk ${monthLabel}`}
+                            </div>
+                        ) : (
+                            <div className="divide-y">
+                                {topProducts.map((p, i) => (
+                                    <div key={p.name} className="flex items-center gap-3 px-4 py-2.5">
+                                        <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center shrink-0">
+                                            {i + 1}
+                                        </span>
+                                        <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
+                                        <div className="text-right shrink-0">
+                                            <span className="text-xs font-semibold tabular-nums">{p.qtySold} pcs</span>
+                                            <span className="block text-xs text-muted-foreground tabular-nums">{formatRp(p.revenue)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Stock Alerts */}
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-sm font-semibold">Stok Minim</h2>
+                                {stockAlerts.count > 0 && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                        {stockAlerts.count}
+                                    </span>
+                                )}
+                            </div>
+                            <a href={route('item.low_stock')} className="text-xs text-primary hover:underline">Lihat Semua →</a>
+                        </div>
+                        {stockAlerts.items.length === 0 ? (
+                            <div className="flex items-center justify-center h-28 text-xs text-muted-foreground">
+                                Semua stok aman
+                            </div>
+                        ) : (
+                            <div className="divide-y">
+                                {stockAlerts.items.map((item) => (
+                                    <div key={item.name + (item.outletName ?? '')} className="flex items-center gap-3 px-4 py-2.5">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium truncate">{item.name}</p>
+                                            {item.outletName && (
+                                                <p className="text-xs text-muted-foreground truncate">{item.outletName}</p>
+                                            )}
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <span className={`text-xs font-bold tabular-nums ${item.stock === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                {item.stock}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground tabular-nums">/{item.stockMin}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Recent Transactions */}
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <h2 className="text-sm font-semibold">Transaksi Terakhir</h2>
+                            <span className="text-xs text-primary cursor-pointer hover:underline" onClick={() => router.visit(route('pos.index'))}>
+                                Lihat Semua →
+                            </span>
+                        </div>
+                        {recentTransactions.length === 0 ? (
+                            <div className="flex items-center justify-center h-28 text-xs text-muted-foreground">
+                                Belum ada transaksi
+                            </div>
+                        ) : (
+                            <div className="divide-y">
+                                {recentTransactions.map((t) => (
+                                    <div
+                                        key={t.id}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer transition-colors"
+                                        onClick={() => router.visit(route('pos.show', t.id))}
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-mono text-primary truncate">{t.saleNumber}</p>
+                                            <p className="text-xs text-muted-foreground">{t.cashierName} · {t.occurredAt}</p>
+                                        </div>
+                                        <span className="text-xs font-semibold tabular-nums shrink-0">{formatRp(t.grandTotal)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Row 3: Charts ── */}
                 <div className="grid gap-4 lg:grid-cols-3">
 
                     {/* Sales trend (area chart) — 2/3 width */}
                     <div className="lg:col-span-2 rounded-xl border bg-card p-4 shadow-sm">
-                        <h2 className="text-sm font-semibold mb-4">Penjualan 7 Hari Terakhir</h2>
+                        <h2 className="text-sm font-semibold mb-4">
+                            {isCurrentMonth ? 'Penjualan 7 Hari Terakhir' : `Penjualan Harian — ${monthLabel}`}
+                        </h2>
                         <ResponsiveContainer width="100%" height={220}>
                             <AreaChart data={salesChart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                                 <defs>
@@ -201,7 +421,9 @@ export default function Dashboard() {
 
                     {/* Top 5 items (horizontal bar) — 1/3 width */}
                     <div className="rounded-xl border bg-card p-4 shadow-sm">
-                        <h2 className="text-sm font-semibold mb-4">Top 5 Item Terjual Bulan Ini</h2>
+                        <h2 className="text-sm font-semibold mb-4">
+                            {isCurrentMonth ? 'Top 5 Item Terjual Bulan Ini' : `Top 5 Item — ${monthLabel}`}
+                        </h2>
                         {topItems.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center mt-10">Belum ada data</p>
                         ) : (
@@ -257,13 +479,15 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* ── Row 3: Tables ── */}
+                {/* ── Row 4: Tables ── */}
                 <div className="grid gap-4 lg:grid-cols-2">
 
                     {/* Recent sales */}
                     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-3 border-b">
-                            <h2 className="text-sm font-semibold">Transaksi Penjualan Terbaru</h2>
+                            <h2 className="text-sm font-semibold">
+                                {isCurrentMonth ? 'Transaksi Penjualan Terbaru' : `Transaksi — ${monthLabel}`}
+                            </h2>
                             <span
                                 className="text-xs text-primary cursor-pointer hover:underline"
                                 onClick={() => router.visit(route('pos.index'))}

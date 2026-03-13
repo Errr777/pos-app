@@ -152,7 +152,7 @@ export default function Stock_Adjustment() {
   };
 
   const exportCSV = () => {
-    const header = ['Tanggal', 'Item', 'Gudang', 'Stok Lama', 'Stok Baru', 'Selisih', 'Alasan', 'Actor'];
+    const header = ['Tanggal', 'Item', 'Outlet', 'Stok Lama', 'Stok Baru', 'Selisih', 'Alasan', 'Actor'];
     const lines  = adjustments.data.map(r => [
       formatDateISO(r.date), r.itemName, r.warehouseName,
       r.oldQty, r.newQty, r.difference, r.reason ?? '', r.actor ?? '',
@@ -219,7 +219,7 @@ export default function Stock_Adjustment() {
               <tr className="bg-muted">
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('date')}>Tanggal {sortIcon('date')}</th>
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('itemName')}>Item {sortIcon('itemName')}</th>
-                <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('warehouse')}>Gudang {sortIcon('warehouse')}</th>
+                <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('warehouse')}>Outlet {sortIcon('warehouse')}</th>
                 <th className="px-4 py-2 text-right">Stok Lama</th>
                 <th className="px-4 py-2 text-right">Stok Baru</th>
                 <th className="px-4 py-2 text-right cursor-pointer select-none" onClick={() => handleSort('difference')}>Selisih {sortIcon('difference')}</th>
@@ -298,7 +298,7 @@ export default function Stock_Adjustment() {
               <p><strong>ID:</strong> {selected.txnId}</p>
               <p><strong>Tanggal:</strong> {formatDateISO(selected.date)}</p>
               <p><strong>Item:</strong> {selected.itemName}</p>
-              <p><strong>Gudang:</strong> {selected.warehouseName}</p>
+              <p><strong>Outlet:</strong> {selected.warehouseName}</p>
               <div className="flex items-center gap-4 rounded-md bg-muted p-3">
                 <div className="text-center"><div className="text-lg font-bold">{selected.oldQty}</div><div className="text-xs text-muted-foreground">Stok Lama</div></div>
                 <div className="text-muted-foreground">→</div>
@@ -336,7 +336,7 @@ export default function Stock_Adjustment() {
                 {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
               </div>
               <div>
-                <label className="block font-semibold mb-1">Gudang</label>
+                <label className="block font-semibold mb-1">Outlet</label>
                 <select value={form.warehouse_id}
                   onChange={async (e) => {
                     const wid = Number(e.target.value);

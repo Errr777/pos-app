@@ -129,7 +129,7 @@ export default function PurchaseOrderShow() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
             {[
               { label: 'Supplier',     value: po.supplierName },
-              { label: 'Gudang',       value: po.warehouseName },
+              { label: 'Outlet',       value: po.warehouseName },
               { label: 'Dibuat oleh',  value: po.orderedBy },
               { label: 'Tgl. Pesan',   value: formatDate(po.orderedAt) },
               { label: 'Exp. Terima',  value: formatDate(po.expectedAt) },

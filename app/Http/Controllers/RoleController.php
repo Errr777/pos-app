@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Role;
 use App\Models\RolePermission;
 use App\Models\UserPermission;
@@ -124,6 +125,13 @@ class RoleController extends Controller
                 ['can_view' => $canView, 'can_write' => $canWrite, 'can_delete' => $canDelete]
             );
         }
+
+        $modulesChanged = array_keys($request->permissions ?? []);
+
+        AuditLogger::log('role.permissions_changed', $role, null, [
+            'role_name'       => $role->name,
+            'modules_changed' => $modulesChanged,
+        ]);
 
         return redirect()->route('users.roles')->with('success', 'Hak akses role berhasil diperbarui.');
     }

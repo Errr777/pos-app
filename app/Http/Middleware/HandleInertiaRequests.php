@@ -77,6 +77,11 @@ class HandleInertiaRequests extends Middleware
                 if (!$user) return [];
                 return $user->allowedWarehouseIds(); // empty = all allowed
             },
+
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error'   => $request->session()->get('error'),
+            ],
         ];
     }
 }

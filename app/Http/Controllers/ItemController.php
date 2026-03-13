@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Item;
 use App\Models\Kategori;
+use App\Models\SaleItem;
+use App\Models\Supplier;
+use App\Models\WarehouseItem;
+use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
@@ -11,6 +16,7 @@ use Illuminate\Support\Facades\Validator;
 
 class ItemController extends Controller
 {
+    use FiltersWarehouseByUser;
     public function index(Request $request)
     {
         $perPage = (int) $request->get('per_page', 10);
@@ -44,7 +50,7 @@ class ItemController extends Controller
 
         $tagId = $request->get('tag_id') ? (int) $request->get('tag_id') : null;
 
-        $itemsQuery = Item::with(['kategoriRelation', 'tags'])
+        $itemsQuery = Item::with(['kategoriRelation', 'tags', 'preferredSupplier'])
             ->when($search, function ($q, $search) {
                 $q->where('nama', 'like', "%{$search}%")
                 ->orWhere('kode_item', 'like', "%{$search}%");
@@ -75,11 +81,14 @@ class ItemController extends Controller
                             'nama' => $i->kategoriRelation->nama,
                         ]
                         : null,
-                    'tags'         => $i->tags->map(fn($t) => [
+                    'tags'                   => $i->tags->map(fn($t) => [
                         'id'    => $t->id,
                         'name'  => $t->name,
                         'color' => $t->color,
                     ])->values()->all(),
+                    'type'                   => $i->type ?? 'barang',
+                    'preferred_supplier_id'  => $i->preferred_supplier_id,
+                    'preferred_supplier_name'=> $i->preferredSupplier?->name,
                 ];
             });
 
@@ -92,25 +101,77 @@ class ItemController extends Controller
         });
 
         $allTags = \App\Models\Tag::orderBy('name')->get(['id', 'name', 'color']);
+        $allSuppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
         // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
-            'items'      => $items,
-            'filters'    => $request->only(['search', 'per_page', 'tag_id']) + [
+            'items'        => $items,
+            'filters'      => $request->only(['search', 'per_page', 'tag_id']) + [
                 'sort_by'  => $requestedSort,
                 'sort_dir' => $requestedDir,
             ],
-            'kategoris'  => $kategoris,
-            'allTags'    => $allTags,
+            'kategoris'    => $kategoris,
+            'allTags'      => $allTags,
+            'allSuppliers' => $allSuppliers,
         ]);
     }
 
     public function show(Item $item)
     {
-        $item->load('kategoriRelation');
+        $item->load(['kategoriRelation', 'tags', 'preferredSupplier']);
+        $allowedIds = $this->allowedWarehouseIds();
+
+        // Stock by outlet
+        $stockByOutletQuery = WarehouseItem::where('item_id', $item->id)
+            ->join('warehouses', 'warehouses.id', '=', 'warehouse_items.warehouse_id')
+            ->where('warehouses.is_active', true)
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_items.warehouse_id', $allowedIds))
+            ->select('warehouses.id as warehouse_id', 'warehouses.name as outlet_name', 'warehouse_items.stok', 'warehouse_items.stok_minimal')
+            ->orderBy('warehouses.name')
+            ->get()
+            ->map(fn($r) => [
+                'warehouseId' => $r->warehouse_id,
+                'outletName'  => $r->outlet_name,
+                'stock'       => (int) $r->stok,
+                'stockMin'    => (int) $r->stok_minimal,
+            ])->all();
+
+        // Recent sales (last 10)
+        $recentSales = SaleItem::where('item_id', $item->id)
+            ->whereHas('saleHeader', fn($q) => $q->where('status', 'completed')
+                ->when(!empty($allowedIds), fn($q2) => $q2->whereIn('warehouse_id', $allowedIds))
+            )
+            ->with('saleHeader:id,sale_number,occurred_at')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get()
+            ->map(fn($si) => [
+                'saleNumber' => $si->saleHeader?->sale_number,
+                'occurredAt' => $si->saleHeader?->occurred_at?->format('d/m/Y H:i'),
+                'quantity'   => (int) $si->quantity,
+                'unitPrice'  => (int) $si->unit_price,
+                'lineTotal'  => (int) $si->line_total,
+            ])->all();
 
         return Inertia::render('Items/Show', [
-            'item' => $item->toArray(),
+            'item' => [
+                'id'          => $item->id,
+                'type'        => $item->type ?? 'barang',
+                'name'        => $item->nama,
+                'description' => $item->deskripsi,
+                'qrcode'      => $item->kode_item,
+                'stock'       => $item->stok,
+                'stockMin'    => $item->stok_minimal,
+                'hargaJual'   => $item->harga_jual,
+                'hargaBeli'   => $item->harga_beli,
+                'category'    => $item->kategori,
+                'tags'                    => $item->tags->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'color' => $t->color])->all(),
+                'preferredSupplierId'     => $item->preferred_supplier_id,
+                'preferredSupplierName'   => $item->preferredSupplier?->name,
+            ],
+            'stockByOutlet' => $stockByOutletQuery,
+            'recentSales'   => $recentSales,
+            'canWrite'      => request()->user()?->hasPermission('items', 'can_write') ?? false,
         ]);
     }
 
@@ -128,12 +189,15 @@ class ItemController extends Controller
     public function store(Request $request)
     {
         // ✅ Validate the input
+        $isJasa = $request->input('type') === 'jasa';
+
         $validated = $request->validate([
+            'type'         => 'nullable|in:barang,jasa',
             'nama'         => 'required|string|max:255',
             'deskripsi'    => 'nullable|string|max:1000',
             'kode_item'    => 'required|string|max:255|unique:items,kode_item',
-            'stok'         => 'required|numeric|min:0',
-            'stok_minimal' => 'required|numeric|min:0',
+            'stok'         => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
+            'stok_minimal' => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'harga_beli'   => 'nullable|integer|min:0',
             'harga_jual'   => 'nullable|integer|min:0',
             'kategori'     => 'nullable|string|max:255',
@@ -148,11 +212,12 @@ class ItemController extends Controller
 
         // ✅ Save to DB
         $item = Item::create([
+            'type'         => $validated['type'] ?? 'barang',
             'nama'         => $validated['nama'],
             'deskripsi'    => $validated['deskripsi'] ?? null,
             'kode_item'    => $validated['kode_item'],
-            'stok'         => $validated['stok'],
-            'stok_minimal' => $validated['stok_minimal'],
+            'stok'         => $isJasa ? 0 : ($validated['stok'] ?? 0),
+            'stok_minimal' => $isJasa ? 0 : ($validated['stok_minimal'] ?? 0),
             'harga_beli'   => (int) ($validated['harga_beli'] ?? 0),
             'harga_jual'   => (int) ($validated['harga_jual'] ?? 0),
             'kategori'     => $validated['kategori'] ?? null,
@@ -172,6 +237,7 @@ class ItemController extends Controller
     {
         // Accept both id_kategori (preferred) or category (fallback)
         $data = $request->only([
+            'type',
             'name',        // UI -> nama
             'description', // -> deskripsi
             'qrcode',      // -> kode_item
@@ -181,6 +247,7 @@ class ItemController extends Controller
             'harga_jual',
             'id_kategori',
             'category',
+            'preferred_supplier_id',
         ]);
 
         // Normalize for validation
@@ -192,18 +259,23 @@ class ItemController extends Controller
             'stok_minimal' => isset($data['stock_min']) ? (int) $data['stock_min'] : $item->stok_minimal,
             'harga_beli'   => isset($data['harga_beli']) ? (int) $data['harga_beli'] : $item->harga_beli,
             'harga_jual'   => isset($data['harga_jual']) ? (int) $data['harga_jual'] : $item->harga_jual,
-            'id_kategori'  => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? (int) $data['id_kategori'] : null,
+            'id_kategori'           => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? (int) $data['id_kategori'] : null,
+            'preferred_supplier_id' => isset($data['preferred_supplier_id']) && $data['preferred_supplier_id'] !== '' ? (int) $data['preferred_supplier_id'] : null,
         ];
+
+        $newType = isset($data['type']) && in_array($data['type'], ['barang', 'jasa']) ? $data['type'] : ($item->type ?? 'barang');
+        $isJasaUpdate = $newType === 'jasa';
 
         $validator = Validator::make($payloadForValidation, [
             'nama'         => 'required|string|max:100',
             'deskripsi'    => 'nullable|string|max:1000',
             'kode_item'    => 'required|string|max:100|unique:items,kode_item,' . $item->id,
-            'stok'         => 'required|integer|min:0',
-            'stok_minimal' => 'required|integer|min:0',
+            'stok'         => $isJasaUpdate ? 'nullable|integer|min:0' : 'required|integer|min:0',
+            'stok_minimal' => $isJasaUpdate ? 'nullable|integer|min:0' : 'required|integer|min:0',
             'harga_beli'   => 'nullable|integer|min:0',
             'harga_jual'   => 'nullable|integer|min:0',
-            'id_kategori'  => 'nullable|integer|exists:kategoris,id',
+            'id_kategori'           => 'nullable|integer|exists:kategoris,id',
+            'preferred_supplier_id' => 'nullable|integer|exists:suppliers,id',
         ]);
 
         if ($validator->fails()) {
@@ -228,18 +300,37 @@ class ItemController extends Controller
         }
 
         $updatePayload = [
-            'nama'         => $payloadForValidation['nama'],
-            'deskripsi'    => $payloadForValidation['deskripsi'],
-            'kode_item'    => $payloadForValidation['kode_item'],
-            'stok'         => $payloadForValidation['stok'],
-            'stok_minimal' => $payloadForValidation['stok_minimal'],
-            'harga_beli'   => $payloadForValidation['harga_beli'],
-            'harga_jual'   => $payloadForValidation['harga_jual'],
-            'id_kategori'  => $payloadForValidation['id_kategori'] ?? null,
-            'kategori'     => $kategoriName,
+            'type'                  => $newType,
+            'nama'                  => $payloadForValidation['nama'],
+            'deskripsi'             => $payloadForValidation['deskripsi'],
+            'kode_item'             => $payloadForValidation['kode_item'],
+            'stok'                  => $payloadForValidation['stok'],
+            'stok_minimal'          => $payloadForValidation['stok_minimal'],
+            'harga_beli'            => $payloadForValidation['harga_beli'],
+            'harga_jual'            => $payloadForValidation['harga_jual'],
+            'id_kategori'           => $payloadForValidation['id_kategori'] ?? null,
+            'kategori'              => $kategoriName,
+            'preferred_supplier_id' => $payloadForValidation['preferred_supplier_id'] ?? null,
         ];
 
+        $oldHargaJual = $item->harga_jual;
+        $oldHargaBeli = $item->harga_beli;
+
         $item->update($updatePayload);
+
+        if ($oldHargaJual !== $item->harga_jual) {
+            AuditLogger::log('item.sell_price_changed', $item,
+                ['harga_jual' => $oldHargaJual],
+                ['harga_jual' => $item->harga_jual]
+            );
+        }
+
+        if ($oldHargaBeli !== $item->harga_beli) {
+            AuditLogger::log('item.buy_price_changed', $item,
+                ['harga_beli' => $oldHargaBeli],
+                ['harga_beli' => $item->harga_beli]
+            );
+        }
 
         // Return JSON for XHR or Inertia-friendly response
         if ($request->wantsJson()) {
@@ -297,9 +388,10 @@ class ItemController extends Controller
         $sortDirRaw = 'asc';
     }
 
-    // Base query: items where stok < stok_minimal
+    // Base query: items where stok < stok_minimal (exclude jasa — services have no stock)
     $query = Item::query()
         ->with('kategoriRelation')
+        ->where('type', 'barang')
         ->whereColumn('stok', '<', 'stok_minimal');
 
     // Search

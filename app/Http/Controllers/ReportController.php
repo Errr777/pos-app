@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AbcAnalysisExport;
+use App\Exports\BranchComparisonExport;
+use App\Exports\CashflowExport;
+use App\Exports\PeakHoursExport;
 use App\Exports\SalesReportExport;
 use App\Exports\StockReportExport;
+use App\Models\Expense;
 use App\Models\Item;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
@@ -221,9 +226,76 @@ class ReportController extends Controller
 
     // ─── Laporan Kas ──────────────────────────────────────────────────────────
 
-    public function cashReport()
+    public function cashReport(Request $request)
     {
-        return Inertia::render('report/Report_Cashflow');
+        $dateFrom    = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $dateTo      = $request->get('date_to',   now()->format('Y-m-d'));
+        $warehouseId = $request->get('warehouse_id', '');
+        $groupBy     = $request->get('group_by', 'daily'); // 'daily' | 'monthly'
+        $allowedIds  = $this->allowedWarehouseIds();
+
+        $fmt = $groupBy === 'monthly' ? '%Y-%m' : '%Y-%m-%d';
+
+        // ── Cash IN: completed sales ──────────────────────────────────────────
+        $inQuery = SaleHeader::selectRaw("strftime('{$fmt}', occurred_at) as period, SUM(grand_total) as total")
+            ->where('status', 'completed')
+            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->groupByRaw("strftime('{$fmt}', occurred_at)");
+
+        if (!empty($allowedIds)) $inQuery->whereIn('warehouse_id', $allowedIds);
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $inQuery->where('warehouse_id', $wId);
+            }
+        }
+
+        $cashIn = $inQuery->pluck('total', 'period')->map(fn($v) => (int) $v);
+
+        // ── Cash OUT: received purchase orders ────────────────────────────────
+        $outQuery = \App\Models\PurchaseOrder::selectRaw("strftime('{$fmt}', received_at) as period, SUM(grand_total) as total")
+            ->where('status', 'received')
+            ->whereNotNull('received_at')
+            ->whereBetween('received_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->groupByRaw("strftime('{$fmt}', received_at)");
+
+        if (!empty($allowedIds)) $outQuery->whereIn('warehouse_id', $allowedIds);
+        if ($warehouseId !== '') {
+            $wId = (int) $warehouseId;
+            if (empty($allowedIds) || in_array($wId, $allowedIds)) {
+                $outQuery->where('warehouse_id', $wId);
+            }
+        }
+
+        $cashOut = $outQuery->pluck('total', 'period')->map(fn($v) => (int) $v);
+
+        // ── Build unified timeline ────────────────────────────────────────────
+        $allPeriods = $cashIn->keys()->merge($cashOut->keys())->unique()->sort()->values();
+
+        $series = $allPeriods->map(fn($p) => [
+            'period'  => $p,
+            'cashIn'  => $cashIn->get($p, 0),
+            'cashOut' => $cashOut->get($p, 0),
+            'net'     => $cashIn->get($p, 0) - $cashOut->get($p, 0),
+        ])->values()->all();
+
+        $totalIn  = (int) $cashIn->sum();
+        $totalOut = (int) $cashOut->sum();
+
+        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
+        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+
+        return Inertia::render('report/Report_Cashflow', [
+            'series'     => $series,
+            'totals'     => [
+                'cashIn'  => $totalIn,
+                'cashOut' => $totalOut,
+                'net'     => $totalIn - $totalOut,
+            ],
+            'warehouses' => $warehouses,
+            'filters'    => $request->only(['date_from', 'date_to', 'warehouse_id', 'group_by']),
+        ]);
     }
 
     // ─── Laporan Laba Rugi (P&L) ──────────────────────────────────────────────
@@ -259,12 +331,18 @@ class ReportController extends Controller
             )->join('items', 'items.id', '=', 'sale_items.item_id')
              ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
+            $expenses = (int) Expense::whereBetween('occurred_at', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->sum('amount');
+
             $monthly[] = [
                 'month'        => Carbon::create($year, $m, 1)->format('M'),
                 'month_num'    => $m,
                 'revenue'      => $revenue,
                 'cogs'         => $cogs,
                 'gross_profit' => $revenue - $cogs,
+                'expenses'     => $expenses,
+                'net_profit'   => $revenue - $cogs - $expenses,
             ];
         }
 
@@ -272,6 +350,8 @@ class ReportController extends Controller
             'revenue'      => array_sum(array_column($monthly, 'revenue')),
             'cogs'         => array_sum(array_column($monthly, 'cogs')),
             'gross_profit' => array_sum(array_column($monthly, 'gross_profit')),
+            'expenses'     => array_sum(array_column($monthly, 'expenses')),
+            'net_profit'   => array_sum(array_column($monthly, 'net_profit')),
         ];
 
         $currentYear = now()->year;
@@ -516,5 +596,57 @@ class ReportController extends Controller
             'warehouses' => $warehouses,
             'filters'    => $request->only(['date_from', 'date_to', 'warehouse_id']),
         ]);
+    }
+
+    // ─── Export ABC Analysis ke Excel ─────────────────────────────────────────
+
+    public function exportAbcExcel(Request $request)
+    {
+        $from        = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
+        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+        $filename    = 'abc-analysis-' . $from . '-' . $to . '.xlsx';
+
+        return Excel::download(new AbcAnalysisExport($from, $to, $allowedIds, $warehouseId), $filename);
+    }
+
+    // ─── Export Kas ke Excel ──────────────────────────────────────────────────
+
+    public function exportCashflowExcel(Request $request)
+    {
+        $from        = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $groupBy     = $request->get('group_by', 'daily');
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+        $filename    = 'laporan-kas-' . $from . '-' . $to . '.xlsx';
+
+        return Excel::download(new CashflowExport($from, $to, $groupBy, $allowedIds, $warehouseId), $filename);
+    }
+
+    // ─── Export Perbandingan Cabang ke Excel ──────────────────────────────────
+
+    public function exportBranchesExcel(Request $request)
+    {
+        $from       = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to         = $request->get('date_to', now()->format('Y-m-d'));
+        $allowedIds = $this->allowedWarehouseIds();
+        $filename   = 'perbandingan-cabang-' . $from . '-' . $to . '.xlsx';
+
+        return Excel::download(new BranchComparisonExport($from, $to, $allowedIds), $filename);
+    }
+
+    // ─── Export Peak Hours ke Excel ───────────────────────────────────────────
+
+    public function exportPeakHoursExcel(Request $request)
+    {
+        $from        = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));
+        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $warehouseId = $request->get('warehouse_id', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+        $filename    = 'peak-hours-' . $from . '-' . $to . '.xlsx';
+
+        return Excel::download(new PeakHoursExport($from, $to, $allowedIds, $warehouseId), $filename);
     }
 }

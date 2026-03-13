@@ -81,13 +81,13 @@ export default function StockOpname() {
                         <div className="bg-background rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
                             <h2 className="text-lg font-semibold">Mulai Sesi Stock Opname</h2>
                             <div className="space-y-1">
-                                <label className="text-sm font-medium">Gudang</label>
+                                <label className="text-sm font-medium">Outlet</label>
                                 <select
                                     className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
                                     value={warehouseId}
                                     onChange={e => setWarehouseId(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Gudang --</option>
+                                    <option value="">-- Pilih Outlet --</option>
                                     {warehouses.map(w => (
                                         <option key={w.id} value={w.id}>{w.name}</option>
                                     ))}
@@ -126,7 +126,7 @@ export default function StockOpname() {
                         <thead className="bg-muted/40 border-b">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Ref</th>
-                                <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Gudang</th>
+                                <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Outlet</th>
                                 <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Tanggal</th>
                                 <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Item</th>
                                 <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Status</th>

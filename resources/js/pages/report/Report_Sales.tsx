@@ -199,7 +199,7 @@ export default function ReportSales() {
                             value={warehouseId}
                             onChange={e => { setWarehouseId(e.target.value); navigate({ warehouse_id: e.target.value, page: 1 }); }}
                         >
-                            <option value="">Semua Gudang</option>
+                            <option value="">Semua Outlet</option>
                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                         </select>
                     )}

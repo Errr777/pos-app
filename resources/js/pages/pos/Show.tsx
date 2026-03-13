@@ -112,7 +112,7 @@ export default function PosShow() {
               <div className="font-medium">{sale.cashier}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground mb-0.5">Gudang</div>
+              <div className="text-xs text-muted-foreground mb-0.5">Outlet</div>
               <div className="font-medium">{sale.warehouseName}</div>
               {warehouseCity && <div className="text-sm text-muted-foreground">{warehouseCity}</div>}
               {warehousePhone && <div className="text-sm text-muted-foreground">{warehousePhone}</div>}

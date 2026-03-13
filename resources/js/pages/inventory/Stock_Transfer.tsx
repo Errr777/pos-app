@@ -384,7 +384,7 @@ export default function Stock_Transfer() {
         <DialogContent className="max-w-lg">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>Transfer Stok Antar Gudang</DialogTitle>
+              <DialogTitle>Transfer Stok Antar Outlet</DialogTitle>
               <DialogDescription>Pindahkan stok dari satu gudang ke gudang lain.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 mt-3">
@@ -397,7 +397,7 @@ export default function Stock_Transfer() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Dari Gudang</label>
+                  <label className="block font-semibold mb-1">Dari Outlet</label>
                   <select value={form.from_warehouse_id}
                     onChange={(e) => setForm(f => ({ ...f, from_warehouse_id: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border rounded-lg">
@@ -406,7 +406,7 @@ export default function Stock_Transfer() {
                   {formErrors.from_warehouse_id && <p className="text-destructive text-sm mt-1">{formErrors.from_warehouse_id}</p>}
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">Ke Gudang</label>
+                  <label className="block font-semibold mb-1">Ke Outlet</label>
                   <select value={form.to_warehouse_id}
                     onChange={(e) => setForm(f => ({ ...f, to_warehouse_id: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border rounded-lg">

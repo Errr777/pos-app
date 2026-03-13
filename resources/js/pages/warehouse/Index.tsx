@@ -27,7 +27,7 @@ interface PageProps {
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Gudang', href: '/warehouses' },
+    { title: 'Outlet', href: '/warehouses' },
 ];
 
 export default function WarehouseIndex() {
@@ -68,8 +68,8 @@ export default function WarehouseIndex() {
 
     function handleDelete(wh: WarehouseRow) {
         const msg = wh.lowStockCount > 0 || wh.totalStock > 0
-            ? `Gudang "${wh.name}" memiliki stok. Gudang akan dinonaktifkan. Lanjutkan?`
-            : `Hapus gudang "${wh.name}"?`;
+            ? `Outlet "${wh.name}" memiliki stok. Outlet akan dinonaktifkan. Lanjutkan?`
+            : `Hapus outlet "${wh.name}"?`;
         if (!confirm(msg)) return;
         router.delete(route('warehouses.destroy', { warehouse: wh.id }));
     }
@@ -80,14 +80,14 @@ export default function WarehouseIndex() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Manajemen Gudang</h1>
-                        <p className="text-sm text-muted-foreground">Kelola gudang dan stok per lokasi</p>
+                        <h1 className="text-xl font-semibold">Manajemen Outlet</h1>
+                        <p className="text-sm text-muted-foreground">Kelola outlet dan stok per lokasi</p>
                     </div>
                     <button
                         onClick={() => setShowAdd(true)}
                         className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                     >
-                        <Plus className="h-4 w-4" /> Tambah Gudang
+                        <Plus className="h-4 w-4" /> Tambah Outlet
                     </button>
                 </div>
 
@@ -201,7 +201,7 @@ export default function WarehouseIndex() {
 
                     {warehouses.length === 0 && (
                         <div className="col-span-full rounded-lg border bg-muted/30 p-10 text-center text-sm text-muted-foreground">
-                            Belum ada gudang. Tambahkan gudang pertama Anda.
+                            Belum ada outlet. Tambahkan outlet pertama Anda.
                         </div>
                     )}
                 </div>
@@ -211,10 +211,10 @@ export default function WarehouseIndex() {
             {showAdd && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg space-y-4">
-                        <h2 className="font-semibold text-lg">Tambah Gudang</h2>
+                        <h2 className="font-semibold text-lg">Tambah Outlet</h2>
                         <div className="space-y-3">
                             <div>
-                                <label className="text-sm font-medium">Kode Gudang</label>
+                                <label className="text-sm font-medium">Kode Outlet</label>
                                 <input
                                     type="text"
                                     value={addForm.code}
@@ -226,12 +226,12 @@ export default function WarehouseIndex() {
                                 {addErrors.code && <p className="text-xs text-destructive mt-1">{addErrors.code}</p>}
                             </div>
                             <div>
-                                <label className="text-sm font-medium">Nama Gudang</label>
+                                <label className="text-sm font-medium">Nama Outlet</label>
                                 <input
                                     type="text"
                                     value={addForm.name}
                                     onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                                    placeholder="Gudang Selatan"
+                                    placeholder="Outlet Selatan"
                                     className="mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                 />
                                 {addErrors.name && <p className="text-xs text-destructive mt-1">{addErrors.name}</p>}
@@ -289,10 +289,10 @@ export default function WarehouseIndex() {
             {editWh && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg space-y-4">
-                        <h2 className="font-semibold text-lg">Edit Gudang — {editWh.name}</h2>
+                        <h2 className="font-semibold text-lg">Edit Outlet — {editWh.name}</h2>
                         <div className="space-y-3">
                             <div>
-                                <label className="text-sm font-medium">Nama Gudang</label>
+                                <label className="text-sm font-medium">Nama Outlet</label>
                                 <input
                                     type="text"
                                     value={editForm.name}
@@ -346,7 +346,7 @@ export default function WarehouseIndex() {
                                         onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))}
                                         className="h-4 w-4 rounded"
                                     />
-                                    Gudang aktif
+                                    Outlet aktif
                                 </label>
                             )}
                         </div>

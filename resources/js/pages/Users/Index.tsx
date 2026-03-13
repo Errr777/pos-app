@@ -387,7 +387,7 @@ export default function UsersIndex() {
                               <Warehouse size={16} />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent>{row.role === 'admin' ? 'Admin akses semua gudang' : 'Akses Gudang'}</TooltipContent>
+                          <TooltipContent>{row.role === 'admin' ? 'Admin akses semua outlet' : 'Akses Outlet'}</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -621,7 +621,7 @@ export default function UsersIndex() {
       <Dialog open={!!warehouseTarget} onOpenChange={v => !v && setWarehouseTarget(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Akses Gudang — {warehouseTarget?.name}</DialogTitle>
+            <DialogTitle>Akses Outlet — {warehouseTarget?.name}</DialogTitle>
             <DialogDescription>
               Pilih gudang yang bisa diakses. Kosongkan untuk akses semua gudang.
             </DialogDescription>

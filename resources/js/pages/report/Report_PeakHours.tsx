@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
+import { Download } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -88,14 +89,21 @@ export default function ReportPeakHours() {
                     </div>
                     {warehouses.length > 1 && (
                         <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Gudang</label>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Outlet</label>
                             <select className="border rounded-lg px-3 py-2 text-sm bg-background" value={warehouse} onChange={e => setWarehouse(e.target.value)}>
-                                <option value="">Semua Gudang</option>
+                                <option value="">Semua Outlet</option>
                                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
                         </div>
                     )}
                     <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <a
+                        href={`/report/peak-hours/export/excel?date_from=${dateFrom}&date_to=${dateTo}&warehouse_id=${warehouse}`}
+                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export Excel
+                    </a>
                 </div>
 
                 {/* Summary Cards */}

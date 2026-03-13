@@ -17,6 +17,7 @@ import {
   FileText,
   RotateCcw,
   Tag,
+  Receipt,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -62,7 +63,7 @@ const allNavItems: NavItem[] = [
         ],
     },
     {
-        title: 'Gudang',
+        title: 'Outlet',
         href: '/warehouses',
         icon: Warehouse,
         iconColor: 'text-cyan-400',
@@ -102,8 +103,11 @@ const allNavItems: NavItem[] = [
         href: '/purchase-orders',
         icon: FileText,
         iconColor: 'text-blue-400',
-        single: true,
         module: 'purchase_orders',
+        items: [
+            { title: 'Semua PO', href: '/purchase-orders' },
+            { title: 'Saran Reorder', href: '/purchase-orders/suggestions' },
+        ],
     },
     {
         title: 'Retur',
@@ -120,6 +124,14 @@ const allNavItems: NavItem[] = [
         iconColor: 'text-pink-400',
         single: true,
         module: 'items',
+    },
+    {
+        title: 'Beban',
+        href: '/expenses',
+        icon: Receipt,
+        iconColor: 'text-orange-400',
+        single: true,
+        module: 'reports',
     },
     {
         title: 'Laporan',
@@ -148,6 +160,7 @@ const allNavItems: NavItem[] = [
         items: [
             { title: 'Daftar Pengguna', href: '/users' },
             { title: 'Role & Akses',    href: '/users/roles' },
+            { title: 'Log Aktivitas',   href: '/audit-log', adminOnly: true },
         ],
     },
 ];
@@ -155,13 +168,19 @@ const allNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
-    const { props } = usePage<{ permissions: Permissions }>();
+    const { props } = usePage<{ permissions: Permissions; auth: { user: { role?: string } } }>();
     const permissions = props.permissions ?? {} as Permissions;
+    const isAdmin = props.auth?.user?.role === 'admin';
 
-    const visibleItems = allNavItems.filter((item) => {
-        if (!item.module) return true;
-        return permissions[item.module as keyof Permissions]?.can_view ?? false;
-    });
+    const visibleItems = allNavItems
+        .filter((item) => {
+            if (!item.module) return true;
+            return permissions[item.module as keyof Permissions]?.can_view ?? false;
+        })
+        .map((item) => ({
+            ...item,
+            items: item.items?.filter((sub) => !sub.adminOnly || isAdmin),
+        }));
 
     return (
         <Sidebar collapsible="icon" variant="inset">

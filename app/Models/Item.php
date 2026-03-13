@@ -12,6 +12,7 @@ class Item extends Model
     protected $table = 'items';
 
     protected $fillable = [
+        'type',
         'kode_item',
         'nama',
         'deskripsi',
@@ -21,14 +22,16 @@ class Item extends Model
         'harga_jual',
         'kategori',
         'id_kategori',
+        'preferred_supplier_id',
     ];
 
     protected $casts = [
-        'stok'        => 'integer',
-        'stok_minimal'=> 'integer',
-        'harga_beli'  => 'integer',
-        'harga_jual'  => 'integer',
-        'id_kategori' => 'integer',
+        'stok'                  => 'integer',
+        'stok_minimal'          => 'integer',
+        'harga_beli'            => 'integer',
+        'harga_jual'            => 'integer',
+        'id_kategori'           => 'integer',
+        'preferred_supplier_id' => 'integer',
     ];
 
     public function kategoriRelation()
@@ -39,5 +42,10 @@ class Item extends Model
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'item_tag');
+    }
+
+    public function preferredSupplier()
+    {
+        return $this->belongsTo(Supplier::class, 'preferred_supplier_id');
     }
 }

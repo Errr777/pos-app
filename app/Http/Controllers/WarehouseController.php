@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Item;
 use App\Models\Transaction;
 use App\Models\Warehouse;
@@ -205,7 +206,12 @@ class WarehouseController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        Warehouse::create($validator->validated());
+        $warehouse = Warehouse::create($validator->validated());
+
+        AuditLogger::log('outlet.created', $warehouse, null, [
+            'name' => $warehouse->name,
+            'code' => $warehouse->code,
+        ]);
 
         return redirect()->route('warehouses.index')->with('success', 'Gudang berhasil ditambahkan.');
     }
@@ -229,7 +235,8 @@ class WarehouseController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        $data = $validator->validated();
+        $data    = $validator->validated();
+        $oldName = $warehouse->name;
 
         // Cannot deactivate the default warehouse
         if ($warehouse->is_default) {
@@ -237,6 +244,11 @@ class WarehouseController extends Controller
         }
 
         $warehouse->update($data);
+
+        AuditLogger::log('outlet.updated', $warehouse,
+            ['name' => $oldName],
+            ['name' => $warehouse->name]
+        );
 
         return redirect()->route('warehouses.index')->with('success', 'Gudang berhasil diperbarui.');
     }
@@ -257,6 +269,8 @@ class WarehouseController extends Controller
             return redirect()->route('warehouses.index')
                 ->with('success', 'Gudang dinonaktifkan (memiliki riwayat transaksi).');
         }
+
+        AuditLogger::log('outlet.deleted', $warehouse, ['name' => $warehouse->name]);
 
         $warehouse->delete();
         return redirect()->route('warehouses.index')->with('success', 'Gudang berhasil dihapus.');

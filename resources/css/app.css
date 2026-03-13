@@ -167,3 +167,12 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Sidebar gradient — Option B: Midnight to Indigo */
+[data-slot="sidebar"] {
+    background: linear-gradient(
+        to bottom,
+        oklch(0.13 0.03 260),
+        oklch(0.22 0.12 277)
+    ) !important;
+}

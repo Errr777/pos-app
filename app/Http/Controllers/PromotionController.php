@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Kategori;
 use App\Models\Item;
 use App\Models\Promotion;
@@ -56,7 +57,13 @@ class PromotionController extends Controller
             'is_active'    => 'boolean',
         ]);
 
-        Promotion::create($data);
+        $promotion = Promotion::create($data);
+
+        AuditLogger::log('promotion.created', $promotion, null, [
+            'name'           => $promotion->name,
+            'discount_type'  => $promotion->type,
+            'discount_value' => $promotion->value,
+        ]);
 
         return back()->with('success', 'Promo berhasil ditambahkan.');
     }
@@ -77,6 +84,11 @@ class PromotionController extends Controller
             'is_active'  => 'boolean',
         ]);
 
+        AuditLogger::log('promotion.updated', $promotion,
+            ['name' => $promotion->name, 'discount_value' => $promotion->value],
+            ['name' => $data['name'], 'discount_value' => $data['value']]
+        );
+
         $promotion->update($data);
 
         return back()->with('success', 'Promo berhasil diupdate.');
@@ -84,6 +96,8 @@ class PromotionController extends Controller
 
     public function destroy(Promotion $promotion)
     {
+        AuditLogger::log('promotion.deleted', $promotion, ['name' => $promotion->name]);
+
         $promotion->delete();
         return back()->with('success', 'Promo dihapus.');
     }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Building2, TrendingUp, ShoppingCart, BarChart3 } from 'lucide-react';
+import { Building2, TrendingUp, ShoppingCart, BarChart3, Download } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -76,6 +76,13 @@ export default function ReportBranches() {
                         <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background" value={dateTo} onChange={e => setDateTo(e.target.value)} />
                     </div>
                     <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <a
+                        href={`/report/branches/export/excel?date_from=${dateFrom}&date_to=${dateTo}`}
+                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export Excel
+                    </a>
                 </div>
 
                 {/* Totals */}

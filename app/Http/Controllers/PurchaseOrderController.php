@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Item;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
@@ -193,11 +194,17 @@ class PurchaseOrderController extends Controller
             return back()->withErrors(['status' => 'Status PO tidak bisa diubah.']);
         }
 
+        $oldStatus = $purchaseOrder->status;
         $purchaseOrder->status = $request->status;
         if ($request->status === 'ordered') {
             $purchaseOrder->ordered_at = now();
         }
         $purchaseOrder->save();
+
+        AuditLogger::log('po.status_changed', $purchaseOrder,
+            ['status' => $oldStatus],
+            ['status' => $purchaseOrder->status]
+        );
 
         return redirect()->route('po.index')->with('success', 'Status PO berhasil diperbarui.');
     }
@@ -275,6 +282,15 @@ class PurchaseOrderController extends Controller
             $purchaseOrder->save();
         });
 
+        if ($purchaseOrder->status === 'received') {
+            $purchaseOrder->load('supplier');
+            AuditLogger::log('po.received', $purchaseOrder, null, [
+                'po_number'   => $purchaseOrder->po_number,
+                'supplier'    => $purchaseOrder->supplier?->name,
+                'grand_total' => $purchaseOrder->grand_total,
+            ]);
+        }
+
         return redirect()->route('po.show', $purchaseOrder)->with('success', 'Penerimaan barang berhasil dicatat.');
     }
 
@@ -287,5 +303,134 @@ class PurchaseOrderController extends Controller
         $purchaseOrder->delete();
 
         return redirect()->route('po.index')->with('success', 'PO berhasil dihapus.');
+    }
+
+    // ── Reorder Suggestions ──────────────────────────────────────────────────
+
+    public function suggestions()
+    {
+        $allowedIds = $this->allowedWarehouseIds();
+
+        // Items below minimum, per warehouse, joined to item + supplier
+        $rows = WarehouseItem::query()
+            ->whereColumn('warehouse_items.stok', '<', 'warehouse_items.stok_minimal')
+            ->where('warehouse_items.stok_minimal', '>', 0)
+            ->join('warehouses', 'warehouses.id', '=', 'warehouse_items.warehouse_id')
+            ->join('items',      'items.id',      '=', 'warehouse_items.item_id')
+            ->where('items.type', 'barang')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'items.preferred_supplier_id')
+            ->where('warehouses.is_active', true)
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_items.warehouse_id', $allowedIds))
+            ->select(
+                'items.id as item_id',
+                'items.nama as item_name',
+                'items.harga_beli as unit_price',
+                'items.preferred_supplier_id',
+                'suppliers.name as supplier_name',
+                'warehouses.id as warehouse_id',
+                'warehouses.name as warehouse_name',
+                'warehouse_items.stok as current_stock',
+                'warehouse_items.stok_minimal as stock_min',
+            )
+            ->orderBy('warehouses.name')
+            ->orderByRaw('warehouse_items.stok_minimal - warehouse_items.stok DESC')
+            ->get()
+            ->map(fn($r) => [
+                'itemId'      => $r->item_id,
+                'itemName'    => $r->item_name,
+                'unitPrice'   => (int) $r->unit_price,
+                'supplierId'  => $r->preferred_supplier_id,
+                'supplierName'=> $r->supplier_name,
+                'warehouseId' => $r->warehouse_id,
+                'warehouseName'=> $r->warehouse_name,
+                'currentStock'=> (int) $r->current_stock,
+                'stockMin'    => (int) $r->stock_min,
+                'deficit'     => (int) $r->stock_min - (int) $r->current_stock,
+                // suggested qty = fill to 2× minimum
+                'suggestedQty'=> max((int) $r->stock_min * 2 - (int) $r->current_stock, (int) $r->stock_min - (int) $r->current_stock),
+            ])->all();
+
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+        $warehouses = Warehouse::where('is_active', true)
+            ->when(!empty($allowedIds), fn($q) => $q->whereIn('id', $allowedIds))
+            ->orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('purchase-orders/Suggestions', [
+            'suggestions' => $rows,
+            'suppliers'   => $suppliers,
+            'warehouses'  => $warehouses,
+        ]);
+    }
+
+    public function createFromSuggestions(Request $request)
+    {
+        $validated = $request->validate([
+            'items'                => 'required|array|min:1',
+            'items.*.item_id'      => 'required|integer|exists:items,id',
+            'items.*.warehouse_id' => 'required|integer|exists:warehouses,id',
+            'items.*.supplier_id'  => 'required|integer|exists:suppliers,id',
+            'items.*.qty'          => 'required|integer|min:1',
+        ]);
+
+        // Group by supplier_id + warehouse_id → one PO per combination
+        $groups = [];
+        foreach ($validated['items'] as $row) {
+            $key = $row['supplier_id'] . '_' . $row['warehouse_id'];
+            $groups[$key][] = $row;
+        }
+
+        $createdIds = [];
+
+        DB::transaction(function () use ($groups, &$createdIds) {
+            foreach ($groups as $rows) {
+                $supplierId  = $rows[0]['supplier_id'];
+                $warehouseId = $rows[0]['warehouse_id'];
+
+                $subtotal = 0;
+                foreach ($rows as $r) {
+                    $item = Item::find($r['item_id']);
+                    $subtotal += ($item->harga_beli ?? 0) * $r['qty'];
+                }
+
+                $po = PurchaseOrder::create([
+                    'po_number'    => 'PO-' . strtoupper(uniqid()),
+                    'supplier_id'  => $supplierId,
+                    'warehouse_id' => $warehouseId,
+                    'ordered_by'   => Auth::id(),
+                    'status'       => 'draft',
+                    'ordered_at'   => now(),
+                    'subtotal'     => $subtotal,
+                    'tax_amount'   => 0,
+                    'grand_total'  => $subtotal,
+                    'note'         => 'Dibuat dari saran reorder otomatis.',
+                ]);
+
+                foreach ($rows as $r) {
+                    $item = Item::find($r['item_id']);
+                    $lineTotal = ($item->harga_beli ?? 0) * $r['qty'];
+
+                    PurchaseOrderItem::create([
+                        'purchase_order_id'  => $po->id,
+                        'item_id'            => $r['item_id'],
+                        'item_name_snapshot' => $item->nama,
+                        'ordered_qty'        => $r['qty'],
+                        'received_qty'       => 0,
+                        'unit_price'         => $item->harga_beli ?? 0,
+                        'line_total'         => $lineTotal,
+                    ]);
+                }
+
+                AuditLogger::log('po.status_changed', $po,
+                    ['status' => null],
+                    ['status' => 'draft', 'source' => 'reorder_suggestion']
+                );
+
+                $createdIds[] = $po->id;
+            }
+        });
+
+        $count = count($createdIds);
+        return redirect()->route('po.index')
+            ->with('success', "{$count} draft PO berhasil dibuat dari saran reorder.");
     }
 }

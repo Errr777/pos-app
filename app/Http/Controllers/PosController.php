@@ -202,7 +202,7 @@ class PosController extends Controller
                     ->lockForUpdate()->first();
 
                 $currentStock = $wi ? $wi->stok : 0;
-                if ($currentStock < $qty) {
+                if (($item->type ?? 'barang') === 'barang' && $currentStock < $qty) {
                     throw new \RuntimeException("Stok {$item->nama} tidak cukup. Tersedia: {$currentStock}");
                 }
 
@@ -246,11 +246,13 @@ class PosController extends Controller
 
             // 4. Deduct stock and create sale items
             foreach ($lineData as $ld) {
-                $ld['wi']->stok -= $ld['qty'];
-                $ld['wi']->save();
+                if (($ld['item']->type ?? 'barang') === 'barang' && $ld['wi']) {
+                    $ld['wi']->stok -= $ld['qty'];
+                    $ld['wi']->save();
 
-                $ld['item']->stok = (int) WarehouseItem::where('item_id', $ld['item']->id)->sum('stok');
-                $ld['item']->save();
+                    $ld['item']->stok = (int) WarehouseItem::where('item_id', $ld['item']->id)->sum('stok');
+                    $ld['item']->save();
+                }
 
                 SaleItem::create([
                     'sale_header_id'     => $sale->id,

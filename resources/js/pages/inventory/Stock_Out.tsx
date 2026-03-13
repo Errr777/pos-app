@@ -369,7 +369,7 @@ export default function Stock_Out() {
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('itemName')}>
                   Item {sortIcon('itemName')}
                 </th>
-                <th className="px-4 py-2 text-left">Gudang</th>
+                <th className="px-4 py-2 text-left">Outlet</th>
                 <th className="px-4 py-2 text-left cursor-pointer select-none" onClick={() => handleSort('quantity')}>
                   Qty Out {sortIcon('quantity')}
                 </th>
@@ -492,7 +492,7 @@ export default function Stock_Out() {
                 {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
               </div>
               <div>
-                <label className="block font-semibold mb-1">Gudang</label>
+                <label className="block font-semibold mb-1">Outlet</label>
                 <select
                   value={form.warehouseId}
                   onChange={(e) => setForm((f) => ({ ...f, warehouseId: Number(e.target.value) }))}
@@ -504,7 +504,7 @@ export default function Stock_Out() {
                 </select>
                 {formErrors.warehouse_id && <p className="text-destructive text-sm mt-1">{formErrors.warehouse_id}</p>}
                 {formMode === 'edit' && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Gudang hanya bisa dipindah jika stok baru mencukupi.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Outlet hanya bisa dipindah jika stok baru mencukupi.</p>
                 )}
               </div>
               <div>

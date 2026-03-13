@@ -28,6 +28,7 @@ export default function Add_Items() {
 
   // use Inertia useForm to handle data, errors and processing
   const form = useForm({
+    type: "barang" as "barang" | "jasa",
     nama: "",
     deskripsi: "",
     stok: "",
@@ -78,9 +79,10 @@ export default function Add_Items() {
     // small client-side checks (server will validate)
     const clientErrors: Record<string, string> = {};
     if (!form.data.nama) clientErrors.nama = "Nama wajib diisi";
-    // deskripsi is optional per backend validation
-    if (!form.data.stok || isNaN(Number(form.data.stok))) clientErrors.stok = "Stok harus angka";
-    if (!form.data.stok_minimal || isNaN(Number(form.data.stok_minimal))) clientErrors.stok_minimal = "Stok minimal harus angka";
+    if (form.data.type === 'barang') {
+      if (!form.data.stok || isNaN(Number(form.data.stok))) clientErrors.stok = "Stok harus angka";
+      if (!form.data.stok_minimal || isNaN(Number(form.data.stok_minimal))) clientErrors.stok_minimal = "Stok minimal harus angka";
+    }
     if (!form.data.kode_item) clientErrors.kode_item = "QR Code wajib diisi";
 
     if (Object.keys(clientErrors).length > 0) {
@@ -91,10 +93,6 @@ export default function Add_Items() {
 
     // Post to backend. Assumes route('item.store') exists.
     form.post(route("item.store"), {
-      onSuccess: () => {
-        // Inertia usually follows redirects returned by controller; explicit visit to /items is fine.
-        router.visit("/tambah_item");
-      },
       onError: () => {
         // server validation errors populate form.errors automatically
         console.warn("Validation failed", form.errors);
@@ -147,6 +145,32 @@ export default function Add_Items() {
 
           {/* Right: Form */}
           <form onSubmit={handleSubmit} className="flex-1 space-y-4" autoComplete="off">
+            {/* Type toggle */}
+            <div>
+              <label className="block mb-1 text-sm font-medium">Tipe Produk</label>
+              <div className="flex gap-2">
+                {(['barang', 'jasa'] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => form.setData('type', t)}
+                    className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+                      form.data.type === t
+                        ? t === 'barang'
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-violet-600 text-white border-violet-600'
+                        : 'bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {t === 'barang' ? '📦 Barang' : '🛠️ Jasa'}
+                  </button>
+                ))}
+              </div>
+              {form.data.type === 'jasa' && (
+                <p className="text-xs text-muted-foreground mt-1.5">Jasa tidak memerlukan manajemen stok.</p>
+              )}
+            </div>
+
             <div>
               <label className="block mb-1">Nama Item *</label>
               <Input
@@ -170,31 +194,35 @@ export default function Add_Items() {
               {form.errors.deskripsi && <div className="text-red-600 text-xs mt-1">{form.errors.deskripsi}</div>}
             </div>
 
-            <div>
-              <label className="block mb-1">Stok *</label>
-              <Input
-                name="stok"
-                placeholder="Stok (angka)"
-                value={String(form.data.stok)}
-                onChange={(e) => form.setData("stok", e.target.value)}
-                type="number"
-                min={0}
-              />
-              {form.errors.stok && <div className="text-red-600 text-xs mt-1">{form.errors.stok}</div>}
-            </div>
+            {form.data.type === 'barang' && (
+              <>
+                <div>
+                  <label className="block mb-1">Stok *</label>
+                  <Input
+                    name="stok"
+                    placeholder="Stok (angka)"
+                    value={String(form.data.stok)}
+                    onChange={(e) => form.setData("stok", e.target.value)}
+                    type="number"
+                    min={0}
+                  />
+                  {form.errors.stok && <div className="text-red-600 text-xs mt-1">{form.errors.stok}</div>}
+                </div>
 
-            <div>
-              <label className="block mb-1">Stok Minimal *</label>
-              <Input
-                name="stok_minimal"
-                placeholder="Stok Minimal (angka)"
-                value={String(form.data.stok_minimal)}
-                onChange={(e) => form.setData("stok_minimal", e.target.value)}
-                type="number"
-                min={0}
-              />
-              {form.errors.stok_minimal && <div className="text-red-600 text-xs mt-1">{form.errors.stok_minimal}</div>}
-            </div>
+                <div>
+                  <label className="block mb-1">Stok Minimal *</label>
+                  <Input
+                    name="stok_minimal"
+                    placeholder="Stok Minimal (angka)"
+                    value={String(form.data.stok_minimal)}
+                    onChange={(e) => form.setData("stok_minimal", e.target.value)}
+                    type="number"
+                    min={0}
+                  />
+                  {form.errors.stok_minimal && <div className="text-red-600 text-xs mt-1">{form.errors.stok_minimal}</div>}
+                </div>
+              </>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>

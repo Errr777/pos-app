@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router, usePage, useForm } from '@inertiajs/react';
+import { Head, Link, router, usePage, useForm } from '@inertiajs/react';
 import { Search, Plus, Pencil, Trash, Eye, Tag, Printer } from 'lucide-react';
 
 interface Item {
   id: number;
+  type: 'barang' | 'jasa';
   name: string;
   description: string | null;
   qrcode: string;
@@ -16,6 +17,8 @@ interface Item {
   id_kategori: number | null;
   kategori_rel: { id: number; nama: string } | null;
   tags: { id: number; name: string; color: string }[];
+  preferred_supplier_id: number | null;
+  preferred_supplier_name: string | null;
 }
 import { Button } from '@/components/ui/button';
 import {
@@ -46,12 +49,13 @@ interface PageProps {
   filters: Record<string, string>;
   kategoris: { id: number; nama: string; deskripsi?: string | null }[];
   allTags: { id: number; name: string; color: string }[];
+  allSuppliers: { id: number; name: string }[];
   [key: string]: unknown;
 }
 
 export default function Items() {
   const { props } = usePage<PageProps>();
-  const { items = { data: [], meta: {} }, filters = {} as Record<string, string>, kategoris = [], allTags = [] } = props;
+  const { items = { data: [], meta: {} }, filters = {} as Record<string, string>, kategoris = [], allTags = [], allSuppliers = [] } = props;
 
   // --- sort key mappings (client <> server)
   const clientToServer: Record<string, string> = { name: 'nama', stock: 'stok', category: 'kategori' };
@@ -73,6 +77,7 @@ export default function Items() {
   // edit modal state handled by Inertia useForm
   const form = useForm<{
     id: number | null;
+    type: 'barang' | 'jasa';
     name: string;
     description: string;
     qrcode: string;
@@ -82,8 +87,10 @@ export default function Items() {
     harga_jual: number;
     category: string;
     id_kategori: number | null;
+    preferred_supplier_id: number | null;
   }>({
     id: null,
+    type: 'barang',
     name: '',
     description: '',
     qrcode: '',
@@ -93,6 +100,7 @@ export default function Items() {
     harga_jual: 0,
     category: '',
     id_kategori: null,
+    preferred_supplier_id: null,
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -192,6 +200,7 @@ export default function Items() {
 
     form.setData({
       id: item.id,
+      type: item.type ?? 'barang',
       name: item.name ?? '',
       description: item.description ?? '',
       qrcode: item.qrcode ?? '',
@@ -201,6 +210,7 @@ export default function Items() {
       harga_jual: item.harga_jual ?? 0,
       category: kategoriName ?? '',
       id_kategori: idKategori ?? null,
+      preferred_supplier_id: item.preferred_supplier_id ?? null,
     });
 
     setIsEditModalOpen(true);
@@ -432,7 +442,14 @@ export default function Items() {
                     <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
                       {(currentPage - 1) * perPageFromMeta + idx + 1}
                     </td>
-                    <td className="px-3 py-2.5 font-medium truncate" title={item.name}>{item.name}</td>
+                    <td className="px-3 py-2.5 font-medium" title={item.name}>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Link href={route('item.show', item.id)} className="truncate hover:text-primary hover:underline transition-colors">{item.name}</Link>
+                        {item.type === 'jasa' && (
+                          <span className="shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">Jasa</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs truncate">{item.qrcode}</td>
                     <td className="px-3 py-2.5 tabular-nums">{item.stock}</td>
                     <td className="px-3 py-2.5 text-muted-foreground break-words">
@@ -547,7 +564,19 @@ export default function Items() {
           <form onSubmit={submitEdit} className="space-y-4">
             <div>
               <input type='hidden' value={form.data.id ?? ''} readOnly />
-              
+
+              <label className="block text-sm font-medium mb-1">Tipe Produk</label>
+              <div className="flex gap-2">
+                {(['barang', 'jasa'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => form.setData('type', t)}
+                    className={`flex-1 rounded-lg border py-1.5 text-sm font-medium transition-colors ${form.data.type === t ? (t === 'barang' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-violet-600 text-white border-violet-600') : 'bg-background text-muted-foreground hover:bg-muted'}`}>
+                    {t === 'barang' ? '📦 Barang' : '🛠️ Jasa'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium">Nama</label>
               <input type="text" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className="w-full border rounded px-2 py-1" />
               {form.errors.name && <div className="text-destructive text-sm">{form.errors.name}</div>}
@@ -588,18 +617,34 @@ export default function Items() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium">Stok</label>
-                <input type="number" value={form.data.stock} onChange={(e) => form.setData('stock', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Stok Minimal</label>
-                <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                {form.errors.stock_min && <div className="text-destructive text-sm">{form.errors.stock_min}</div>}
-              </div>
+            <div>
+              <label className="block text-sm font-medium">Supplier Utama</label>
+              <select
+                value={form.data.preferred_supplier_id ?? ''}
+                onChange={(e) => form.setData('preferred_supplier_id', e.target.value ? Number(e.target.value) : null)}
+                className="w-full border rounded px-2 py-1"
+              >
+                <option value="">-- Tidak ada --</option>
+                {allSuppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
             </div>
+
+            {form.data.type === 'barang' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium">Stok</label>
+                  <input type="number" value={form.data.stock} onChange={(e) => form.setData('stock', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
+                  {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Stok Minimal</label>
+                  <input type="number" value={form.data.stock_min} onChange={(e) => form.setData('stock_min', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
+                  {form.errors.stock_min && <div className="text-destructive text-sm">{form.errors.stock_min}</div>}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -616,7 +661,7 @@ export default function Items() {
 
             <DialogFooter>
               <Button type="button" onClick={() => { form.reset(); setIsEditModalOpen(false); }}>Batal</Button>
-              <Button type="submit" disabled={form.processing} className="ml-2">Simpan</Button>
+              <Button type="submit" loading={form.processing} className="ml-2">Simpan</Button>
             </DialogFooter>
           </form>
         </DialogContent>

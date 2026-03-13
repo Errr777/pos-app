@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\User;
 use App\Models\UserPermission;
 use Illuminate\Http\Request;
@@ -134,11 +135,17 @@ class UserController extends Controller
         }
 
         $data = $validator->validated();
-        User::create([
+        $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
             'role'     => $data['role'],
             'password' => Hash::make($data['password']),
+        ]);
+
+        AuditLogger::log('user.created', $user, null, [
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $user->role,
         ]);
 
         return $request->wantsJson()
@@ -164,12 +171,20 @@ class UserController extends Controller
                 : back()->withErrors($validator)->withInput();
         }
 
-        $data = $validator->validated();
+        $data    = $validator->validated();
+        $oldRole = $user->role;
         $user->update([
             'name'  => $data['name'],
             'email' => $data['email'],
             'role'  => $data['role'],
         ]);
+
+        if ($oldRole !== $data['role']) {
+            AuditLogger::log('user.role_changed', $user,
+                ['role' => $oldRole],
+                ['role' => $data['role']]
+            );
+        }
 
         return $request->wantsJson()
             ? response()->json(['message' => 'User updated'])
@@ -187,6 +202,12 @@ class UserController extends Controller
                 ? response()->json(['error' => 'Tidak bisa menghapus akun sendiri.'], 403)
                 : back()->withErrors(['general' => 'Tidak bisa menghapus akun sendiri.']);
         }
+
+        AuditLogger::log('user.deleted', $user, [
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $user->role,
+        ]);
 
         $user->delete();
 
@@ -212,6 +233,8 @@ class UserController extends Controller
         }
 
         $user->update(['password' => Hash::make($request->password)]);
+
+        AuditLogger::log('user.password_reset', $user);
 
         return $request->wantsJson()
             ? response()->json(['message' => 'Password reset'])

@@ -19,7 +19,9 @@ use App\Http\Controllers\PosController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\ExpenseController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -123,11 +125,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('report/stock/export/excel', [ReportController::class, 'exportStockExcel'])->name('report.stock.excel');
     Route::get('report/sales',              [ReportController::class, 'salesReport'])->name('Report_Sales');
     Route::get('report/sales/export/excel', [ReportController::class, 'exportSalesExcel'])->name('report.sales.excel');
-    Route::get('report/cashflow',           [ReportController::class, 'cashReport'])->name('Report_Cashflow');
-    Route::get('report/profit-loss',        [ReportController::class, 'profitLoss'])->name('Report_ProfitLoss');
-    Route::get('report/abc',                [ReportController::class, 'abcAnalysis'])->name('report.abc');
-    Route::get('report/peak-hours',         [ReportController::class, 'peakHours'])->name('report.peak_hours');
-    Route::get('report/branches',           [ReportController::class, 'branchComparison'])->name('report.branches');
+    Route::get('report/cashflow',                [ReportController::class, 'cashReport'])->name('Report_Cashflow');
+    Route::get('report/cashflow/export/excel',   [ReportController::class, 'exportCashflowExcel'])->name('report.cashflow.excel');
+    Route::get('report/profit-loss',             [ReportController::class, 'profitLoss'])->name('Report_ProfitLoss');
+    Route::get('report/abc',                     [ReportController::class, 'abcAnalysis'])->name('report.abc');
+    Route::get('report/abc/export/excel',        [ReportController::class, 'exportAbcExcel'])->name('report.abc.excel');
+    Route::get('report/peak-hours',              [ReportController::class, 'peakHours'])->name('report.peak_hours');
+    Route::get('report/peak-hours/export/excel', [ReportController::class, 'exportPeakHoursExcel'])->name('report.peak_hours.excel');
+    Route::get('report/branches',                [ReportController::class, 'branchComparison'])->name('report.branches');
+    Route::get('report/branches/export/excel',   [ReportController::class, 'exportBranchesExcel'])->name('report.branches.excel');
 
     // Promotions
     Route::get('/promotions',                  [PromotionController::class, 'index'])->name('promotions.index');
@@ -143,12 +149,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
 
     // Purchase Orders (create must be before /{purchaseOrder} wildcard)
-    Route::get('purchase-orders',                               [PurchaseOrderController::class, 'index'])       ->name('po.index');
-    Route::post('purchase-orders',                              [PurchaseOrderController::class, 'store'])       ->name('po.store');
-    Route::get('purchase-orders/{purchaseOrder}',               [PurchaseOrderController::class, 'show'])        ->name('po.show');
-    Route::post('purchase-orders/{purchaseOrder}/status',       [PurchaseOrderController::class, 'updateStatus'])->name('po.status');
-    Route::post('purchase-orders/{purchaseOrder}/receive',      [PurchaseOrderController::class, 'receive'])     ->name('po.receive');
-    Route::delete('purchase-orders/{purchaseOrder}',            [PurchaseOrderController::class, 'destroy'])     ->name('po.destroy');
+    Route::get('purchase-orders',                               [PurchaseOrderController::class, 'index'])                ->name('po.index');
+    Route::post('purchase-orders',                              [PurchaseOrderController::class, 'store'])                ->name('po.store');
+    Route::get('purchase-orders/suggestions',                   [PurchaseOrderController::class, 'suggestions'])          ->name('po.suggestions');
+    Route::post('purchase-orders/suggestions/create',           [PurchaseOrderController::class, 'createFromSuggestions'])->name('po.suggestions.create');
+    Route::get('purchase-orders/{purchaseOrder}',               [PurchaseOrderController::class, 'show'])                ->name('po.show');
+    Route::post('purchase-orders/{purchaseOrder}/status',       [PurchaseOrderController::class, 'updateStatus'])        ->name('po.status');
+    Route::post('purchase-orders/{purchaseOrder}/receive',      [PurchaseOrderController::class, 'receive'])             ->name('po.receive');
+    Route::delete('purchase-orders/{purchaseOrder}',            [PurchaseOrderController::class, 'destroy'])             ->name('po.destroy');
+
+    // Expenses
+    Route::get('expenses',              [ExpenseController::class, 'index'])  ->name('expenses.index');
+    Route::post('expenses',             [ExpenseController::class, 'store'])  ->name('expenses.store');
+    Route::put('expenses/{expense}',    [ExpenseController::class, 'update']) ->name('expenses.update');
+    Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+
+    // Audit Log
+    Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit.log');
 
     // Role Management (must be before /users/{user} wildcard)
     Route::get('/users/roles',                        [RoleController::class, 'index'])->name('users.roles');

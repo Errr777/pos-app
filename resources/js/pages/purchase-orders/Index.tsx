@@ -229,7 +229,7 @@ export default function PurchaseOrdersIndex() {
                 <th className="text-left px-4 py-3 font-medium cursor-pointer select-none" onClick={() => handleSort('supplierName')}>
                   Supplier <SortIcon col="supplierName" />
                 </th>
-                <th className="text-left px-4 py-3 font-medium">Gudang</th>
+                <th className="text-left px-4 py-3 font-medium">Outlet</th>
                 <th className="text-left px-4 py-3 font-medium cursor-pointer select-none" onClick={() => handleSort('date')}>
                   Dibuat <SortIcon col="date" />
                 </th>
@@ -324,10 +324,10 @@ export default function PurchaseOrdersIndex() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Gudang Tujuan <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-1">Outlet Tujuan <span className="text-red-500">*</span></label>
                 <select className={inputCls('warehouse_id')} value={form.warehouse_id}
                   onChange={e => setForm(f => ({ ...f, warehouse_id: e.target.value }))}>
-                  <option value="">— Pilih Gudang —</option>
+                  <option value="">— Pilih Outlet —</option>
                   {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
                 {formErrors.warehouse_id && <p className="text-red-500 text-xs mt-1">{formErrors.warehouse_id}</p>}

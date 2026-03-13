@@ -124,7 +124,7 @@ export default function ReturnsShow() {
                         <p className="font-medium mt-0.5">{partyName}</p>
                     </div>
                     <div>
-                        <p className="text-muted-foreground text-xs">Gudang</p>
+                        <p className="text-muted-foreground text-xs">Outlet</p>
                         <p className="font-medium mt-0.5">{returnData.warehouseName}</p>
                     </div>
                     <div>

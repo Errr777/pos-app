@@ -18,12 +18,16 @@ interface MonthData {
     revenue: number;
     cogs: number;
     gross_profit: number;
+    expenses: number;
+    net_profit: number;
 }
 
 interface Totals {
     revenue: number;
     cogs: number;
     gross_profit: number;
+    expenses: number;
+    net_profit: number;
 }
 
 interface PageProps {
@@ -61,10 +65,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function ReportProfitLoss() {
     const { monthly = [], totals, year, years = [], warehouses = [], warehouseId } = usePage<PageProps>().props;
 
-    const safeTotals: Totals = totals ?? { revenue: 0, cogs: 0, gross_profit: 0 };
+    const safeTotals: Totals = totals ?? { revenue: 0, cogs: 0, gross_profit: 0, expenses: 0, net_profit: 0 };
 
     const margin = safeTotals.revenue > 0
         ? ((safeTotals.gross_profit / safeTotals.revenue) * 100).toFixed(1)
+        : '0.0';
+    const netMargin = safeTotals.revenue > 0
+        ? ((safeTotals.net_profit / safeTotals.revenue) * 100).toFixed(1)
         : '0.0';
 
     return (
@@ -86,7 +93,7 @@ export default function ReportProfitLoss() {
                                 }}
                                 className="border rounded-md px-3 py-2 text-sm bg-background"
                             >
-                                <option value="">Semua Gudang</option>
+                                <option value="">Semua Outlet</option>
                                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
                         )}
@@ -105,7 +112,7 @@ export default function ReportProfitLoss() {
                 </div>
 
                 {/* Summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div className="rounded-xl border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Omzet</p>
                         <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-1">{formatRp(safeTotals.revenue)}</p>
@@ -119,8 +126,17 @@ export default function ReportProfitLoss() {
                         <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{formatRp(safeTotals.gross_profit)}</p>
                     </div>
                     <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/40 border-amber-200 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Margin Rata-rata</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Margin Kotor</p>
                         <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1">{margin}%</p>
+                    </div>
+                    <div className="rounded-xl border bg-orange-50 dark:bg-orange-950/40 border-orange-200 p-4">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Beban Operasional</p>
+                        <p className="text-xl font-bold text-orange-700 dark:text-orange-300 mt-1">{formatRp(safeTotals.expenses)}</p>
+                    </div>
+                    <div className={`rounded-xl border p-4 ${safeTotals.net_profit >= 0 ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-200' : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200'}`}>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Laba Bersih</p>
+                        <p className={`text-xl font-bold mt-1 ${safeTotals.net_profit >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-rose-700 dark:text-rose-300'}`}>{formatRp(safeTotals.net_profit)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Margin {netMargin}%</p>
                     </div>
                 </div>
 
@@ -142,9 +158,11 @@ export default function ReportProfitLoss() {
                                 <YAxis tickFormatter={v => formatRp(v)} tick={{ fontSize: 10 }} width={80} />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Legend />
-                                <Bar dataKey="revenue"      name="Omzet"      fill="#6366f1" radius={[4,4,0,0]} />
-                                <Bar dataKey="cogs"         name="HPP"        fill="oklch(0.645 0.246 16)"  radius={[4,4,0,0]} />
-                                <Bar dataKey="gross_profit" name="Laba Kotor" fill="oklch(0.627 0.194 149)" radius={[4,4,0,0]} />
+                                <Bar dataKey="revenue"      name="Omzet"           fill="#6366f1" radius={[4,4,0,0]} />
+                                <Bar dataKey="cogs"         name="HPP"             fill="oklch(0.645 0.246 16)"  radius={[4,4,0,0]} />
+                                <Bar dataKey="gross_profit" name="Laba Kotor"      fill="oklch(0.627 0.194 149)" radius={[4,4,0,0]} />
+                                <Bar dataKey="expenses"     name="Beban Operasional" fill="oklch(0.705 0.213 47)" radius={[4,4,0,0]} />
+                                <Bar dataKey="net_profit"   name="Laba Bersih"     fill="oklch(0.6 0.17 185)"   radius={[4,4,0,0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     )}
@@ -159,6 +177,8 @@ export default function ReportProfitLoss() {
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Omzet</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">HPP</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Laba Kotor</th>
+                                <th className="text-right px-4 py-2.5 font-medium text-xs">Beban</th>
+                                <th className="text-right px-4 py-2.5 font-medium text-xs">Laba Bersih</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Margin %</th>
                             </tr>
                         </thead>
@@ -171,8 +191,12 @@ export default function ReportProfitLoss() {
                                     <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                         {formatRpFull(row.gross_profit)}
                                     </td>
+                                    <td className="px-4 py-2.5 text-right text-xs text-orange-600 dark:text-orange-400">{formatRpFull(row.expenses)}</td>
+                                    <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.net_profit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                        {formatRpFull(row.net_profit)}
+                                    </td>
                                     <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
-                                        {row.revenue > 0 ? ((row.gross_profit / row.revenue) * 100).toFixed(1) + '%' : '-'}
+                                        {row.revenue > 0 ? ((row.net_profit / row.revenue) * 100).toFixed(1) + '%' : '-'}
                                     </td>
                                 </tr>
                             ))}
@@ -183,7 +207,9 @@ export default function ReportProfitLoss() {
                                 <td className="px-4 py-2.5 text-right text-xs">{formatRpFull(safeTotals.revenue)}</td>
                                 <td className="px-4 py-2.5 text-right text-xs text-rose-600 dark:text-rose-400">{formatRpFull(safeTotals.cogs)}</td>
                                 <td className="px-4 py-2.5 text-right text-xs text-emerald-600 dark:text-emerald-400">{formatRpFull(safeTotals.gross_profit)}</td>
-                                <td className="px-4 py-2.5 text-right text-xs">{margin}%</td>
+                                <td className="px-4 py-2.5 text-right text-xs text-orange-600 dark:text-orange-400">{formatRpFull(safeTotals.expenses)}</td>
+                                <td className={`px-4 py-2.5 text-right text-xs ${safeTotals.net_profit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatRpFull(safeTotals.net_profit)}</td>
+                                <td className="px-4 py-2.5 text-right text-xs">{netMargin}%</td>
                             </tr>
                         </tfoot>
                     </table>

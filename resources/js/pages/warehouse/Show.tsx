@@ -86,7 +86,7 @@ export default function WarehouseShow() {
         usePage<PageProps>().props;
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Gudang', href: '/warehouses' },
+        { title: 'Outlet', href: '/warehouses' },
         { title: warehouse.name, href: route('warehouses.show', { warehouse: warehouse.id }) },
     ];
 

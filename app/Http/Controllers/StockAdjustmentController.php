@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Item;
 use App\Models\StockAdjustment;
 use App\Models\Warehouse;
@@ -130,7 +131,7 @@ class StockAdjustmentController extends Controller
         $warehouseId = (int) $data['warehouse_id'];
         $newQty      = (int) $data['new_quantity'];
 
-        DB::transaction(function () use ($data, $warehouseId, $newQty) {
+        DB::transaction(function () use ($data, $warehouseId, $newQty, $request) {
             $item = Item::lockForUpdate()->findOrFail($data['item_id']);
 
             $wi = WarehouseItem::where('warehouse_id', $warehouseId)
@@ -157,6 +158,8 @@ class StockAdjustmentController extends Controller
             $item->stok = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
             $item->save();
 
+            $warehouse = Warehouse::find($warehouseId);
+
             StockAdjustment::create([
                 'txn_id'       => 'ADJ-' . strtoupper(Str::random(10)),
                 'warehouse_id' => $warehouseId,
@@ -169,6 +172,11 @@ class StockAdjustmentController extends Controller
                 'occurred_at'  => $data['date'] . ' 00:00:00',
                 'note'         => $data['note'] ?? null,
             ]);
+
+            AuditLogger::log('stock.adjusted', $item,
+                ['old_qty' => $oldQty],
+                ['new_qty' => $newQty, 'reason' => $data['reason'] ?? null, 'outlet_name' => $warehouse?->name]
+            );
         });
 
         return redirect()->route('stock_adjustment.index')->with('success', 'Penyesuaian stok berhasil dicatat.');

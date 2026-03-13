@@ -23,7 +23,7 @@ export interface NavItem {
     isActive?: boolean;
     single?: boolean;
     module?: string;
-    items?: { title: string; href: string; icon?: string }[];
+    items?: { title: string; href: string; icon?: string; adminOnly?: boolean }[];
 }
 
 export type ModuleKey =
@@ -47,6 +47,7 @@ export interface SharedData {
     sidebarOpen: boolean;
     permissions: Permissions;
     allowedWarehouseIds: number[]; // empty = all warehouses allowed
+    flash: { success: string | null; error: string | null };
     [key: string]: unknown;
 }
 
