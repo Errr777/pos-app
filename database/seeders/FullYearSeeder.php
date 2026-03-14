@@ -30,12 +30,21 @@ class FullYearSeeder extends Seeder
     {
         $this->command->info('=== FullYearSeeder: Jan 2025 – Mar 2026 ===');
 
-        $wh1     = Warehouse::find(1);
-        $wh2     = Warehouse::find(2);
-        $wh3     = Warehouse::find(3);
+        $wh1     = Warehouse::firstOrCreate(
+            ['name' => 'Gudang Utama'],
+            ['code' => 'WH-001', 'is_active' => true, 'is_default' => true, 'city' => 'Jakarta']
+        );
+        $wh2     = Warehouse::firstOrCreate(
+            ['name' => 'Outlet Semarang'],
+            ['code' => 'WH-002', 'is_active' => true, 'is_default' => false, 'city' => 'Semarang']
+        );
+        $wh3     = Warehouse::firstOrCreate(
+            ['name' => 'Outlet Bandung'],
+            ['code' => 'WH-003', 'is_active' => true, 'is_default' => false, 'city' => 'Bandung']
+        );
         $whs     = [$wh1, $wh2, $wh3];
-        $adminId = 1;
-        $kasirId = 3;
+        $adminId = \App\Models\User::where('role', 'admin')->value('id') ?? 1;
+        $kasirId = \App\Models\User::where('role', 'kasir')->value('id') ?? $adminId;
 
         // ── CUSTOMERS (add more) ─────────────────────────────────────────────
         $this->command->info('Seeding extra customers...');

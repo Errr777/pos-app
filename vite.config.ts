@@ -6,11 +6,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
     server: {
-        host: 'localhost',
+        host: '127.0.0.1',
         port: 5173,
         strictPort: true,
         hmr: {
-        host: 'localhost',
+            host: '127.0.0.1',
         },
     },
     plugins: [
@@ -29,8 +29,5 @@ export default defineConfig({
         alias: {
             'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
-    },
-    server: {
-        host: '127.0.0.1',  // Add this to force IPv4 only
     },
 });

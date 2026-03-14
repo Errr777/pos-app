@@ -23,10 +23,16 @@ class DummyDataSeeder extends Seeder
 {
     public function run(): void
     {
-        $wh1 = Warehouse::find(1); // Gudang Utama
-        $wh2 = Warehouse::find(2); // Gudang-2
-        $adminId = 1;
-        $kasirId = 3;
+        $wh1 = Warehouse::firstOrCreate(
+            ['name' => 'Gudang Utama'],
+            ['code' => 'WH-001', 'is_active' => true, 'is_default' => true, 'city' => 'Jakarta']
+        );
+        $wh2 = Warehouse::firstOrCreate(
+            ['name' => 'Outlet Semarang'],
+            ['code' => 'WH-002', 'is_active' => true, 'is_default' => false, 'city' => 'Semarang']
+        );
+        $adminId = \App\Models\User::where('role', 'admin')->value('id') ?? 1;
+        $kasirId = \App\Models\User::where('role', 'kasir')->value('id') ?? $adminId;
 
         // ── 1. TAGS ──────────────────────────────────────────────────────────
         $this->command->info('Seeding tags...');
