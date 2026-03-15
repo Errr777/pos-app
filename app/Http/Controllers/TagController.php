@@ -9,6 +9,29 @@ use Inertia\Inertia;
 
 class TagController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = $request->user();
+            if (!$user) return redirect()->route('login');
+
+            $method = $request->method();
+            $action = match(true) {
+                $method === 'DELETE'                         => 'can_delete',
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                default                                      => 'can_view',
+            };
+
+            if (!$user->hasPermission('items', $action)) {
+                return $request->wantsJson()
+                    ? response()->json(['error' => 'Forbidden'], 403)
+                    : abort(403);
+            }
+
+            return $next($request);
+        });
+    }
+
     public function index()
     {
         $tags = Tag::withCount('items')->orderBy('name')->get();
