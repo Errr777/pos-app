@@ -22,6 +22,8 @@ use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\AppSettingController;
+use App\Http\Controllers\BackupController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -166,6 +168,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Audit Log
     Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit.log');
+
+    // App Settings (admin only)
+    Route::get('/settings/store',  [AppSettingController::class, 'edit'])->name('settings.store');
+    Route::post('/settings/store', [AppSettingController::class, 'update'])->name('settings.store.update');
+
+    // Backup (admin only)
+    Route::get('/settings/backups',                            [BackupController::class, 'index'])->name('backups.index');
+    Route::get('/settings/backups/download/{filename}',        [BackupController::class, 'download'])->name('backups.download');
+    Route::post('/settings/backups/run',                       [BackupController::class, 'run'])->name('backups.run');
 
     // Role Management (must be before /users/{user} wildcard)
     Route::get('/users/roles',                        [RoleController::class, 'index'])->name('users.roles');
