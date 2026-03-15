@@ -86,6 +86,7 @@ export default function Dashboard() {
         stockAlerts = { count: 0, items: [] },
         warehouseContext, branchStats,
         selectedMonth = '', isCurrentMonth = true, availableMonths = [],
+        storeSettings,
     } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
         ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0, transactionCountMonth: 0 }),
@@ -177,10 +178,17 @@ export default function Dashboard() {
         },
     ];
 
+    const storeName = storeSettings?.store_name;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex flex-col gap-5 p-4 md:p-6">
+
+                {/* ── Store name header ── */}
+                {storeName && storeName !== 'Toko Saya' && (
+                    <h1 className="text-2xl font-bold tracking-tight">{storeName}</h1>
+                )}
 
                 {/* ── Month filter + context bar ── */}
                 <div className="flex flex-wrap items-center justify-between gap-3">

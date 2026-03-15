@@ -18,6 +18,8 @@ import {
   RotateCcw,
   Tag,
   Receipt,
+  Settings2,
+  Database,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -165,6 +167,23 @@ const allNavItems: NavItem[] = [
     },
 ];
 
+const adminNavItems: NavItem[] = [
+    {
+        title: 'Pengaturan Toko',
+        href: '/settings/store',
+        icon: Settings2,
+        iconColor: 'text-slate-400',
+        single: true,
+    },
+    {
+        title: 'Backup Database',
+        href: '/settings/backups',
+        icon: Database,
+        iconColor: 'text-slate-400',
+        single: true,
+    },
+];
+
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
@@ -172,15 +191,18 @@ export function AppSidebar() {
     const permissions = props.permissions ?? {} as Permissions;
     const isAdmin = props.auth?.user?.role === 'admin';
 
-    const visibleItems = allNavItems
-        .filter((item) => {
-            if (!item.module) return true;
-            return permissions[item.module as keyof Permissions]?.can_view ?? false;
-        })
-        .map((item) => ({
-            ...item,
-            items: item.items?.filter((sub) => !sub.adminOnly || isAdmin),
-        }));
+    const visibleItems = [
+        ...allNavItems
+            .filter((item) => {
+                if (!item.module) return true;
+                return permissions[item.module as keyof Permissions]?.can_view ?? false;
+            })
+            .map((item) => ({
+                ...item,
+                items: item.items?.filter((sub) => !sub.adminOnly || isAdmin),
+            })),
+        ...(isAdmin ? adminNavItems : []),
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
