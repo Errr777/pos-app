@@ -7,6 +7,8 @@ export interface CartItem {
     unitPrice: number;
     quantity: number;
     discountAmount: number;
+    availableStock: number;
+    promoName: string | null;
 }
 
 export interface SavedCart {

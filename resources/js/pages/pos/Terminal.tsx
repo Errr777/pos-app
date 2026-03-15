@@ -1,13 +1,18 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, ReceiptText, ChevronDown, LayoutGrid, List } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, ReceiptText, LayoutGrid, List, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
+import { type CartItem } from '@/lib/db';
+import { useOfflineCart } from '@/hooks/use-offline-cart';
+import { useNetwork } from '@/hooks/use-network';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { v4 as uuidv4 } from 'uuid';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -49,17 +54,6 @@ interface WarehouseOption {
   isDefault: boolean;
 }
 
-interface CartItem {
-  itemId: number;
-  name: string;
-  code: string;
-  unitPrice: number;
-  quantity: number;
-  discountAmount: number;
-  availableStock: number;
-  promoName: string | null;
-}
-
 interface PageProps {
   items: ItemOption[];
   customers: CustomerOption[];
@@ -81,6 +75,11 @@ function formatRp(n: number) {
 export default function PosTerminal() {
   const { items, customers, warehouses, promotions = [], autoWarehouseId } = usePage<PageProps>().props;
 
+  // Network + offline sync
+  const isOnline = useNetwork();
+  const { addToQueue } = useSyncQueue(isOnline);
+
+  // Warehouse selection (local — initialized from props)
   const [warehouseId, setWarehouseId] = useState<number | null>(
     autoWarehouseId
     ?? warehouses.find(w => w.isDefault)?.id
@@ -88,17 +87,28 @@ export default function PosTerminal() {
     ?? null
   );
 
+  // Persistent cart (IndexedDB-backed)
+  const {
+    items: cart,       setItems: setCart,
+    customerId,        setCustomerId,
+    payMethod,         setPayMethod,
+    discount,          setDiscount,
+    note,              setNote,
+    setWarehouseId:    setCartWarehouseId,
+    clearCart,
+  } = useOfflineCart();
+
+  // Keep cart's warehouseId in sync with local selection
+  useEffect(() => {
+    setCartWarehouseId(warehouseId);
+  }, [warehouseId, setCartWarehouseId]);
+
+  // Local-only state (not worth persisting)
   const [search, setSearch]     = useState('');
-  const [cart, setCart]         = useState<CartItem[]>([]);
-  const [customerId, setCustomerId] = useState<number | null>(null);
-  const [payMethod, setPayMethod] = useState('cash');
   const [payAmount, setPayAmount] = useState('');
-  const [discount, setDiscount] = useState('');
-  const [note, setNote]         = useState('');
   const [date, setDate]         = useState(() => new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors]     = useState<Record<string, string>>({});
-
   const [receiptModal, setReceiptModal] = useState<{ saleNumber: string; grandTotal: number; changeAmount: number } | null>(null);
   const [density, setDensity] = useState<'grid' | 'compact'>('grid');
 
@@ -137,31 +147,32 @@ export default function PosTerminal() {
   }, [items, search]);
 
   const addToCart = (item: ItemOption) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.itemId === item.id);
+    const next = (() => {
+      const existing = cart.find(c => c.itemId === item.id);
       if (existing) {
-        if (existing.quantity >= item.stock) return prev;
+        if (existing.quantity >= item.stock) return cart;
         const newQty = existing.quantity + 1;
         const itemData = items.find(i => i.id === item.id) ?? item;
         const best = getBestPromo(itemData, newQty, promotions);
-        return prev.map(c => c.itemId === item.id
+        return cart.map(c => c.itemId === item.id
           ? { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName }
           : c);
       }
-      if (item.stock <= 0) return prev;
+      if (item.stock <= 0) return cart;
       const best = getBestPromo(item, 1, promotions);
-      return [...prev, {
+      return [...cart, {
         itemId: item.id, name: item.name, code: item.code,
         unitPrice: item.price, quantity: 1,
         discountAmount: best?.discount ?? 0,
         promoName: best?.promo.name ?? null,
         availableStock: item.stock,
-      }];
-    });
+      } satisfies CartItem];
+    })();
+    setCart(next);
   };
 
   const updateQty = (itemId: number, delta: number) => {
-    setCart(prev => prev.map(c => {
+    setCart(cart.map(c => {
       if (c.itemId !== itemId) return c;
       const newQty = Math.max(1, Math.min(c.availableStock, c.quantity + delta));
       const item = items.find(i => i.id === itemId);
@@ -171,11 +182,11 @@ export default function PosTerminal() {
   };
 
   const updateDiscount = (itemId: number, val: string) => {
-    setCart(prev => prev.map(c => c.itemId === itemId ? { ...c, discountAmount: parseInt(val) || 0 } : c));
+    setCart(cart.map(c => c.itemId === itemId ? { ...c, discountAmount: parseInt(val) || 0 } : c));
   };
 
   const removeFromCart = (itemId: number) => {
-    setCart(prev => prev.filter(c => c.itemId !== itemId));
+    setCart(cart.filter(c => c.itemId !== itemId));
   };
 
   const subtotal = cart.reduce((sum, c) => sum + c.unitPrice * c.quantity - c.discountAmount, 0);
@@ -189,12 +200,12 @@ export default function PosTerminal() {
     setSubmitting(true);
     setErrors({});
 
-    router.post(route('pos.store'), {
-      warehouse_id:    warehouseId,
+    const payload = {
+      warehouse_id:    warehouseId!,
       customer_id:     customerId,
       occurred_at:     date + ' ' + new Date().toTimeString().slice(0, 8),
       payment_method:  payMethod,
-      payment_amount:  paid,
+      payment_amount:  paid || grandTotal,
       discount_amount: discountTotal,
       note,
       items: cart.map(c => ({
@@ -203,14 +214,31 @@ export default function PosTerminal() {
         unit_price:      c.unitPrice,
         discount_amount: c.discountAmount,
       })),
+    };
+
+    // ── OFFLINE PATH ─────────────────────────────────────────
+    if (!isOnline) {
+      const key = uuidv4();
+      addToQueue(payload, key).then(() => {
+        const offlineRef = 'OFFLINE-' + key.slice(0, 8).toUpperCase();
+        setReceiptModal({ saleNumber: offlineRef, grandTotal, changeAmount: Math.max(0, (paid || grandTotal) - grandTotal) });
+        clearCart();
+        setPayAmount('');
+        setSubmitting(false);
+      });
+      return;
+    }
+
+    // ── ONLINE PATH ──────────────────────────────────────────
+    router.post(route('pos.store'), {
+      ...payload,
+      idempotency_key: uuidv4(),
     }, {
       onSuccess: (page) => {
         const flash = (page.props as Record<string, unknown>).flash as Record<string, string> | undefined;
         setReceiptModal({ saleNumber: flash?.sale_number ?? '', grandTotal, changeAmount: change });
-        setCart([]);
+        clearCart();
         setPayAmount('');
-        setDiscount('');
-        setNote('');
         setSubmitting(false);
       },
       onError: (errs) => { setErrors(errs); setSubmitting(false); },
@@ -218,10 +246,8 @@ export default function PosTerminal() {
   };
 
   const resetCart = () => {
-    setCart([]);
+    clearCart();
     setPayAmount('');
-    setDiscount('');
-    setNote('');
     setErrors({});
     setReceiptModal(null);
     searchRef.current?.focus();
@@ -468,10 +494,27 @@ export default function PosTerminal() {
               </div>
             )}
 
-            <Button className="w-full" size="lg" disabled={cart.length === 0 || submitting || paid < grandTotal} onClick={handleCheckout}>
-              {submitting ? 'Memproses…' : `Proses Transaksi • ${formatRp(grandTotal)}`}
+            {/* Offline status */}
+            {!isOnline && (
+              <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                Mode offline — transaksi disimpan lokal &amp; disinkron saat online
+              </div>
+            )}
+
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={cart.length === 0 || submitting || (!isOnline ? false : paid < grandTotal)}
+              onClick={handleCheckout}
+            >
+              {submitting
+                ? 'Memproses…'
+                : isOnline
+                  ? `Proses Transaksi • ${formatRp(grandTotal)}`
+                  : `Simpan Offline • ${formatRp(grandTotal)}`}
             </Button>
-            {paid > 0 && paid < grandTotal && (
+            {isOnline && paid > 0 && paid < grandTotal && (
               <p className="text-xs text-red-500 text-center">Pembayaran kurang {formatRp(grandTotal - paid)}</p>
             )}
           </div>
@@ -485,6 +528,11 @@ export default function PosTerminal() {
             <DialogTitle className="flex items-center gap-2 text-emerald-600">
               <ReceiptText size={20} /> Transaksi Berhasil!
             </DialogTitle>
+            <DialogDescription>
+              {receiptModal?.saleNumber.startsWith('OFFLINE-')
+                ? 'Transaksi disimpan lokal dan akan disinkron saat koneksi tersedia.'
+                : 'Transaksi telah diproses dan dicatat di sistem.'}
+            </DialogDescription>
           </DialogHeader>
           {receiptModal && (
             <div className="space-y-4">
@@ -501,7 +549,6 @@ export default function PosTerminal() {
           <DialogFooter className="flex-col gap-2">
             <Button className="w-full" onClick={resetCart}>Transaksi Baru</Button>
             <Button variant="outline" className="w-full" onClick={() => {
-              const saleId = null; // navigate to last sale
               router.visit(route('pos.index'));
             }}>Lihat Riwayat</Button>
           </DialogFooter>
