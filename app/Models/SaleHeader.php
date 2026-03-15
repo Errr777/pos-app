@@ -21,6 +21,7 @@ class SaleHeader extends Model
         'change_amount',
         'status',
         'note',
+        'idempotency_key',
     ];
 
     protected $casts = [

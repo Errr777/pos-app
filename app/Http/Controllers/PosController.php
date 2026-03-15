@@ -182,17 +182,18 @@ class PosController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'warehouse_id'          => 'required|integer|exists:warehouses,id',
-            'customer_id'           => 'nullable|integer|exists:customers,id',
-            'occurred_at'           => 'required|date',
-            'payment_method'        => 'required|in:cash,transfer,qris,card',
-            'payment_amount'        => 'required|integer|min:0',
-            'discount_amount'       => 'nullable|integer|min:0',
-            'note'                  => 'nullable|string|max:500',
-            'items'                 => 'required|array|min:1',
-            'items.*.item_id'       => 'required|integer|exists:items,id',
-            'items.*.quantity'      => 'required|integer|min:1|max:9999',
-            'items.*.unit_price'    => 'required|integer|min:0',
+            'warehouse_id'            => 'required|integer|exists:warehouses,id',
+            'customer_id'             => 'nullable|integer|exists:customers,id',
+            'occurred_at'             => 'required|date',
+            'payment_method'          => 'required|in:cash,transfer,qris,card',
+            'payment_amount'          => 'required|integer|min:0',
+            'discount_amount'         => 'nullable|integer|min:0',
+            'note'                    => 'nullable|string|max:500',
+            'idempotency_key'         => 'nullable|string|size:36',
+            'items'                   => 'required|array|min:1',
+            'items.*.item_id'         => 'required|integer|exists:items,id',
+            'items.*.quantity'        => 'required|integer|min:1|max:9999',
+            'items.*.unit_price'      => 'required|integer|min:0',
             'items.*.discount_amount' => 'nullable|integer|min:0',
         ]);
 
@@ -204,6 +205,24 @@ class PosController extends Controller
         $warehouseId = (int) $data['warehouse_id'];
         $cartItems   = $data['items'];
         $discountAmount = (int) ($data['discount_amount'] ?? 0);
+
+        // Idempotency: return existing sale if this key was already processed
+        if (!empty($data['idempotency_key'])) {
+            $existing = SaleHeader::where('idempotency_key', $data['idempotency_key'])->first();
+            if ($existing) {
+                $result = [
+                    'saleNumber'   => $existing->sale_number,
+                    'grandTotal'   => $existing->grand_total,
+                    'changeAmount' => $existing->change_amount,
+                    'saleId'       => $existing->id,
+                ];
+                if ($request->wantsJson()) {
+                    return response()->json($result);
+                }
+                return redirect()->route('pos.show', $result['saleId'])
+                    ->with('success', "Penjualan {$result['saleNumber']} sudah diproses sebelumnya.");
+            }
+        }
 
         $result = null;
 
@@ -264,8 +283,9 @@ class PosController extends Controller
                 'payment_method' => $data['payment_method'],
                 'payment_amount' => $paymentAmount,
                 'change_amount'  => $changeAmount,
-                'status'         => 'completed',
-                'note'           => $data['note'] ?? null,
+                'status'          => 'completed',
+                'note'            => $data['note'] ?? null,
+                'idempotency_key' => $data['idempotency_key'] ?? null,
             ]);
 
             // 4. Deduct stock and create sale items
