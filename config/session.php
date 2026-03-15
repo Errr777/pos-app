@@ -47,7 +47,7 @@ return [
     |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', app()->environment('production')),
+    'encrypt' => env('SESSION_ENCRYPT', getenv('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +169,7 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE', app()->environment('production')),
+    'secure' => env('SESSION_SECURE_COOKIE', getenv('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------
