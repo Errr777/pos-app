@@ -41,10 +41,19 @@ interface SaleDetail {
   items: SaleItemRow[];
 }
 
+interface StoreSettings {
+  store_name: string;
+  store_address: string | null;
+  store_phone: string | null;
+  store_logo: string | null;
+  receipt_footer: string | null;
+}
+
 interface PageProps {
   sale: SaleDetail;
   warehouseCity: string | null;
   warehousePhone: string | null;
+  storeSettings: StoreSettings;
   [key: string]: unknown;
 }
 
@@ -61,7 +70,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function PosShow() {
-  const { sale, warehouseCity, warehousePhone } = usePage<PageProps>().props;
+  const { sale, warehouseCity, warehousePhone, storeSettings } = usePage<PageProps>().props;
 
   const handleVoid = () => {
     if (!confirm(`Void transaksi ${sale.saleNumber}? Stok akan dikembalikan.`)) return;
@@ -93,6 +102,21 @@ export default function PosShow() {
         <div className="border rounded-xl p-6 space-y-5 bg-background print:border-none print:shadow-none">
           {/* Header */}
           <div className="text-center space-y-1">
+            {storeSettings?.store_logo && (
+              <img
+                src={`/storage/${storeSettings.store_logo}`}
+                alt="Logo"
+                className="h-12 w-auto mx-auto mb-1"
+              />
+            )}
+            <div className="font-bold text-base">{storeSettings?.store_name ?? 'Toko'}</div>
+            {storeSettings?.store_address && (
+              <div className="text-xs text-muted-foreground">{storeSettings.store_address}</div>
+            )}
+            {storeSettings?.store_phone && (
+              <div className="text-xs text-muted-foreground">{storeSettings.store_phone}</div>
+            )}
+            <div className="border-t my-2" />
             <div className="font-mono text-lg font-bold">{sale.saleNumber}</div>
             <div className="text-sm text-muted-foreground">{formatDate(sale.date)}</div>
             {sale.status === 'void' && (
@@ -178,6 +202,12 @@ export default function PosShow() {
           {sale.note && (
             <div className="border rounded p-3 bg-muted/30 text-sm">
               <span className="text-muted-foreground">Catatan: </span>{sale.note}
+            </div>
+          )}
+
+          {storeSettings?.receipt_footer && (
+            <div className="text-center text-xs text-muted-foreground border-t pt-3">
+              {storeSettings.receipt_footer}
             </div>
           )}
         </div>
