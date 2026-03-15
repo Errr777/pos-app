@@ -19,6 +19,30 @@ use Inertia\Inertia;
 class PosController extends Controller
 {
     use FiltersWarehouseByUser;
+
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = $request->user();
+            if (!$user) return redirect()->route('login');
+
+            $method = $request->method();
+            $action = match(true) {
+                $method === 'DELETE'                         => 'can_delete',
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                default                                      => 'can_view',
+            };
+
+            if (!$user->hasPermission('pos', $action)) {
+                return $request->wantsJson()
+                    ? response()->json(['error' => 'Forbidden'], 403)
+                    : abort(403);
+            }
+
+            return $next($request);
+        });
+    }
+
     /**
      * Sale history (index).
      */
@@ -328,6 +352,9 @@ class PosController extends Controller
      */
     public function void(SaleHeader $saleHeader)
     {
+        // Void is destructive — requires can_delete regardless of HTTP method
+        abort_unless(auth()->user()->hasPermission('pos', 'can_delete'), 403);
+
         if ($saleHeader->status === 'void') {
             return back()->withErrors(['status' => 'Penjualan ini sudah di-void.']);
         }

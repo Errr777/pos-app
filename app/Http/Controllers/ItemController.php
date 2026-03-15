@@ -17,6 +17,30 @@ use Illuminate\Support\Facades\Validator;
 class ItemController extends Controller
 {
     use FiltersWarehouseByUser;
+
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = $request->user();
+            if (!$user) return redirect()->route('login');
+
+            $method = $request->method();
+            $action = match(true) {
+                $method === 'DELETE'                         => 'can_delete',
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                default                                      => 'can_view',
+            };
+
+            if (!$user->hasPermission('items', $action)) {
+                return $request->wantsJson()
+                    ? response()->json(['error' => 'Forbidden'], 403)
+                    : abort(403);
+            }
+
+            return $next($request);
+        });
+    }
+
     public function index(Request $request)
     {
         $perPage = (int) $request->get('per_page', 10);
