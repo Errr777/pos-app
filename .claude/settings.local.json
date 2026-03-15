@@ -21,7 +21,21 @@
       "Bash(pkill -f \"concurrently\")",
       "Bash(docker compose:*)",
       "Bash(chmod +x /Users/errr/Developer/Project/my/pos-app-production/docker/start.prod.sh)",
-      "Bash(ls /Users/errr/Developer/Project/my/pos-app-production/.env*)"
+      "Bash(ls /Users/errr/Developer/Project/my/pos-app-production/.env*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git worktree:*)",
+      "Bash(composer install:*)",
+      "Bash(composer run:*)",
+      "Bash(php -r \"require ''/Users/errr/Developer/Project/my/pos-app/vendor/autoload.php'';\")",
+      "Bash(grep -rn \"app\\\\\\(''''env''''\\\\\\)\\\\|app\\\\[.env.\\\\]\\\\|Container.*env\\\\b\" /Users/errr/Developer/Project/my/pos-app/config/ --include=*.php)",
+      "Bash(git stash:*)",
+      "Bash(php -r \"echo phpversion\\(\\);\")",
+      "Bash(php -d memory_limit=256M /Users/errr/Developer/Project/my/pos-app/.worktrees/feature-umkm-settings/artisan migrate)",
+      "Bash(ls /Users/errr/Developer/Project/my/pos-app/database/migrations/2026_03_15*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\(''./node_modules/vite-plugin-pwa/dist/index.cjs''\\); console.log\\(''pwa ok''\\)\")",
+      "Bash(node -e \"require\\(''./node_modules/dexie/dist/dexie.js''\\); console.log\\(''dexie ok''\\)\")",
+      "Bash(php -r \":*)"
     ]
   },
   "enabledPlugins": {
