@@ -96,8 +96,9 @@ const allNavItems: NavItem[] = [
         single: false,
         module: 'pos',
         items: [
-            { title: 'Terminal POS',      href: '/pos/terminal' },
-            { title: 'Riwayat Penjualan', href: '/pos' },
+            { title: 'Terminal POS',        href: '/pos/terminal' },
+            { title: 'Riwayat Penjualan',  href: '/pos' },
+            { title: 'Transaksi Pending',   href: '/pos/pending' },
         ],
     },
     {

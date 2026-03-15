@@ -118,6 +118,7 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
 
     // POS / Kasir (terminal must be before /{saleHeader} to avoid conflict)
     Route::get('pos/terminal',              [PosController::class, 'terminal'])->name('pos.terminal');
+    Route::get('pos/pending',               fn () => Inertia::render('pos/PendingSync'))->name('pos.pending');
     Route::get('pos',                       [PosController::class, 'index'])   ->name('pos.index');
     Route::post('pos',                      [PosController::class, 'store'])   ->name('pos.store');
     Route::get('pos/{saleHeader}',          [PosController::class, 'show'])    ->name('pos.show');
