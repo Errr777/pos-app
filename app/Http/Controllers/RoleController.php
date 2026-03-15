@@ -12,6 +12,23 @@ use Inertia\Inertia;
 
 class RoleController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user   = $request->user();
+            $method = $request->method();
+            $action = match (true) {
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                $method === 'DELETE'                        => 'can_delete',
+                default                                     => 'can_view',
+            };
+            if (!$user->hasPermission('users', $action)) {
+                abort(403);
+            }
+            return $next($request);
+        });
+    }
+
     public function index()
     {
         $roles = Role::with('permissions')->orderBy('id')->get()->map(function ($role) {

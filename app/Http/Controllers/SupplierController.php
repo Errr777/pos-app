@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -11,6 +12,10 @@ class SupplierController extends Controller
 {
     public function index(Request $request)
     {
+        if (!$request->user()->hasPermission('suppliers', 'can_view')) {
+            abort(403);
+        }
+
         $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
             ? (int) $request->get('per_page', 20) : 20;
         $search  = trim((string) $request->get('search', ''));
@@ -71,6 +76,10 @@ class SupplierController extends Controller
 
     public function store(Request $request)
     {
+        if (!$request->user()->hasPermission('suppliers', 'can_write')) {
+            abort(403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name'           => 'required|string|max:150',
             'code'           => 'nullable|string|max:30|unique:suppliers,code',
@@ -95,13 +104,18 @@ class SupplierController extends Controller
             $data['code'] = 'SUP-' . str_pad($next, 4, '0', STR_PAD_LEFT);
         }
 
-        Supplier::create($data);
+        $supplier = Supplier::create($data);
+        AuditLogger::log('supplier.created', $supplier, null, ['name' => $supplier->name, 'code' => $supplier->code]);
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil ditambahkan.');
     }
 
     public function update(Request $request, Supplier $supplier)
     {
+        if (!$request->user()->hasPermission('suppliers', 'can_write')) {
+            abort(403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name'           => 'required|string|max:150',
             'code'           => 'nullable|string|max:30|unique:suppliers,code,' . $supplier->id,
@@ -118,13 +132,20 @@ class SupplierController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        $old = $supplier->only(['name', 'code', 'phone', 'is_active']);
         $supplier->update($validator->validated());
+        AuditLogger::log('supplier.updated', $supplier, $old, $supplier->only(['name', 'code', 'phone', 'is_active']));
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil diperbarui.');
     }
 
     public function destroy(Supplier $supplier)
     {
+        if (!request()->user()->hasPermission('suppliers', 'can_delete')) {
+            abort(403);
+        }
+
+        AuditLogger::log('supplier.deleted', $supplier, ['name' => $supplier->name, 'code' => $supplier->code]);
         $supplier->delete();
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil dihapus.');

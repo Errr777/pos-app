@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -12,6 +13,10 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
+        if (!$request->user()->hasPermission('customers', 'can_view')) {
+            abort(403);
+        }
+
         $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
             ? (int) $request->get('per_page', 20) : 20;
         $search  = trim((string) $request->get('search', ''));
@@ -70,6 +75,10 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {
+        if (!$request->user()->hasPermission('customers', 'can_write')) {
+            abort(403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name'     => 'required|string|max:150',
             'code'     => 'nullable|string|max:30|unique:customers,code',
@@ -92,13 +101,18 @@ class CustomerController extends Controller
             $data['code'] = 'CUST-' . str_pad($next, 4, '0', STR_PAD_LEFT);
         }
 
-        Customer::create($data);
+        $customer = Customer::create($data);
+        AuditLogger::log('customer.created', $customer, null, ['name' => $customer->name, 'code' => $customer->code]);
 
         return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil ditambahkan.');
     }
 
     public function update(Request $request, Customer $customer)
     {
+        if (!$request->user()->hasPermission('customers', 'can_write')) {
+            abort(403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name'     => 'required|string|max:150',
             'code'     => 'nullable|string|max:30|unique:customers,code,' . $customer->id,
@@ -114,13 +128,20 @@ class CustomerController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        $old = $customer->only(['name', 'code', 'phone', 'is_active']);
         $customer->update($validator->validated());
+        AuditLogger::log('customer.updated', $customer, $old, $customer->only(['name', 'code', 'phone', 'is_active']));
 
         return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil diperbarui.');
     }
 
     public function destroy(Customer $customer)
     {
+        if (!request()->user()->hasPermission('customers', 'can_delete')) {
+            abort(403);
+        }
+
+        AuditLogger::log('customer.deleted', $customer, ['name' => $customer->name, 'code' => $customer->code]);
         $customer->delete();
 
         return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil dihapus.');

@@ -23,6 +23,16 @@ class ReportController extends Controller
 {
     use FiltersWarehouseByUser;
 
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (!$request->user()->hasPermission('reports', 'can_view')) {
+                abort(403);
+            }
+            return $next($request);
+        });
+    }
+
     private function allowedPerPage(): array
     {
         return [10, 20, 50, 100];

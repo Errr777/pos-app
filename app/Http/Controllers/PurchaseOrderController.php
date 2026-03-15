@@ -19,6 +19,24 @@ use Inertia\Inertia;
 class PurchaseOrderController extends Controller
 {
     use FiltersWarehouseByUser;
+
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user   = $request->user();
+            $method = $request->method();
+            $action = match (true) {
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                $method === 'DELETE'                        => 'can_delete',
+                default                                     => 'can_view',
+            };
+            if (!$user->hasPermission('purchase_orders', $action)) {
+                abort(403);
+            }
+            return $next($request);
+        });
+    }
+
     public function index(Request $request)
     {
         $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -143,6 +161,11 @@ class PurchaseOrderController extends Controller
                 ]);
             }
         });
+
+        $createdPo = PurchaseOrder::where('po_number', $poNumber)->first();
+        if ($createdPo) {
+            AuditLogger::log('po.created', $createdPo, null, ['po_number' => $poNumber, 'grand_total' => $createdPo->grand_total]);
+        }
 
         return redirect()->route('po.index')->with('success', "PO {$poNumber} berhasil dibuat.");
     }
@@ -300,6 +323,7 @@ class PurchaseOrderController extends Controller
             return back()->withErrors(['status' => 'Hanya PO berstatus draft atau cancelled yang bisa dihapus.']);
         }
 
+        AuditLogger::log('po.deleted', $purchaseOrder, ['po_number' => $purchaseOrder->po_number, 'status' => $purchaseOrder->status]);
         $purchaseOrder->delete();
 
         return redirect()->route('po.index')->with('success', 'PO berhasil dihapus.');

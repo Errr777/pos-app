@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Customer;
 use App\Models\Item;
 use App\Models\ReturnHeader;
@@ -19,6 +20,24 @@ use Inertia\Inertia;
 class ReturnController extends Controller
 {
     use FiltersWarehouseByUser;
+
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user   = $request->user();
+            $method = $request->method();
+            $action = match (true) {
+                in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
+                $method === 'DELETE'                        => 'can_delete',
+                default                                     => 'can_view',
+            };
+            if (!$user->hasPermission('returns', $action)) {
+                abort(403);
+            }
+            return $next($request);
+        });
+    }
+
     public function index(Request $request)
     {
         $perPage  = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
@@ -231,6 +250,15 @@ class ReturnController extends Controller
             return response()->json($result);
         }
 
+        $header = ReturnHeader::find($result['returnId']);
+        if ($header) {
+            AuditLogger::log('return.created', $header, null, [
+                'return_number' => $result['returnNumber'],
+                'type'          => $header->type,
+                'total_amount'  => $header->total_amount,
+            ]);
+        }
+
         return redirect()->route('returns.show', $result['returnId'])
             ->with('success', "Retur {$result['returnNumber']} berhasil diproses.");
     }
@@ -314,6 +342,8 @@ class ReturnController extends Controller
             $returnHeader->status = 'void';
             $returnHeader->save();
         });
+
+        AuditLogger::log('return.voided', $returnHeader, ['status' => 'completed'], ['status' => 'void']);
 
         return redirect()->route('returns.index')
             ->with('success', "Retur {$returnHeader->return_number} berhasil di-void.");

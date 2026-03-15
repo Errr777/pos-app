@@ -23,6 +23,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'email_verified_at',
     ];
 
     protected function casts(): array
@@ -76,9 +77,9 @@ class User extends Authenticatable
         if (!$perm) return false;
 
         return match($action) {
-            'view'   => $perm->can_view,
-            'write'  => $perm->can_write,
-            'delete' => $perm->can_delete,
+            'can_view',   'view'   => (bool) $perm->can_view,
+            'can_write',  'write'  => (bool) $perm->can_write,
+            'can_delete', 'delete' => (bool) $perm->can_delete,
             default  => false,
         };
     }

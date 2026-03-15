@@ -18,6 +18,10 @@ class DashboardController extends Controller
 
     public function index()
     {
+        if (!request()->user()->hasPermission('dashboard', 'can_view')) {
+            abort(403);
+        }
+
         $now        = now();
         $todayStart = $now->copy()->startOfDay();
         $todayEnd   = $now->copy()->endOfDay();
