@@ -48,6 +48,15 @@ export interface SharedData {
     permissions: Permissions;
     allowedWarehouseIds: number[]; // empty = all warehouses allowed
     flash: { success: string | null; error: string | null };
+    storeSettings: {
+        store_name: string;
+        store_address: string | null;
+        store_phone: string | null;
+        store_logo: string | null;
+        receipt_footer: string | null;
+        onboarding_done: string;
+        [key: string]: string | null;
+    };
     [key: string]: unknown;
 }
 

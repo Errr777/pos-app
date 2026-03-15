@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AppSetting;
 use App\Models\RolePermission;
 use App\Models\UserPermission;
 use Illuminate\Foundation\Inspiring;
@@ -82,6 +83,8 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error'   => $request->session()->get('error'),
             ],
+
+            'storeSettings' => fn () => AppSetting::allAsArray(),
         ];
     }
 }
