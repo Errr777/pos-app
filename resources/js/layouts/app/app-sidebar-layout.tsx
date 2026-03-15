@@ -3,10 +3,16 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import FlashMessage from '@/components/FlashMessage';
+import { OfflineIndicator } from '@/components/offline-indicator';
+import { useNetwork } from '@/hooks/use-network';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { type BreadcrumbItem } from '@/types';
 import { type PropsWithChildren } from 'react';
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
+    const isOnline = useNetwork();
+    const { pendingCount, isSyncing, syncNow } = useSyncQueue(isOnline);
+
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
@@ -15,6 +21,12 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
                 {children}
             </AppContent>
             <FlashMessage />
+            <OfflineIndicator
+                isOnline={isOnline}
+                pendingCount={pendingCount}
+                isSyncing={isSyncing}
+                onSyncNow={syncNow}
+            />
         </AppShell>
     );
 }
