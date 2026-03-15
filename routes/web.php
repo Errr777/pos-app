@@ -24,12 +24,19 @@ use App\Http\Controllers\TagController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\AppSettingController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\OnboardingController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+// Onboarding (separate group without the onboarding middleware)
+Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.')->group(function () {
+    Route::get('/',  [OnboardingController::class, 'index'])->name('index');
+    Route::post('/', [OnboardingController::class, 'store'])->name('store');
+});
+
+Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Items
