@@ -33,6 +33,8 @@ class ItemSeeder extends Seeder
                 'deskripsi'    => 'Deskripsi barang ke-' . $i,
                 'stok'         => rand(10, 200),
                 'stok_minimal' => rand(5, 20),
+                'harga_beli'   => rand(5, 50) * 1000,
+                'harga_jual'   => rand(10, 100) * 1000,
                 'kategori'     => $nama,
                 'id_kategori'  => $idKategori,
                 'created_at'   => now(),

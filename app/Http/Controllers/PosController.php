@@ -226,6 +226,7 @@ class PosController extends Controller
 
         $result = null;
 
+        try {
         DB::transaction(function () use ($data, $warehouseId, $cartItems, $discountAmount, &$result) {
             // 1. Validate stock and compute totals
             $subtotal = 0;
@@ -317,6 +318,12 @@ class PosController extends Controller
                 'saleId'       => $sale->id,
             ];
         });
+        } catch (\RuntimeException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+            return back()->withErrors(['items' => $e->getMessage()])->withInput();
+        }
 
         if ($request->wantsJson()) {
             return response()->json($result);
