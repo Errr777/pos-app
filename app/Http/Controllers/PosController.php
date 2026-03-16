@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Item;
+use App\Models\ItemVariant;
 use App\Models\Promotion;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
@@ -13,6 +14,7 @@ use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -138,7 +140,7 @@ class PosController extends Controller
         // Auto-select: if user can only access one warehouse, lock them to it
         $autoWarehouseId = $warehouses->count() === 1 ? $warehouses->first()['id'] : null;
 
-        $items = Item::with('tags')->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
+        $items = Item::with(['tags', 'variants'])->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual', 'image_path')
             ->where('harga_jual', '>', 0)
             ->orderBy('nama')->get()->map(fn ($i) => [
                 'id'         => $i->id,
@@ -148,7 +150,13 @@ class PosController extends Controller
                 'categoryId' => $i->id_kategori,
                 'stock'      => $i->stok,
                 'price'      => $i->harga_jual,
+                'imageUrl'   => $i->image_path ? Storage::url($i->image_path) : null,
                 'tagIds'     => $i->tags->pluck('id')->values()->all(),
+                'variants'   => $i->variants->map(fn($v) => [
+                    'id'            => $v->id,
+                    'name'          => $v->name,
+                    'priceModifier' => $v->price_modifier,
+                ])->values()->all(),
             ]);
 
         $customers = Customer::where('is_active', true)
@@ -178,6 +186,32 @@ class PosController extends Controller
     }
 
     /**
+     * Validate a promo code and return promo details.
+     */
+    public function validatePromo(Request $request)
+    {
+        $code = trim((string) $request->get('code', ''));
+        if ($code === '') {
+            return response()->json(['error' => 'Kode tidak boleh kosong'], 422);
+        }
+
+        $promo = Promotion::where('code', $code)->active()->first();
+        if (!$promo) {
+            return response()->json(['error' => 'Kode promo tidak valid atau sudah kadaluarsa'], 404);
+        }
+
+        return response()->json([
+            'id'          => $promo->id,
+            'name'        => $promo->name,
+            'code'        => $promo->code,
+            'type'        => $promo->type,
+            'value'       => $promo->value,
+            'minPurchase' => $promo->min_purchase,
+            'maxDiscount' => $promo->max_discount,
+        ]);
+    }
+
+    /**
      * Process a sale.
      */
     public function store(Request $request)
@@ -189,10 +223,13 @@ class PosController extends Controller
             'payment_method'          => 'required|in:cash,transfer,qris,card',
             'payment_amount'          => 'required|integer|min:0',
             'discount_amount'         => 'nullable|integer|min:0',
+            'promo_code'              => 'nullable|string|max:100',
             'note'                    => 'nullable|string|max:500',
             'idempotency_key'         => 'nullable|string|size:36',
             'items'                   => 'required|array|min:1',
             'items.*.item_id'         => 'required|integer|exists:items,id',
+            'items.*.variant_id'      => 'nullable|integer|exists:item_variants,id',
+            'items.*.variant_name'    => 'nullable|string|max:100',
             'items.*.quantity'        => 'required|integer|min:1|max:9999',
             'items.*.unit_price'      => 'required|integer|min:1',
             'items.*.discount_amount' => 'nullable|integer|min:0',
@@ -206,6 +243,7 @@ class PosController extends Controller
         $warehouseId = (int) $data['warehouse_id'];
         $cartItems   = $data['items'];
         $discountAmount = (int) ($data['discount_amount'] ?? 0);
+        $promoCodeUsed  = !empty($data['promo_code']) ? trim($data['promo_code']) : null;
 
         // Idempotency: return existing sale if this key was already processed
         if (!empty($data['idempotency_key'])) {
@@ -228,17 +266,19 @@ class PosController extends Controller
         $result = null;
 
         try {
-        DB::transaction(function () use ($data, $warehouseId, $cartItems, $discountAmount, &$result) {
+        DB::transaction(function () use ($data, $warehouseId, $cartItems, $discountAmount, $promoCodeUsed, &$result) {
             // 1. Validate stock and compute totals
             $subtotal = 0;
             $lineData = [];
 
             foreach ($cartItems as $ci) {
-                $itemId  = (int) $ci['item_id'];
-                $qty     = (int) $ci['quantity'];
-                $price   = (int) $ci['unit_price'];
-                $lineDisc= (int) ($ci['discount_amount'] ?? 0);
-                $lineTotal = ($price * $qty) - $lineDisc;
+                $itemId     = (int) $ci['item_id'];
+                $variantId  = isset($ci['variant_id']) ? (int) $ci['variant_id'] : null;
+                $variantName= $ci['variant_name'] ?? null;
+                $qty        = (int) $ci['quantity'];
+                $price      = (int) $ci['unit_price'];
+                $lineDisc   = (int) ($ci['discount_amount'] ?? 0);
+                $lineTotal  = ($price * $qty) - $lineDisc;
 
                 $item = Item::lockForUpdate()->findOrFail($itemId);
 
@@ -246,18 +286,30 @@ class PosController extends Controller
                     ->where('item_id', $itemId)
                     ->lockForUpdate()->first();
 
-                $currentStock = $wi ? $wi->stok : 0;
+                // Auto-create WarehouseItem if missing (e.g. seeder didn't run fully)
+                if (!$wi) {
+                    $wi = WarehouseItem::create([
+                        'warehouse_id' => $warehouseId,
+                        'item_id'      => $itemId,
+                        'stok'         => $item->stok,
+                        'stok_minimal' => $item->stok_minimal ?? 0,
+                    ]);
+                }
+
+                $currentStock = $wi->stok;
                 if (($item->type ?? 'barang') === 'barang' && $currentStock < $qty) {
                     throw new \RuntimeException("Stok {$item->nama} tidak cukup. Tersedia: {$currentStock}");
                 }
 
                 $lineData[] = [
-                    'item'      => $item,
-                    'wi'        => $wi,
-                    'qty'       => $qty,
-                    'price'     => $price,
-                    'lineDisc'  => $lineDisc,
-                    'lineTotal' => $lineTotal,
+                    'item'        => $item,
+                    'wi'          => $wi,
+                    'qty'         => $qty,
+                    'price'       => $price,
+                    'lineDisc'    => $lineDisc,
+                    'lineTotal'   => $lineTotal,
+                    'variantId'   => $variantId,
+                    'variantName' => $variantName,
                 ];
                 $subtotal += $lineTotal;
             }
@@ -288,6 +340,7 @@ class PosController extends Controller
                 'status'          => 'completed',
                 'note'            => $data['note'] ?? null,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
+                'promo_code_used' => $promoCodeUsed ?? null,
             ]);
 
             // 4. Deduct stock and create sale items
@@ -301,14 +354,16 @@ class PosController extends Controller
                 }
 
                 SaleItem::create([
-                    'sale_header_id'     => $sale->id,
-                    'item_id'            => $ld['item']->id,
-                    'item_name_snapshot' => $ld['item']->nama,
-                    'item_code_snapshot' => $ld['item']->kode_item,
-                    'unit_price'         => $ld['price'],
-                    'quantity'           => $ld['qty'],
-                    'discount_amount'    => $ld['lineDisc'],
-                    'line_total'         => $ld['lineTotal'],
+                    'sale_header_id'        => $sale->id,
+                    'item_id'               => $ld['item']->id,
+                    'variant_id'            => $ld['variantId'] ?? null,
+                    'item_name_snapshot'    => $ld['item']->nama,
+                    'item_code_snapshot'    => $ld['item']->kode_item,
+                    'variant_name_snapshot' => $ld['variantName'] ?? null,
+                    'unit_price'            => $ld['price'],
+                    'quantity'              => $ld['qty'],
+                    'discount_amount'       => $ld['lineDisc'],
+                    'line_total'            => $ld['lineTotal'],
                 ]);
             }
 

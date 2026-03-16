@@ -22,6 +22,7 @@ class SaleHeader extends Model
         'status',
         'note',
         'idempotency_key',
+        'promo_code_used',
     ];
 
     protected $casts = [

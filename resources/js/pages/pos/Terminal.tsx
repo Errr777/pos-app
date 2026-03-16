@@ -12,12 +12,19 @@ import { type CartItem } from '@/lib/db';
 import { useOfflineCart } from '@/hooks/use-offline-cart';
 import { useNetwork } from '@/hooks/use-network';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useToast } from '@/components/ui/toast';
 import { v4 as uuidv4 } from 'uuid';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
   { title: 'Kasir', href: '/pos/terminal' },
 ];
+
+interface ItemVariantOption {
+  id: number;
+  name: string;
+  priceModifier: number;
+}
 
 interface ItemOption {
   id: number;
@@ -27,7 +34,9 @@ interface ItemOption {
   categoryId: number | null;
   stock: number;
   price: number;
+  imageUrl?: string | null;
   tagIds: number[];
+  variants?: ItemVariantOption[];
 }
 
 interface Promotion {
@@ -103,14 +112,19 @@ export default function PosTerminal() {
     setCartWarehouseId(warehouseId);
   }, [warehouseId, setCartWarehouseId]);
 
+  const { toast } = useToast();
+
   // Local-only state (not worth persisting)
   const [search, setSearch]     = useState('');
   const [payAmount, setPayAmount] = useState('');
   const [date, setDate]         = useState(() => new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors]     = useState<Record<string, string>>({});
   const [receiptModal, setReceiptModal] = useState<{ saleNumber: string; grandTotal: number; changeAmount: number } | null>(null);
   const [density, setDensity] = useState<'grid' | 'compact'>('grid');
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; name: string; type: 'percentage' | 'fixed'; value: number; minPurchase: number; maxDiscount: number } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [variantPickerItem, setVariantPickerItem] = useState<ItemOption | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -146,29 +160,46 @@ export default function PosTerminal() {
     );
   }, [items, search]);
 
-  const addToCart = (item: ItemOption) => {
+  const addToCartWithVariant = (item: ItemOption, variant?: ItemVariantOption) => {
+    const unitPrice = variant ? item.price + variant.priceModifier : item.price;
+    const displayName = variant ? `${item.name} — ${variant.name}` : item.name;
+
     const next = (() => {
-      const existing = cart.find(c => c.itemId === item.id);
+      const existing = cart.find(c =>
+        c.itemId === item.id && (variant ? c.variantId === variant.id : !c.variantId)
+      );
       if (existing) {
         if (existing.quantity >= item.stock) return cart;
         const newQty = existing.quantity + 1;
         const itemData = items.find(i => i.id === item.id) ?? item;
         const best = getBestPromo(itemData, newQty, promotions);
-        return cart.map(c => c.itemId === item.id
-          ? { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName }
-          : c);
+        return cart.map(c =>
+          c.itemId === item.id && (variant ? c.variantId === variant.id : !c.variantId)
+            ? { ...c, quantity: newQty, discountAmount: best?.discount ?? c.discountAmount, promoName: best?.promo.name ?? c.promoName }
+            : c
+        );
       }
       if (item.stock <= 0) return cart;
       const best = getBestPromo(item, 1, promotions);
       return [...cart, {
-        itemId: item.id, name: item.name, code: item.code,
-        unitPrice: item.price, quantity: 1,
+        itemId: item.id, name: displayName, code: item.code,
+        variantId: variant?.id ?? null,
+        variantName: variant?.name ?? null,
+        unitPrice, quantity: 1,
         discountAmount: best?.discount ?? 0,
         promoName: best?.promo.name ?? null,
         availableStock: item.stock,
       } satisfies CartItem];
     })();
     setCart(next);
+  };
+
+  const addToCart = (item: ItemOption) => {
+    if (item.variants && item.variants.length > 0) {
+      setVariantPickerItem(item);
+      return;
+    }
+    addToCartWithVariant(item);
   };
 
   const updateQty = (itemId: number, delta: number) => {
@@ -195,10 +226,45 @@ export default function PosTerminal() {
   const paid = parseInt(payAmount) || 0;
   const change = Math.max(0, paid - grandTotal);
 
+  const applyPromo = async () => {
+    const code = promoCodeInput.trim();
+    if (!code) return;
+    setPromoLoading(true);
+    try {
+      const res = await fetch(`/pos/promo/validate?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Kode Promo Tidak Valid', description: data.error ?? 'Kode tidak ditemukan.' });
+        return;
+      }
+      // Calculate discount from promo
+      const base = subtotal;
+      if (data.minPurchase > 0 && base < data.minPurchase) {
+        toast({ variant: 'warning', title: 'Minimum Pembelian', description: `Promo ini berlaku untuk pembelian minimal ${formatRp(data.minPurchase)}.` });
+        return;
+      }
+      let disc = data.type === 'percentage' ? Math.floor(base * data.value / 100) : data.value;
+      if (data.maxDiscount > 0) disc = Math.min(disc, data.maxDiscount);
+      disc = Math.min(disc, base);
+      setAppliedPromo(data);
+      setDiscount(String(disc));
+      toast({ variant: 'success', title: 'Promo Diterapkan', description: `${data.name}: -${formatRp(disc)}` });
+    } catch {
+      toast({ variant: 'destructive', title: 'Gagal', description: 'Tidak dapat memvalidasi kode promo.' });
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const removePromo = () => {
+    setAppliedPromo(null);
+    setPromoCodeInput('');
+    setDiscount('0');
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
     setSubmitting(true);
-    setErrors({});
 
     const payload = {
       warehouse_id:    warehouseId!,
@@ -207,9 +273,12 @@ export default function PosTerminal() {
       payment_method:  payMethod,
       payment_amount:  paid || grandTotal,
       discount_amount: discountTotal,
+      promo_code:      appliedPromo?.code ?? null,
       note,
       items: cart.map(c => ({
         item_id:         c.itemId,
+        variant_id:      c.variantId ?? null,
+        variant_name:    c.variantName ?? null,
         quantity:        c.quantity,
         unit_price:      c.unitPrice,
         discount_amount: c.discountAmount,
@@ -241,15 +310,20 @@ export default function PosTerminal() {
         setPayAmount('');
         setSubmitting(false);
       },
-      onError: (errs) => { setErrors(errs); setSubmitting(false); },
+      onError: (errs) => {
+        const msg = Object.values(errs).join(' ');
+        toast({ variant: 'destructive', title: 'Transaksi Gagal', description: msg || 'Terjadi kesalahan.' });
+        setSubmitting(false);
+      },
     });
   };
 
   const resetCart = () => {
     clearCart();
     setPayAmount('');
-    setErrors({});
     setReceiptModal(null);
+    setAppliedPromo(null);
+    setPromoCodeInput('');
     searchRef.current?.focus();
   };
 
@@ -314,9 +388,15 @@ export default function PosTerminal() {
                       item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-medium leading-tight truncate">{item.name}</span>
-                      <span className="text-xs text-muted-foreground">{item.code}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {item.imageUrl
+                        ? <img src={item.imageUrl} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                        : <div className="w-8 h-8 rounded bg-muted shrink-0" />
+                      }
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium leading-tight truncate">{item.name}</span>
+                        <span className="text-xs text-muted-foreground">{item.code}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4 shrink-0 ml-3">
                       <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>Stok: {item.stock}</span>
@@ -338,6 +418,10 @@ export default function PosTerminal() {
                       item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/5'
                     }`}
                   >
+                    {item.imageUrl
+                      ? <img src={item.imageUrl} alt="" className="w-full h-24 rounded-md object-cover mb-2" />
+                      : <div className="w-full h-24 rounded-md bg-muted mb-2" />
+                    }
                     <div className="font-medium text-base leading-tight line-clamp-2">{item.name}</div>
                     <div className="text-xs text-muted-foreground mt-1">{item.code}</div>
                     <div className="mt-2 flex items-end justify-between">
@@ -437,6 +521,38 @@ export default function PosTerminal() {
               </select>
             </div>
 
+            {/* Promo Code */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Kode Promo</label>
+              {appliedPromo ? (
+                <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700 rounded px-3 py-2">
+                  <div>
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{appliedPromo.code}</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-500 ml-2">{appliedPromo.name}</span>
+                  </div>
+                  <button onClick={removePromo} className="text-xs text-muted-foreground hover:text-destructive ml-2">Hapus</button>
+                </div>
+              ) : (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    placeholder="Masukkan kode promo"
+                    className="flex-1 border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={promoCodeInput}
+                    onChange={e => setPromoCodeInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') applyPromo(); }}
+                  />
+                  <button
+                    onClick={applyPromo}
+                    disabled={promoLoading || !promoCodeInput.trim()}
+                    className="px-3 py-1.5 text-sm rounded border bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary/90 transition-colors"
+                  >
+                    {promoLoading ? '…' : 'Pakai'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Totals */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatRp(subtotal)}</span></div>
@@ -465,7 +581,7 @@ export default function PosTerminal() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Bayar</label>
               <input type="number" min={0} placeholder={String(grandTotal)}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${errors.payment_amount ? 'border-red-400' : 'border-border'}`}
+                className="w-full border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 value={payAmount} onChange={e => setPayAmount(e.target.value)} />
               {payMethod === 'cash' && paid > 0 && (
                 <div className="mt-1 text-sm font-medium text-emerald-600">Kembalian: {formatRp(change)}</div>
@@ -486,13 +602,6 @@ export default function PosTerminal() {
               <input type="date" className="w-full border border-border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 value={date} onChange={e => setDate(e.target.value)} />
             </div>
-
-            {/* Errors */}
-            {Object.keys(errors).length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600 space-y-0.5">
-                {Object.values(errors).map((e, i) => <div key={i}>{e}</div>)}
-              </div>
-            )}
 
             {/* Offline status */}
             {!isOnline && (
@@ -523,6 +632,31 @@ export default function PosTerminal() {
           </div>
         </div>
       </div>
+
+      {/* Variant Picker Modal */}
+      <Dialog open={!!variantPickerItem} onOpenChange={open => { if (!open) setVariantPickerItem(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Pilih Varian</DialogTitle>
+            <DialogDescription>{variantPickerItem?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {variantPickerItem?.variants?.map(v => (
+              <button
+                key={v.id}
+                className="flex items-center justify-between px-4 py-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-all text-left"
+                onClick={() => {
+                  addToCartWithVariant(variantPickerItem, v);
+                  setVariantPickerItem(null);
+                }}
+              >
+                <span className="font-medium text-sm">{v.name}</span>
+                <span className="text-sm font-bold text-primary">{formatRp(variantPickerItem.price + v.priceModifier)}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt / Success Modal */}
       <Dialog open={!!receiptModal} onOpenChange={open => { if (!open) resetCart(); }}>

@@ -4,6 +4,8 @@ export interface CartItem {
     itemId: number;
     name: string;
     code: string;
+    variantId?: number | null;
+    variantName?: string | null;
     unitPrice: number;
     quantity: number;
     discountAmount: number;
@@ -35,6 +37,8 @@ export interface PendingTransaction {
         note: string;
         items: Array<{
             item_id: number;
+            variant_id?: number | null;
+            variant_name?: string | null;
             quantity: number;
             unit_price: number;
             discount_amount: number;

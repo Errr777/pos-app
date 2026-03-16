@@ -25,9 +25,12 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\AppSettingController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\ItemVariantController;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    return Inertia::render('welcome', [
+        'hasAdmin' => \App\Models\User::where('role', 'admin')->exists(),
+    ]);
 })->name('home');
 
 // Onboarding (separate group without the onboarding middleware)
@@ -48,6 +51,10 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::put('/item/{item}', [ItemController::class, 'update'])->name('item.update');
     Route::delete('/item/{item}', [ItemController::class, 'destroy'])->name('item.destroy');
     Route::patch('/item/{item}/tags', [ItemController::class, 'syncTags'])->name('item.sync_tags');
+    Route::get('/item/{item}/variants', [ItemVariantController::class, 'index'])->name('item.variants.index');
+    Route::post('/item/{item}/variants', [ItemVariantController::class, 'store'])->name('item.variants.store');
+    Route::put('/item/{item}/variants/{variant}', [ItemVariantController::class, 'update'])->name('item.variants.update');
+    Route::delete('/item/{item}/variants/{variant}', [ItemVariantController::class, 'destroy'])->name('item.variants.destroy');
 
     Route::get('/stock_alerts', [ItemController::class, 'lowStock'])->name('item.low_stock');
 
@@ -119,6 +126,7 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     // POS / Kasir (terminal must be before /{saleHeader} to avoid conflict)
     Route::get('pos/terminal',              [PosController::class, 'terminal'])->name('pos.terminal');
     Route::get('pos/pending',               fn () => Inertia::render('pos/PendingSync'))->name('pos.pending');
+    Route::get('pos/promo/validate',        [PosController::class, 'validatePromo'])->name('pos.promo.validate');
     Route::get('pos',                       [PosController::class, 'index'])   ->name('pos.index');
     Route::post('pos',                      [PosController::class, 'store'])   ->name('pos.store');
     Route::get('pos/{saleHeader}',          [PosController::class, 'show'])    ->name('pos.show');

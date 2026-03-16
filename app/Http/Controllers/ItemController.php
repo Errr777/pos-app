@@ -11,6 +11,7 @@ use App\Models\WarehouseItem;
 use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -111,6 +112,7 @@ class ItemController extends Controller
                         'color' => $t->color,
                     ])->values()->all(),
                     'type'                   => $i->type ?? 'barang',
+                    'image_url'              => $i->image_path ? Storage::url($i->image_path) : null,
                     'preferred_supplier_id'  => $i->preferred_supplier_id,
                     'preferred_supplier_name'=> $i->preferredSupplier?->name,
                 ];
@@ -183,6 +185,7 @@ class ItemController extends Controller
                 'type'        => $item->type ?? 'barang',
                 'name'        => $item->nama,
                 'description' => $item->deskripsi,
+                'image_url'   => $item->image_path ? Storage::url($item->image_path) : null,
                 'qrcode'      => $item->kode_item,
                 'stock'       => $item->stok,
                 'stockMin'    => $item->stok_minimal,
@@ -219,6 +222,7 @@ class ItemController extends Controller
             'type'         => 'nullable|in:barang,jasa',
             'nama'         => 'required|string|max:255',
             'deskripsi'    => 'nullable|string|max:1000',
+            'image'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'kode_item'    => 'required|string|max:255|unique:items,kode_item',
             'stok'         => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'stok_minimal' => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
@@ -234,11 +238,18 @@ class ItemController extends Controller
             $validated['kategori'] = $kategori?->nama;
         }
 
+        // Handle image upload
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('items', 'public');
+        }
+
         // ✅ Save to DB
         $item = Item::create([
             'type'         => $validated['type'] ?? 'barang',
             'nama'         => $validated['nama'],
             'deskripsi'    => $validated['deskripsi'] ?? null,
+            'image_path'   => $imagePath,
             'kode_item'    => $validated['kode_item'],
             'stok'         => $isJasa ? 0 : ($validated['stok'] ?? 0),
             'stok_minimal' => $isJasa ? 0 : ($validated['stok_minimal'] ?? 0),
@@ -273,6 +284,17 @@ class ItemController extends Controller
             'category',
             'preferred_supplier_id',
         ]);
+
+        // Handle image upload for update
+        $imageValidation = Validator::make($request->all(), [
+            'image'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'delete_image' => 'nullable|boolean',
+        ]);
+        if ($imageValidation->fails()) {
+            return $request->wantsJson()
+                ? response()->json(['errors' => $imageValidation->errors()], 422)
+                : back()->withErrors($imageValidation)->withInput();
+        }
 
         // Normalize for validation
         $payloadForValidation = [
@@ -336,6 +358,17 @@ class ItemController extends Controller
             'kategori'              => $kategoriName,
             'preferred_supplier_id' => $payloadForValidation['preferred_supplier_id'] ?? null,
         ];
+
+        // Handle image upload / deletion
+        if ($request->hasFile('image')) {
+            if ($item->image_path) {
+                Storage::disk('public')->delete($item->image_path);
+            }
+            $updatePayload['image_path'] = $request->file('image')->store('items', 'public');
+        } elseif ($request->boolean('delete_image') && $item->image_path) {
+            Storage::disk('public')->delete($item->image_path);
+            $updatePayload['image_path'] = null;
+        }
 
         $oldHargaJual = $item->harga_jual;
         $oldHargaBeli = $item->harga_beli;

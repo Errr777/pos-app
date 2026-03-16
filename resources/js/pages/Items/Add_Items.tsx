@@ -1,5 +1,5 @@
 // src/pages/AddItem.tsx
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, useForm, router, usePage } from "@inertiajs/react";
 import { Button } from "@/components/ui/button";
@@ -27,19 +27,34 @@ export default function Add_Items() {
   const kategoris: Kategori[] = props.kategoris ?? [];
 
   // use Inertia useForm to handle data, errors and processing
-  const form = useForm({
-    type: "barang" as "barang" | "jasa",
+  const form = useForm<{
+    type: "barang" | "jasa";
+    nama: string;
+    deskripsi: string;
+    stok: string;
+    stok_minimal: string;
+    harga_beli: string | number;
+    harga_jual: string | number;
+    id_kategori: string | number | null;
+    kategori: string;
+    kode_item: string;
+    image: File | null;
+  }>({
+    type: "barang",
     nama: "",
     deskripsi: "",
     stok: "",
     stok_minimal: "",
-    harga_beli: "" as string | number,
-    harga_jual: "" as string | number,
-    // store id_kategori as string (Select uses string values). We'll convert on server if needed.
-    id_kategori: "" as string | number | null,
+    harga_beli: "",
+    harga_jual: "",
+    id_kategori: "",
     kategori: "",
     kode_item: "",
+    image: null,
   });
+
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // A sentinel value for the placeholder SelectItem (must be non-empty string)
   const PLACEHOLDER_VALUE = "__none";
@@ -93,6 +108,7 @@ export default function Add_Items() {
 
     // Post to backend. Assumes route('item.store') exists.
     form.post(route("item.store"), {
+      forceFormData: true,
       onError: () => {
         // server validation errors populate form.errors automatically
         console.warn("Validation failed", form.errors);
@@ -124,7 +140,7 @@ export default function Add_Items() {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left: QR Code Preview */}
           <div className="md:w-1/3 flex flex-col items-center justify-start">
-            <div className="bg-muted p-4 rounded-lg border w-full flex flex-col bg-slate-100 items-center min-h-[200px]">
+            <div className="bg-muted p-4 rounded-lg border w-full flex flex-col items-center min-h-[200px]">
               <span className="mb-2 text-black text-sm text-center">Preview QR Code</span>
               {form.data.kode_item ? (
                 <img
@@ -285,6 +301,47 @@ export default function Add_Items() {
                 onChange={(e) => form.setData("kode_item", e.target.value)}
               />
               {form.errors.kode_item && <div className="text-red-600 text-xs mt-1">{form.errors.kode_item}</div>}
+            </div>
+
+            <div>
+              <label className="block mb-1">Foto Produk</label>
+              <div className="flex items-center gap-3">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="preview" className="w-16 h-16 rounded-lg object-cover border" />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-muted border flex items-center justify-center text-muted-foreground text-xs text-center">
+                    No image
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      form.setData("image", file);
+                      setImagePreview(file ? URL.createObjectURL(file) : null);
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()}>
+                    Pilih Foto
+                  </Button>
+                  {imagePreview && (
+                    <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        form.setData("image", null);
+                        setImagePreview(null);
+                        if (imageInputRef.current) imageInputRef.current.value = "";
+                      }}
+                    >
+                      Hapus
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {form.errors.image && <div className="text-red-600 text-xs mt-1">{form.errors.image}</div>}
             </div>
 
             <div className="pt-4 flex gap-2">

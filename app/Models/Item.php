@@ -16,6 +16,7 @@ class Item extends Model
         'kode_item',
         'nama',
         'deskripsi',
+        'image_path',
         'stok',
         'stok_minimal',
         'harga_beli',
@@ -47,5 +48,10 @@ class Item extends Model
     public function preferredSupplier()
     {
         return $this->belongsTo(Supplier::class, 'preferred_supplier_id');
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(ItemVariant::class)->where('is_active', true)->orderBy('name');
     }
 }

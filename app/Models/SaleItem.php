@@ -9,8 +9,10 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_header_id',
         'item_id',
+        'variant_id',
         'item_name_snapshot',
         'item_code_snapshot',
+        'variant_name_snapshot',
         'unit_price',
         'quantity',
         'discount_amount',
