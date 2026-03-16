@@ -247,10 +247,10 @@ class ReportController extends Controller
         $fmt = $groupBy === 'monthly' ? '%Y-%m' : '%Y-%m-%d';
 
         // ── Cash IN: completed sales ──────────────────────────────────────────
-        $inQuery = SaleHeader::selectRaw("strftime('{$fmt}', occurred_at) as period, SUM(grand_total) as total")
+        $inQuery = SaleHeader::selectRaw("DATE_FORMAT(occurred_at, '{$fmt}') as period, SUM(grand_total) as total")
             ->where('status', 'completed')
             ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-            ->groupByRaw("strftime('{$fmt}', occurred_at)");
+            ->groupByRaw("DATE_FORMAT(occurred_at, '{$fmt}')");
 
         if (!empty($allowedIds)) $inQuery->whereIn('warehouse_id', $allowedIds);
         if ($warehouseId !== '') {
@@ -263,11 +263,11 @@ class ReportController extends Controller
         $cashIn = $inQuery->pluck('total', 'period')->map(fn($v) => (int) $v);
 
         // ── Cash OUT: received purchase orders ────────────────────────────────
-        $outQuery = \App\Models\PurchaseOrder::selectRaw("strftime('{$fmt}', received_at) as period, SUM(grand_total) as total")
+        $outQuery = \App\Models\PurchaseOrder::selectRaw("DATE_FORMAT(received_at, '{$fmt}') as period, SUM(grand_total) as total")
             ->where('status', 'received')
             ->whereNotNull('received_at')
             ->whereBetween('received_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-            ->groupByRaw("strftime('{$fmt}', received_at)");
+            ->groupByRaw("DATE_FORMAT(received_at, '{$fmt}')");
 
         if (!empty($allowedIds)) $outQuery->whereIn('warehouse_id', $allowedIds);
         if ($warehouseId !== '') {
@@ -545,8 +545,8 @@ class ReportController extends Controller
         $allowedIds  = $this->allowedWarehouseIds();
 
         $query = SaleHeader::select([
-            DB::raw("CAST(strftime('%H', occurred_at) AS INTEGER) as hour"),
-            DB::raw("CAST(strftime('%w', occurred_at) AS INTEGER) as day_of_week"),
+            DB::raw("HOUR(occurred_at) as hour"),
+            DB::raw("DAYOFWEEK(occurred_at) - 1 as day_of_week"),
             DB::raw('COUNT(*) as trx_count'),
             DB::raw('SUM(grand_total) as revenue'),
         ])
