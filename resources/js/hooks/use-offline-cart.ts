@@ -71,14 +71,21 @@ export function useOfflineCart(): UseOfflineCartReturn {
         db.cart.delete(CART_ID);
     }, []);
 
+    const setItems       = useCallback((v: CartItem[])      => setField('items', v),       [setField]);
+    const setWarehouseId = useCallback((v: number | null)   => setField('warehouseId', v), [setField]);
+    const setCustomerId  = useCallback((v: number | null)   => setField('customerId', v),  [setField]);
+    const setPayMethod   = useCallback((v: string)          => setField('payMethod', v),   [setField]);
+    const setDiscount    = useCallback((v: string)          => setField('discount', v),    [setField]);
+    const setNote        = useCallback((v: string)          => setField('note', v),        [setField]);
+
     return {
         ...state,
-        setItems:       (v) => setField('items', v),
-        setWarehouseId: (v) => setField('warehouseId', v),
-        setCustomerId:  (v) => setField('customerId', v),
-        setPayMethod:   (v) => setField('payMethod', v),
-        setDiscount:    (v) => setField('discount', v),
-        setNote:        (v) => setField('note', v),
+        setItems,
+        setWarehouseId,
+        setCustomerId,
+        setPayMethod,
+        setDiscount,
+        setNote,
         clearCart,
         isRestored,
     };
