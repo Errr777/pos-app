@@ -309,9 +309,9 @@ export default function PosTerminal() {
                 {filteredItems.map(item => (
                   <button key={item.id}
                     onClick={() => addToCart(item)}
-                    disabled={item.stock <= 0}
+                    disabled={item.stock <= 0 || item.price <= 0}
                     className={`text-left px-3 py-2 flex items-center justify-between transition hover:bg-primary/5 ${
-                      item.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   >
                     <div className="flex flex-col min-w-0">
@@ -333,9 +333,9 @@ export default function PosTerminal() {
                 {filteredItems.map(item => (
                   <button key={item.id}
                     onClick={() => addToCart(item)}
-                    disabled={item.stock <= 0}
+                    disabled={item.stock <= 0 || item.price <= 0}
                     className={`text-left border rounded-lg p-3.5 transition-all hover:shadow-md hover:border-primary ${
-                      item.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/5'
+                      item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-primary/5'
                     }`}
                   >
                     <div className="font-medium text-base leading-tight line-clamp-2">{item.name}</div>
@@ -502,10 +502,13 @@ export default function PosTerminal() {
               </div>
             )}
 
+            {cart.some(c => c.unitPrice <= 0) && (
+              <p className="text-xs text-red-500 text-center">Keranjang memiliki item dengan harga Rp 0. Hapus sebelum melanjutkan.</p>
+            )}
             <Button
               className="w-full"
               size="lg"
-              disabled={cart.length === 0 || submitting || (!isOnline ? false : paid < grandTotal)}
+              disabled={cart.length === 0 || submitting || cart.some(c => c.unitPrice <= 0) || (!isOnline ? false : paid < grandTotal)}
               onClick={handleCheckout}
             >
               {submitting

@@ -139,6 +139,7 @@ class PosController extends Controller
         $autoWarehouseId = $warehouses->count() === 1 ? $warehouses->first()['id'] : null;
 
         $items = Item::with('tags')->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual')
+            ->where('harga_jual', '>', 0)
             ->orderBy('nama')->get()->map(fn ($i) => [
                 'id'         => $i->id,
                 'name'       => $i->nama,
