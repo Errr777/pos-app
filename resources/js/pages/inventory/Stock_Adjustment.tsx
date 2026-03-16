@@ -86,6 +86,11 @@ export default function Stock_Adjustment() {
   const [selected, setSelected]         = useState<AdjRow | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
+  const filteredItems = itemOptions.filter((it) =>
+    it.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+    (it.category && it.category.toLowerCase().includes(itemSearch.toLowerCase()))
+  );
   const [form, setForm] = useState({
     warehouse_id: warehouses[0]?.id ?? 0,
     item_id:      itemOptions[0]?.id ?? 0,
@@ -128,6 +133,7 @@ export default function Stock_Adjustment() {
 
   const openAdd = async () => {
     setFormErrors({});
+    setItemSearch('');
     const wid = warehouses[0]?.id ?? 0;
     const iid = itemOptions[0]?.id ?? 0;
     setForm({ warehouse_id: wid, item_id: iid, new_quantity: 0, date: formatDateISO(new Date()), reason: reasons[0] ?? '', note: '' });
@@ -350,14 +356,23 @@ export default function Stock_Adjustment() {
               </div>
               <div>
                 <label className="block font-semibold mb-1">Item</label>
+                <input
+                  type="text"
+                  placeholder="Cari item..."
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-t-lg border-b-0"
+                />
                 <select value={form.item_id}
                   onChange={async (e) => {
                     const iid = Number(e.target.value);
                     setForm(f => ({ ...f, item_id: iid }));
                     await fetchStock(form.warehouse_id, iid);
                   }}
-                  className="w-full px-3 py-2 border rounded-lg">
-                  {itemOptions.map(it => (
+                  className="w-full px-3 py-2 border rounded-b-lg"
+                  size={Math.min(Math.max(filteredItems.length, 1), 6)}
+                >
+                  {filteredItems.map(it => (
                     <option key={it.id} value={it.id}>{it.name}{it.category ? ` — ${it.category}` : ''}</option>
                   ))}
                 </select>

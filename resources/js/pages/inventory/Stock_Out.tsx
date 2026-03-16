@@ -138,6 +138,11 @@ export default function Stock_Out() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
+  const [itemSearch, setItemSearch] = useState('');
+  const filteredItems = itemOptions.filter((it) =>
+    it.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+    (it.kode && it.kode.toLowerCase().includes(itemSearch.toLowerCase()))
+  );
   const [form, setForm] = useState({
     id: 0,
     date: formatDateISO(new Date()),
@@ -204,6 +209,7 @@ export default function Stock_Out() {
   const openAddForm = () => {
     setFormMode('add');
     setFormErrors({});
+    setItemSearch('');
     setForm({
       id: 0,
       date: formatDateISO(new Date()),
@@ -222,6 +228,7 @@ export default function Stock_Out() {
   const openEditForm = (row: StockOutRow) => {
     setFormMode('edit');
     setFormErrors({});
+    setItemSearch('');
     setForm({
       id: row.id,
       date: formatDateISO(row.date),
@@ -509,6 +516,13 @@ export default function Stock_Out() {
               </div>
               <div>
                 <label className="block font-semibold mb-1">Item</label>
+                <input
+                  type="text"
+                  placeholder="Cari item..."
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-t-lg border-b-0"
+                />
                 <select
                   value={form.itemId}
                   onChange={(e) => {
@@ -516,9 +530,10 @@ export default function Stock_Out() {
                     const item = itemOptions.find((it) => it.id === id);
                     setForm((f) => ({ ...f, itemId: id, qrcode: item?.kode ?? '' }));
                   }}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-b-lg"
+                  size={Math.min(Math.max(filteredItems.length, 1), 6)}
                 >
-                  {itemOptions.map((it) => (
+                  {filteredItems.map((it) => (
                     <option key={it.id} value={it.id}>
                       {it.name}{it.category ? ` — ${it.category}` : ''} (stok: {it.stock})
                     </option>
@@ -557,12 +572,13 @@ export default function Stock_Out() {
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1">Kode QR</label>
+                <label className="block font-semibold mb-1">Kode Item</label>
                 <input
                   value={form.qrcode}
-                  onChange={(e) => setForm((f) => ({ ...f, qrcode: e.target.value }))}
-                  placeholder="Kode / serial number (opsional)"
-                  className="w-full px-3 py-2 border rounded-lg"
+                  readOnly
+                  disabled
+                  placeholder="Terisi otomatis dari item yang dipilih"
+                  className="w-full px-3 py-2 border rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
                 />
                 {form.qrcode && (
                   <img

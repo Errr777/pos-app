@@ -112,6 +112,11 @@ export default function Stock_Transfer() {
   const [selected, setSelected]         = useState<TransferRow | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
+  const filteredItems = itemOptions.filter((it) =>
+    it.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+    (it.category && it.category.toLowerCase().includes(itemSearch.toLowerCase()))
+  );
   const [form, setForm] = useState({
     from_warehouse_id: warehouses[0]?.id ?? 0,
     to_warehouse_id:   warehouses[1]?.id ?? warehouses[0]?.id ?? 0,
@@ -167,6 +172,7 @@ export default function Stock_Transfer() {
 
   const openAdd = () => {
     setFormErrors({});
+    setItemSearch('');
     setForm({
       from_warehouse_id: warehouses[0]?.id ?? 0,
       to_warehouse_id:   warehouses[1]?.id ?? warehouses[0]?.id ?? 0,
@@ -420,14 +426,23 @@ export default function Stock_Transfer() {
 
               <div>
                 <label className="block font-semibold mb-1">Item</label>
+                <input
+                  type="text"
+                  placeholder="Cari item..."
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-t-lg border-b-0"
+                />
                 <select value={form.item_id}
                   onChange={(e) => {
                     const id = Number(e.target.value);
                     setForm(f => ({ ...f, item_id: id }));
                     setFromStock(itemOptions.find(i => i.id === id)?.stock ?? null);
                   }}
-                  className="w-full px-3 py-2 border rounded-lg">
-                  {itemOptions.map(it => (
+                  className="w-full px-3 py-2 border rounded-b-lg"
+                  size={Math.min(Math.max(filteredItems.length, 1), 6)}
+                >
+                  {filteredItems.map(it => (
                     <option key={it.id} value={it.id}>{it.name}{it.category ? ` — ${it.category}` : ''} (stok global: {it.stock})</option>
                   ))}
                 </select>
