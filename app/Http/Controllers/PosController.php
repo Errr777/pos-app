@@ -193,7 +193,7 @@ class PosController extends Controller
             'items'                   => 'required|array|min:1',
             'items.*.item_id'         => 'required|integer|exists:items,id',
             'items.*.quantity'        => 'required|integer|min:1|max:9999',
-            'items.*.unit_price'      => 'required|integer|min:0',
+            'items.*.unit_price'      => 'required|integer|min:1',
             'items.*.discount_amount' => 'nullable|integer|min:0',
         ]);
 

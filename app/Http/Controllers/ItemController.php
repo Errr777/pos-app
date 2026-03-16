@@ -223,7 +223,7 @@ class ItemController extends Controller
             'stok'         => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'stok_minimal' => $isJasa ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'harga_beli'   => 'nullable|integer|min:0',
-            'harga_jual'   => 'nullable|integer|min:0',
+            'harga_jual'   => 'required|integer|min:1',
             'kategori'     => 'nullable|string|max:255',
             'id_kategori'  => 'nullable|exists:kategoris,id',
         ]);
@@ -297,7 +297,7 @@ class ItemController extends Controller
             'stok'         => $isJasaUpdate ? 'nullable|integer|min:0' : 'required|integer|min:0',
             'stok_minimal' => $isJasaUpdate ? 'nullable|integer|min:0' : 'required|integer|min:0',
             'harga_beli'   => 'nullable|integer|min:0',
-            'harga_jual'   => 'nullable|integer|min:0',
+            'harga_jual'   => 'required|integer|min:1',
             'id_kategori'           => 'nullable|integer|exists:kategoris,id',
             'preferred_supplier_id' => 'nullable|integer|exists:suppliers,id',
         ]);
