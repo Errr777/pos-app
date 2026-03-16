@@ -26,6 +26,7 @@ class TransactionSeeder extends Seeder
         $receivers = ['Outlet A', 'Customer B', 'Produksi', 'Divisi Gudang', 'Toko Cabang 1'];
         $actors    = ['Admin', 'Kasir', 'Gudang'];
         $sources   = ['Manual', 'Purchase Order', 'Sales Order', 'Adjustment'];
+        $notes     = ['Stok masuk dari supplier', 'Pengiriman batch reguler', 'Restock gudang', 'Penyesuaian stok', null, null, null];
 
         foreach ($items as $item) {
             $runningBalance = 0;
@@ -52,7 +53,7 @@ class TransactionSeeder extends Seeder
                     'category'     => $item->kategori,
                     'qrcode'       => $item->kode_item,
                     'metadata'     => ['balance_after' => $runningBalance, 'global_balance_after' => $runningBalance],
-                    'note'         => \fake()->optional(0.4)->sentence(),
+                    'note'         => $notes[array_rand($notes)],
                 ]);
             }
 
