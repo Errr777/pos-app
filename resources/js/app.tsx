@@ -1,11 +1,19 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'App POST';
+
+// Reload the page on 419 (CSRF token expired) so a fresh token is fetched.
+router.on('invalid', (event) => {
+    if (event.detail.response.status === 419) {
+        event.preventDefault();
+        router.reload();
+    }
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
