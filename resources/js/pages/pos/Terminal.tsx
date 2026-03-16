@@ -14,6 +14,7 @@ import { useNetwork } from '@/hooks/use-network';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useToast } from '@/components/ui/toast';
 import { v4 as uuidv4 } from 'uuid';
+import { DatePickerInput } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -599,8 +600,7 @@ export default function PosTerminal() {
             {/* Date */}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Tanggal</label>
-              <input type="date" className="w-full border border-border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                value={date} onChange={e => setDate(e.target.value)} />
+              <DatePickerInput value={date} onChange={(v) => setDate(v)} className="h-9 text-sm" />
             </div>
 
             {/* Offline status */}

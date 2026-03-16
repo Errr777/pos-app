@@ -23,6 +23,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { DateRange } from 'react-day-picker';
+import { DatePickerInput } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -501,13 +502,7 @@ export default function Stock_In() {
             <div className="space-y-3 mt-2">
               <div>
                 <label className="block font-semibold mb-1">Tanggal</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                />
+                <DatePickerInput value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
                 {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
               </div>
               <div>

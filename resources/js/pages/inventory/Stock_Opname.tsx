@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DatePickerInput } from '@/components/DatePickerInput';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -95,12 +96,7 @@ export default function StockOpname() {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Tanggal</label>
-                                <input
-                                    type="date"
-                                    className="w-full border rounded-lg px-3 py-2 bg-background text-sm"
-                                    value={date}
-                                    onChange={e => setDate(e.target.value)}
-                                />
+                                <DatePickerInput value={date} onChange={(v) => setDate(v)} />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Catatan (opsional)</label>

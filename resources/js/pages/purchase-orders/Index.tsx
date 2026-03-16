@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Eye, Trash2, CheckCircle, XCircle, PackageCheck, ClipboardList } from 'lucide-react';
+import { DatePickerInput } from '@/components/DatePickerInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -334,8 +335,7 @@ export default function PurchaseOrdersIndex() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Exp. Tanggal Terima</label>
-                <input type="date" className={inputCls('expected_at')} value={form.expected_at}
-                  onChange={e => setForm(f => ({ ...f, expected_at: e.target.value }))} />
+                <DatePickerInput value={form.expected_at} onChange={v => setForm(f => ({ ...f, expected_at: v }))} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Catatan</label>

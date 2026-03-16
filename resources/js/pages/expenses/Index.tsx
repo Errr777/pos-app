@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { DatePickerInput, DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -144,11 +145,11 @@ export default function ExpensesIndex() {
                 <div className="flex flex-wrap gap-3 items-end">
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dari</label>
-                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="border rounded-lg px-3 py-2 text-sm bg-background h-9" />
+                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Sampai</label>
-                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="border rounded-lg px-3 py-2 text-sm bg-background h-9" />
+                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Kategori</label>
@@ -183,8 +184,7 @@ export default function ExpensesIndex() {
                         <form onSubmit={submitForm} className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-xs font-medium mb-1">Tanggal</label>
-                                <input type="date" value={form.data.occurred_at} onChange={e => form.setData('occurred_at', e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background" required />
+                                <DatePickerInput value={form.data.occurred_at} onChange={v => form.setData('occurred_at', v)} />
                                 {form.errors.occurred_at && <p className="text-xs text-destructive mt-1">{form.errors.occurred_at}</p>}
                             </div>
                             <div>

@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Eye, XCircle, Trash2, RotateCcw } from 'lucide-react';
+import { DatePickerInput, DatePickerFilter } from '@/components/DatePickerInput';
 import { Button } from '@/components/ui/button';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -238,10 +239,8 @@ export default function ReturnsIndex() {
                         <option value="void">Dibatalkan</option>
                     </select>
                     <div className="flex gap-2">
-                        <input type="date" className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={dateFrom} onChange={e => { setDateFrom(e.target.value); navigate({ date_from: e.target.value, page: 1 }); }} />
-                        <input type="date" className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={dateTo} onChange={e => { setDateTo(e.target.value); navigate({ date_to: e.target.value, page: 1 }); }} />
+                        <DatePickerFilter value={dateFrom} onChange={v => { setDateFrom(v); navigate({ date_from: v, page: 1 }); }} />
+                        <DatePickerFilter value={dateTo} onChange={v => { setDateTo(v); navigate({ date_to: v, page: 1 }); }} />
                     </div>
                     <select className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                         value={perPage} onChange={e => { setPerPage(e.target.value); navigate({ per_page: e.target.value, page: 1 }); }}>
@@ -373,8 +372,7 @@ export default function ReturnsIndex() {
                             )}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Tanggal <span className="text-red-500">*</span></label>
-                                <input type="date" className={inputCls('occurred_at')} value={form.occurred_at}
-                                    onChange={e => setForm(f => ({ ...f, occurred_at: e.target.value }))} />
+                                <DatePickerInput value={form.occurred_at} onChange={v => setForm(f => ({ ...f, occurred_at: v }))} />
                                 {formErrors.occurred_at && <p className="text-red-500 text-xs mt-1">{formErrors.occurred_at}</p>}
                             </div>
                             <div className="col-span-2">

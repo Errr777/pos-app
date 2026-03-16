@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -188,13 +189,11 @@ export default function AuditLogIndex() {
                 <div className="flex flex-wrap gap-3 items-end">
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dari</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background h-9"
-                            value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Sampai</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background h-9"
-                            value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Kategori</label>

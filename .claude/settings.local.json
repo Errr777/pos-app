@@ -35,7 +35,9 @@
       "Bash(npm install:*)",
       "Bash(node -e \"require\\(''./node_modules/vite-plugin-pwa/dist/index.cjs''\\); console.log\\(''pwa ok''\\)\")",
       "Bash(node -e \"require\\(''./node_modules/dexie/dist/dexie.js''\\); console.log\\(''dexie ok''\\)\")",
-      "Bash(php -r \":*)"
+      "Bash(php -r \":*)",
+      "Bash(bash sync-from-main.sh)",
+      "Bash(/Users/errr/Developer/Project/my/pos-app-production/Dockerfile:*)"
     ]
   },
   "enabledPlugins": {

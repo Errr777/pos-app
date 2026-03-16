@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { DatePickerInput } from '@/components/DatePickerInput';
 import { Button } from '@/components/ui/button';
 import {
     Dialog, DialogContent, DialogHeader,
@@ -371,14 +372,10 @@ function PromoForm({ form, categories, items, tags }: {
 
             <div className="grid grid-cols-2 gap-3">
                 <Field label="Tanggal Mulai">
-                    <input className={input} type="date"
-                        value={form.data.start_date as string}
-                        onChange={e => form.setData('start_date', e.target.value)} required />
+                    <DatePickerInput value={form.data.start_date as string} onChange={v => form.setData('start_date', v)} />
                 </Field>
                 <Field label="Tanggal Berakhir">
-                    <input className={input} type="date"
-                        value={form.data.end_date as string}
-                        onChange={e => form.setData('end_date', e.target.value)} required />
+                    <DatePickerInput value={form.data.end_date as string} onChange={v => form.setData('end_date', v)} />
                 </Field>
             </div>
 

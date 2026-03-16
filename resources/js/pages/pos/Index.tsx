@@ -9,6 +9,7 @@ import {
   DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
 import Pagination, { type PaginationMeta } from '@/components/Pagination';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -170,10 +171,8 @@ export default function PosIndex() {
             </div>
             <Button type="submit" size="sm" variant="outline">Cari</Button>
           </form>
-          <input type="date" className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            value={dateFrom} onChange={e => { setDateFrom(e.target.value); navigate({ date_from: e.target.value, page: 1 }); }} />
-          <input type="date" className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            value={dateTo} onChange={e => { setDateTo(e.target.value); navigate({ date_to: e.target.value, page: 1 }); }} />
+          <DatePickerFilter value={dateFrom} onChange={v => { setDateFrom(v); navigate({ date_from: v, page: 1 }); }} />
+          <DatePickerFilter value={dateTo} onChange={v => { setDateTo(v); navigate({ date_to: v, page: 1 }); }} />
           <select className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             value={payMethod} onChange={e => { setPayMethod(e.target.value); navigate({ payment_method: e.target.value, page: 1 }); }}>
             <option value="">Semua Metode</option>

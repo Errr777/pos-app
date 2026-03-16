@@ -7,6 +7,7 @@ import {
     Legend, ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, TrendingDown, ArrowRightLeft, Download } from 'lucide-react';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -115,13 +116,11 @@ export default function ReportCashflow() {
                 <div className="flex flex-wrap gap-3 items-end">
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium text-muted-foreground">Dari Tanggal</label>
-                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                            className="border rounded-lg px-3 py-2 bg-background text-sm h-9" />
+                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} />
                     </div>
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium text-muted-foreground">Sampai Tanggal</label>
-                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                            className="border rounded-lg px-3 py-2 bg-background text-sm h-9" />
+                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} />
                     </div>
                     {warehouses.length > 1 && (
                         <div className="flex flex-col gap-1">
