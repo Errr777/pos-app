@@ -52,7 +52,7 @@ class TransactionSeeder extends Seeder
                     'category'     => $item->kategori,
                     'qrcode'       => $item->kode_item,
                     'metadata'     => ['balance_after' => $runningBalance, 'global_balance_after' => $runningBalance],
-                    'note'         => fake()->optional(0.4)->sentence(),
+                    'note'         => \fake()->optional(0.4)->sentence(),
                 ]);
             }
 
