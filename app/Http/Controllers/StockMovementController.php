@@ -84,6 +84,28 @@ class StockMovementController extends Controller
     }
 
     /** Return the list of items for the dropdown in add/edit modals. */
+    /** Return items with stock > 0 for a specific warehouse (used by Stock Out form). */
+    public function stockOutItems(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $warehouseId = (int) $request->get('warehouse_id', 0);
+
+        $items = WarehouseItem::where('warehouse_items.warehouse_id', $warehouseId)
+            ->where('warehouse_items.stok', '>', 0)
+            ->join('items', 'items.id', '=', 'warehouse_items.item_id')
+            ->select('items.id', 'items.nama', 'items.kategori', 'items.kode_item', 'warehouse_items.stok')
+            ->orderBy('items.nama')
+            ->get()
+            ->map(fn($row) => [
+                'id'       => $row->id,
+                'name'     => $row->nama,
+                'category' => $row->kategori,
+                'stock'    => (int) $row->stok,
+                'kode'     => $row->kode_item,
+            ]);
+
+        return response()->json($items);
+    }
+
     private function itemOptions(): \Illuminate\Support\Collection
     {
         return Item::select('id', 'nama', 'kategori', 'stok', 'kode_item')
@@ -246,7 +268,6 @@ class StockMovementController extends Controller
 
         return Inertia::render('inventory/Stock_Out', [
             'movements'  => $movements,
-            'items'      => $this->itemOptions(),
             'warehouses' => $this->warehouseOptions(),
             'totalQty'   => (int) $totalQty,
             'filters'    => array_merge(

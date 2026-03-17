@@ -76,9 +76,10 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     })->name('stock_alerts');
 
     // Inventory
-    Route::get('inventory/stock_in',  [StockMovementController::class, 'stockIn'])->name('Stock_In');
-    Route::get('inventory/stock_out', [StockMovementController::class, 'stockOut'])->name('Stock_Out');
-    Route::get('inventory/stock_log', [StockMovementController::class, 'log'])->name('Stock_Log');
+    Route::get('inventory/stock_in',       [StockMovementController::class, 'stockIn'])->name('Stock_In');
+    Route::get('inventory/stock_out',      [StockMovementController::class, 'stockOut'])->name('Stock_Out');
+    Route::get('inventory/stock_out/items',[StockMovementController::class, 'stockOutItems'])->name('stock_out.items');
+    Route::get('inventory/stock_log',      [StockMovementController::class, 'log'])->name('Stock_Log');
     Route::get('inventory',           [StockMovementController::class, 'history'])->name('Stock_History');
 
     Route::post('inventory/stock',                 [StockMovementController::class, 'store'])->name('stock.store');
@@ -193,6 +194,9 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('/settings/backups',                            [BackupController::class, 'index'])->name('backups.index');
     Route::get('/settings/backups/download/{filename}',        [BackupController::class, 'download'])->name('backups.download');
     Route::post('/settings/backups/run',                       [BackupController::class, 'run'])->name('backups.run');
+    Route::post('/settings/backups/restore/{filename}',        [BackupController::class, 'restore'])->name('backups.restore');
+    Route::post('/settings/backups/upload',                    [BackupController::class, 'upload'])->name('backups.upload');
+    Route::delete('/settings/backups/{filename}',              [BackupController::class, 'destroy'])->name('backups.destroy');
 
     // Role Management (must be before /users/{user} wildcard)
     Route::get('/users/roles',                        [RoleController::class, 'index'])->name('users.roles');

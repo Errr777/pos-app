@@ -2,13 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Support\BackupEncryption;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 class BackupDatabase extends Command
 {
     protected $signature = 'backup:database {--keep=7 : Number of daily backups to retain}';
-    protected $description = 'Backup the database to storage/backups/';
+    protected $description = 'Backup the database to storage/backups/ (AES-256-CBC encrypted)';
 
     public function handle(): int
     {
@@ -24,22 +25,22 @@ class BackupDatabase extends Command
                 $this->error("SQLite file not found: {$dbPath}");
                 return self::FAILURE;
             }
-            $filename = "backups/db-{$date}.sqlite";
-            $disk->put($filename, file_get_contents($dbPath));
+            $relPath = "backups/db-{$date}.sqlite.enc";
+            $encPath = $disk->path($relPath);
+            @mkdir(dirname($encPath), 0755, true);
+            BackupEncryption::encryptFile($dbPath, $encPath);
 
-        } elseif ($driver === 'mysql') {
-            $filename = "backups/db-{$date}.sql";
-            $host     = config('database.connections.mysql.host');
-            $port     = config('database.connections.mysql.port');
-            $database = config('database.connections.mysql.database');
-            $username = config('database.connections.mysql.username');
-            $password = config('database.connections.mysql.password');
+        } elseif ($driver === 'mysql' || $driver === 'mariadb') {
+            $conn     = config("database.connections.{$driver}");
+            $host     = $conn['host'];
+            $port     = $conn['port'];
+            $database = $conn['database'];
+            $username = $conn['username'];
+            $password = $conn['password'];
 
-            $tmpFile = storage_path("app/{$filename}");
-            @mkdir(dirname($tmpFile), 0755, true);
+            $tmpFile = tempnam(sys_get_temp_dir(), 'db_backup_') . '.sql';
 
-            // Use --defaults-extra-file to avoid exposing password in process list (ps aux)
-            $cnfFile = tempnam(sys_get_temp_dir(), 'mysql_cnf_');
+            $cnfFile   = tempnam(sys_get_temp_dir(), 'mysql_cnf_');
             $escapedPw = str_replace('"', '\\"', $password);
             file_put_contents($cnfFile, "[client]\npassword=\"{$escapedPw}\"\n");
             chmod($cnfFile, 0600);
@@ -57,15 +58,23 @@ class BackupDatabase extends Command
             @unlink($cnfFile);
 
             if ($exitCode !== 0) {
+                @unlink($tmpFile);
                 $this->error("mysqldump failed: " . implode("\n", $output));
                 return self::FAILURE;
             }
+
+            $relPath = "backups/db-{$date}.sql.enc";
+            $encPath = $disk->path($relPath);
+            @mkdir(dirname($encPath), 0755, true);
+            BackupEncryption::encryptFile($tmpFile, $encPath);
+            @unlink($tmpFile);
+
         } else {
-            $this->error("Unsupported DB driver: {$driver}. Only sqlite and mysql are supported.");
+            $this->error("Unsupported DB driver: {$driver}.");
             return self::FAILURE;
         }
 
-        $this->info("Backup saved: {$filename}");
+        $this->info("Backup saved (encrypted): {$relPath}");
         $this->pruneOldBackups($disk, (int) $this->option('keep'));
 
         return self::SUCCESS;

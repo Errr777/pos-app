@@ -385,15 +385,15 @@ export default function Items() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border rounded-xl text-sm">
             <colgroup>
-              <col className="w-8" />    {/* checkbox */}
-              <col className="w-10" />   {/* # */}
-              <col className="w-44" />   {/* Nama */}
-              <col className="w-32" />   {/* QR Code */}
-              <col className="w-16" />   {/* Stok */}
-              <col className="w-30" />   {/* Kategori */}
-              <col className="w-20" />   {/* Harga Jual */}
-              <col className="w-44" />   {/* Tags */}
-              <col className="w-36" />   {/* Aksi */}
+              <col className="w-8" />
+              <col className="w-10" />
+              <col className="w-44" />
+              <col className="w-32" />
+              <col className="w-16" />
+              <col className="w-30" />
+              <col className="w-20" />
+              <col className="w-44" />
+              <col className="w-36" />
             </colgroup>
             <thead>
               <tr className="bg-muted text-xs uppercase tracking-wide">

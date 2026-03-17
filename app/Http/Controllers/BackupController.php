@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\BackupEncryption;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +16,7 @@ class BackupController extends Controller
 
         $disk  = Storage::disk('local');
         $files = collect($disk->exists('backups') ? $disk->files('backups') : [])
-            ->filter(fn ($f) => str_starts_with(basename($f), 'db-'))
+            ->filter(fn ($f) => str_starts_with(basename($f), 'db-') && str_ends_with($f, '.enc'))
             ->sortByDesc(fn ($f) => $disk->lastModified($f))
             ->map(fn ($f) => [
                 'filename'  => basename($f),
@@ -34,7 +35,7 @@ class BackupController extends Controller
     {
         abort_unless(auth()->user()->role === 'admin', 403);
 
-        if (!preg_match('/^db-[\d_-]+\.(sqlite|sql)$/', $filename)) {
+        if (!preg_match('/^db-[\d_-]+\.(sqlite|sql)\.enc$/', $filename)) {
             abort(404);
         }
 
@@ -44,11 +45,133 @@ class BackupController extends Controller
         return Storage::disk('local')->download($path, $filename);
     }
 
-    public function run(): \Illuminate\Http\RedirectResponse
+    public function run(Request $request): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
     {
         abort_unless(auth()->user()->role === 'admin', 403);
 
         Artisan::call('backup:database');
-        return back()->with('success', 'Backup berhasil dibuat.');
+
+        $disk   = Storage::disk('local');
+        $latest = collect($disk->exists('backups') ? $disk->files('backups') : [])
+            ->filter(fn ($f) => str_starts_with(basename($f), 'db-') && str_ends_with($f, '.enc'))
+            ->sortByDesc(fn ($f) => $disk->lastModified($f))
+            ->first();
+
+        $newFile = $latest ? basename($latest) : null;
+
+        if ($request->wantsJson()) {
+            return response()->json(['filename' => $newFile, 'message' => 'Backup berhasil dibuat.']);
+        }
+
+        return redirect()->route('backups.index')->with('success', 'Backup berhasil dibuat.');
+    }
+
+    public function restore(string $filename): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless(auth()->user()->role === 'admin', 403);
+
+        if (!preg_match('/^db-[\d_-]+\.(sqlite|sql)\.enc$/', $filename)) {
+            abort(404);
+        }
+
+        $path = "backups/{$filename}";
+        abort_unless(Storage::disk('local')->exists($path), 404);
+
+        $encPath = Storage::disk('local')->path($path);
+        $tmpPath = BackupEncryption::decryptToTemp($encPath);
+
+        try {
+            $ext = str_ends_with($filename, '.sqlite.enc') ? 'sqlite' : 'sql';
+            $this->runRestore($tmpPath, $ext);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        return back()->with('success', "Database berhasil dipulihkan dari {$filename}.");
+    }
+
+    public function upload(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless(auth()->user()->role === 'admin', 403);
+
+        $request->validate([
+            'backup_file' => ['required', 'file', 'max:102400'],
+        ]);
+
+        $file     = $request->file('backup_file');
+        $origName = $file->getClientOriginalName();
+
+        if (!str_ends_with($origName, '.sql.enc') && !str_ends_with($origName, '.sqlite.enc')) {
+            return back()->withErrors(['backup_file' => 'File harus berformat .sql.enc (backup terenkripsi).']);
+        }
+
+        $filename = 'db-imported-' . now()->format('Y-m-d_H-i-s') . '.sql.enc';
+        $stored   = $file->storeAs('backups', $filename, 'local');
+        $encPath  = Storage::disk('local')->path($stored);
+
+        $tmpPath = BackupEncryption::decryptToTemp($encPath);
+        try {
+            $this->runRestore($tmpPath, 'sql');
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        return back()->with('success', 'Database berhasil dipulihkan dari file yang diunggah.');
+    }
+
+    public function destroy(string $filename): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless(auth()->user()->role === 'admin', 403);
+
+        if (!preg_match('/^db-[\d_-]+\.(sqlite|sql)\.enc$/', $filename)) {
+            abort(404);
+        }
+
+        $path = "backups/{$filename}";
+        if (Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->delete($path);
+        }
+
+        return back()->with('success', "Backup {$filename} berhasil dihapus.");
+    }
+
+    private function runRestore(string $filePath, string $ext): void
+    {
+        $driver = config('database.default');
+
+        if ($ext === 'sqlite') {
+            $dbPath = config('database.connections.sqlite.database');
+            copy($filePath, $dbPath);
+            return;
+        }
+
+        // SQL dump — works for mysql/mariadb
+        $conn     = config("database.connections.{$driver}");
+        $host     = $conn['host'];
+        $port     = $conn['port'];
+        $database = $conn['database'];
+        $username = $conn['username'];
+        $password = $conn['password'];
+
+        $cnfFile   = tempnam(sys_get_temp_dir(), 'mysql_cnf_');
+        $escapedPw = str_replace('"', '\\"', $password);
+        file_put_contents($cnfFile, "[client]\npassword=\"{$escapedPw}\"\n");
+        chmod($cnfFile, 0600);
+
+        $cmd = sprintf(
+            'mysql --defaults-extra-file=%s --host=%s --port=%s --user=%s %s < %s 2>&1',
+            escapeshellarg($cnfFile),
+            escapeshellarg($host),
+            escapeshellarg((string) $port),
+            escapeshellarg($username),
+            escapeshellarg($database),
+            escapeshellarg($filePath),
+        );
+        exec($cmd, $output, $exitCode);
+        @unlink($cnfFile);
+
+        if ($exitCode !== 0) {
+            abort(500, 'Restore gagal: ' . implode(' ', $output));
+        }
     }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, Download, Calendar as CalendarIcon, ClipboardCheck, SlidersHorizontal } from 'lucide-react';
+import { Search, Plus, Eye, Download, ClipboardCheck, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -11,10 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { DateRange } from 'react-day-picker';
-import { DatePickerInput } from '@/components/DatePickerInput';
+import { DatePickerInput, DatePickerFilter } from '@/components/DatePickerInput';
 import Pagination from '@/components/Pagination';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -72,15 +69,15 @@ export default function Stock_Adjustment() {
   const [query, setQuery]     = useState(filters.search ?? '');
   const [sortBy, setSortBy]   = useState(filters.sort_by ?? 'date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(filters.sort_dir === 'asc' ? 'asc' : 'desc');
-  const [range, setRange]     = useState<DateRange | undefined>(() =>
-    filters.date_from ? { from: new Date(filters.date_from), to: filters.date_to ? new Date(filters.date_to) : undefined } : undefined
-  );
+  const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
+  const [dateTo, setDateTo]     = useState<string>(filters.date_to ?? '');
 
   useEffect(() => {
     setQuery(filters.search ?? '');
     setSortBy(filters.sort_by ?? 'date');
     setSortDir(filters.sort_dir === 'asc' ? 'asc' : 'desc');
-    setRange(filters.date_from ? { from: new Date(filters.date_from), to: filters.date_to ? new Date(filters.date_to) : undefined } : undefined);
+    setDateFrom(filters.date_from ?? '');
+    setDateTo(filters.date_to ?? '');
   }, [filters]);
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -107,8 +104,8 @@ export default function Stock_Adjustment() {
   const navigate = (overrides: Record<string, unknown> = {}) =>
     router.get(route('stock_adjustment.index'), {
       search: query,
-      date_from: range?.from ? formatDateISO(range.from) : undefined,
-      date_to:   range?.to   ? formatDateISO(range.to)   : undefined,
+      date_from: dateFrom || undefined,
+      date_to:   dateTo || undefined,
       sort_by: sortBy, sort_dir: sortDir, per_page: filters.per_page ?? 20, ...overrides,
     }, { preserveState: true, replace: true });
 
@@ -174,9 +171,19 @@ export default function Stock_Adjustment() {
     a.click();
   };
 
-  const rangeLabel = range?.from && range?.to
-    ? `${formatDateISO(range.from)} s/d ${formatDateISO(range.to)}`
-    : range?.from ? `${formatDateISO(range.from)} s/d …` : 'Pilih tanggal';
+  const handleDateFromChange = (v: string) => {
+    setDateFrom(v);
+    navigate({ date_from: v || undefined, page: 1 });
+  };
+  const handleDateToChange = (v: string) => {
+    setDateTo(v);
+    navigate({ date_to: v || undefined, page: 1 });
+  };
+  const clearDates = () => {
+    setDateFrom('');
+    setDateTo('');
+    navigate({ date_from: undefined, date_to: undefined, page: 1 });
+  };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -194,17 +201,9 @@ export default function Stock_Adjustment() {
             </div>
           </form>
           <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2"><CalendarIcon size={16} />{rangeLabel}</Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" align="start">
-                <Calendar mode="range" selected={range}
-                  onSelect={(r) => { setRange(r); navigate({ date_from: r?.from ? formatDateISO(r.from) : undefined, date_to: r?.to ? formatDateISO(r.to) : undefined, page: 1 }); }}
-                  numberOfMonths={1} defaultMonth={range?.from} className="w-auto max-w-md" />
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" onClick={() => { setRange(undefined); navigate({ date_from: undefined, date_to: undefined, page: 1 }); }}>Clear</Button>
+            <DatePickerFilter value={dateFrom} onChange={handleDateFromChange} placeholder="Dari tanggal" />
+            <DatePickerFilter value={dateTo} onChange={handleDateToChange} placeholder="Sampai tanggal" />
+            <Button variant="outline" onClick={clearDates}>Clear</Button>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={adjustments.data.length === 0}>

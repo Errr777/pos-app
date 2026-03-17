@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import Pagination from '@/components/Pagination';
-import { Search, Plus, Eye, Pencil, Trash, Download, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -20,10 +20,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { DateRange } from 'react-day-picker';
-import { DatePickerInput } from '@/components/DatePickerInput';
+import { DatePickerInput, DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -86,7 +83,6 @@ interface WarehouseOption {
 
 interface PageProps {
   movements: PaginatedMovements;
-  items: ItemOption[];
   warehouses: WarehouseOption[];
   totalQty: number;
   filters: Filters;
@@ -103,35 +99,22 @@ function formatDateISO(d: string | Date | null | undefined): string {
 
 export default function Stock_Out() {
   const { props } = usePage<PageProps>();
-  const { movements, items: itemOptions, warehouses, totalQty, filters } = props;
+  const { movements, warehouses, totalQty, filters } = props;
 
   const [query, setQuery] = useState<string>(filters.search ?? '');
   const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
     filters.sort_dir === 'asc' ? 'asc' : 'desc'
   );
-  const [range, setRange] = useState<DateRange | undefined>(() => {
-    if (filters.date_from) {
-      return {
-        from: new Date(filters.date_from),
-        to: filters.date_to ? new Date(filters.date_to) : undefined,
-      };
-    }
-    return undefined;
-  });
+  const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
+  const [dateTo, setDateTo] = useState<string>(filters.date_to ?? '');
 
   useEffect(() => {
     setQuery(filters.search ?? '');
     setSortBy(filters.sort_by ?? 'date');
     setSortDir(filters.sort_dir === 'asc' ? 'asc' : 'desc');
-    if (filters.date_from) {
-      setRange({
-        from: new Date(filters.date_from),
-        to: filters.date_to ? new Date(filters.date_to) : undefined,
-      });
-    } else {
-      setRange(undefined);
-    }
+    setDateFrom(filters.date_from ?? '');
+    setDateTo(filters.date_to ?? '');
   }, [filters]);
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -140,14 +123,30 @@ export default function Stock_Out() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [itemSearch, setItemSearch] = useState('');
-  const filteredItems = itemOptions.filter((it) =>
+  const [warehouseItems, setWarehouseItems] = useState<ItemOption[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const fetchWarehouseItems = async (warehouseId: number): Promise<ItemOption[]> => {
+    if (!warehouseId) return [];
+    setLoadingItems(true);
+    try {
+      const res = await fetch(route('stock_out.items') + `?warehouse_id=${warehouseId}`);
+      const data: ItemOption[] = await res.json();
+      setWarehouseItems(data);
+      return data;
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  const filteredItems = warehouseItems.filter((it) =>
     it.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
     (it.kode && it.kode.toLowerCase().includes(itemSearch.toLowerCase()))
   );
   const [form, setForm] = useState({
     id: 0,
     date: formatDateISO(new Date()),
-    itemId: itemOptions[0]?.id ?? 0,
+    itemId: 0,
     warehouseId: warehouses[0]?.id ?? 0,
     quantity: 1,
     receiver: '',
@@ -163,8 +162,8 @@ export default function Stock_Out() {
       route('Stock_Out'),
       {
         search:    query,
-        date_from: range?.from ? formatDateISO(range.from) : undefined,
-        date_to:   range?.to   ? formatDateISO(range.to)   : undefined,
+        date_from: dateFrom || undefined,
+        date_to:   dateTo   || undefined,
         sort_by:   sortBy,
         sort_dir:  sortDir,
         per_page:  filters.per_page ?? 20,
@@ -189,16 +188,21 @@ export default function Stock_Out() {
     navigate({ search: query, page: 1 });
   };
 
-  const handleDateRangeChange = (r: DateRange | undefined) => {
-    setRange(r);
-    navigate({
-      date_from: r?.from ? formatDateISO(r.from) : undefined,
-      date_to:   r?.to   ? formatDateISO(r.to)   : undefined,
-      page: 1,
-    });
+  const handleDateFromChange = (v: string) => {
+    setDateFrom(v);
+    navigate({ date_from: v || undefined, page: 1 });
   };
 
-  const clearDateRange = () => handleDateRangeChange(undefined);
+  const handleDateToChange = (v: string) => {
+    setDateTo(v);
+    navigate({ date_to: v || undefined, page: 1 });
+  };
+
+  const clearDates = () => {
+    setDateFrom('');
+    setDateTo('');
+    navigate({ date_from: undefined, date_to: undefined, page: 1 });
+  };
 
   const handlePage = (page: number) => {
     navigate({ page });
@@ -207,34 +211,38 @@ export default function Stock_Out() {
 
   const openDetail = (row: StockOutRow) => { setSelected(row); setIsDetailOpen(true); };
 
-  const openAddForm = () => {
+  const openAddForm = async () => {
     setFormMode('add');
     setFormErrors({});
     setItemSearch('');
+    const wid = warehouses[0]?.id ?? 0;
+    const items = await fetchWarehouseItems(wid);
     setForm({
       id: 0,
       date: formatDateISO(new Date()),
-      itemId: itemOptions[0]?.id ?? 0,
-      warehouseId: warehouses[0]?.id ?? 0,
+      itemId: items[0]?.id ?? 0,
+      warehouseId: wid,
       quantity: 1,
       receiver: '',
       reference: '',
-      qrcode: itemOptions[0]?.kode ?? '',
+      qrcode: items[0]?.kode ?? '',
       note: '',
       source: 'Manual',
     });
     setIsFormOpen(true);
   };
 
-  const openEditForm = (row: StockOutRow) => {
+  const openEditForm = async (row: StockOutRow) => {
     setFormMode('edit');
     setFormErrors({});
     setItemSearch('');
+    const wid = row.warehouseId ?? (warehouses[0]?.id ?? 0);
+    await fetchWarehouseItems(wid);
     setForm({
       id: row.id,
       date: formatDateISO(row.date),
-      itemId: row.itemId ?? (itemOptions[0]?.id ?? 0),
-      warehouseId: row.warehouseId ?? (warehouses[0]?.id ?? 0),
+      itemId: row.itemId ?? 0,
+      warehouseId: wid,
       quantity: row.quantity,
       receiver: row.receiver ?? '',
       reference: row.reference ?? '',
@@ -303,12 +311,6 @@ export default function Stock_Out() {
     URL.revokeObjectURL(url);
   };
 
-  const rangeLabel = (() => {
-    if (range?.from && range?.to) return `${formatDateISO(range.from)} s/d ${formatDateISO(range.to)}`;
-    if (range?.from) return `${formatDateISO(range.from)} s/d …`;
-    return 'Pilih tanggal';
-  })();
-
   const meta = movements;
 
   return (
@@ -334,25 +336,9 @@ export default function Stock_Out() {
           </form>
 
           <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <CalendarIcon size={16} />
-                  {rangeLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={range}
-                  onSelect={handleDateRangeChange}
-                  numberOfMonths={1}
-                  defaultMonth={range?.from}
-                  className="w-auto max-w-md"
-                />
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" onClick={clearDateRange}>Clear</Button>
+            <DatePickerFilter value={dateFrom} onChange={handleDateFromChange} placeholder="Dari tanggal" />
+            <DatePickerFilter value={dateTo} onChange={handleDateToChange} placeholder="Sampai tanggal" />
+            <Button variant="outline" onClick={clearDates}>Clear</Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -481,23 +467,33 @@ export default function Stock_Out() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <form onSubmit={handleFormSubmit}>
             <DialogHeader>
               <DialogTitle>{formMode === 'add' ? 'Tambah Stock-Out' : 'Edit Stock-Out'}</DialogTitle>
               <DialogDescription>Inputkan data barang keluar.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 mt-2">
+            <div className="mt-2 space-y-3">
+              {/* Row 1: Tanggal */}
               <div>
                 <label className="block font-semibold mb-1">Tanggal</label>
                 <DatePickerInput value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
                 {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
               </div>
+              {/* Row 2: Outlet */}
               <div>
                 <label className="block font-semibold mb-1">Outlet</label>
                 <select
                   value={form.warehouseId}
-                  onChange={(e) => setForm((f) => ({ ...f, warehouseId: Number(e.target.value) }))}
+                  onChange={async (e) => {
+                    const wid = Number(e.target.value);
+                    setForm((f) => ({ ...f, warehouseId: wid, itemId: 0, qrcode: '' }));
+                    setItemSearch('');
+                    const items = await fetchWarehouseItems(wid);
+                    if (items.length > 0) {
+                      setForm((f) => ({ ...f, itemId: items[0].id, qrcode: items[0].kode ?? '' }));
+                    }
+                  }}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   {warehouses.map((w) => (
@@ -509,24 +505,29 @@ export default function Stock_Out() {
                   <p className="text-xs text-muted-foreground mt-0.5">Outlet hanya bisa dipindah jika stok baru mencukupi.</p>
                 )}
               </div>
+              {/* Row 2: Item (full width) */}
               <div>
-                <label className="block font-semibold mb-1">Item</label>
+                <label className="block font-semibold mb-1">
+                  Item {loadingItems && <span className="text-xs text-muted-foreground font-normal">Memuat...</span>}
+                </label>
                 <input
                   type="text"
                   placeholder="Cari item..."
                   value={itemSearch}
                   onChange={(e) => setItemSearch(e.target.value)}
                   className="w-full px-3 py-2 border rounded-t-lg border-b-0"
+                  disabled={loadingItems}
                 />
                 <select
                   value={form.itemId}
+                  disabled={loadingItems}
                   onChange={(e) => {
                     const id = Number(e.target.value);
-                    const item = itemOptions.find((it) => it.id === id);
+                    const item = warehouseItems.find((it) => it.id === id);
                     setForm((f) => ({ ...f, itemId: id, qrcode: item?.kode ?? '' }));
                   }}
                   className="w-full px-3 py-2 border rounded-b-lg"
-                  size={Math.min(Math.max(filteredItems.length, 1), 6)}
+                  size={Math.min(Math.max(filteredItems.length, 1), 5)}
                 >
                   {filteredItems.map((it) => (
                     <option key={it.id} value={it.id}>
@@ -536,52 +537,51 @@ export default function Stock_Out() {
                 </select>
                 {formErrors.item_id && <p className="text-destructive text-sm mt-1">{formErrors.item_id}</p>}
               </div>
-              <div>
-                <label className="block font-semibold mb-1">Qty Out</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.quantity}
-                  onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                />
-                {formErrors.quantity && <p className="text-destructive text-sm mt-1">{formErrors.quantity}</p>}
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Receiver</label>
-                <input
-                  value={form.receiver}
-                  onChange={(e) => setForm((f) => ({ ...f, receiver: e.target.value }))}
-                  placeholder="Penerima / divisi / outlet"
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Ref/No</label>
-                <input
-                  value={form.reference}
-                  onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
-                  placeholder="No faktur / DO / req"
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Kode Item</label>
-                <input
-                  value={form.qrcode}
-                  readOnly
-                  disabled
-                  placeholder="Terisi otomatis dari item yang dipilih"
-                  className="w-full px-3 py-2 border rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
-                />
-                {form.qrcode && (
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(form.qrcode)}`}
-                    alt="QR Preview"
-                    className="mt-2 rounded border p-1"
+              {/* Row 3: Qty + Kode Item */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Qty Out</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.quantity}
+                    onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    required
                   />
-                )}
+                  {formErrors.quantity && <p className="text-destructive text-sm mt-1">{formErrors.quantity}</p>}
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Kode Item</label>
+                  <input
+                    value={form.qrcode}
+                    readOnly
+                    disabled
+                    placeholder="Terisi otomatis"
+                    className="w-full px-3 py-2 border rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              {/* Row 4: Receiver + Ref/No */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Receiver</label>
+                  <input
+                    value={form.receiver}
+                    onChange={(e) => setForm((f) => ({ ...f, receiver: e.target.value }))}
+                    placeholder="Penerima / divisi / outlet"
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Ref/No</label>
+                  <input
+                    value={form.reference}
+                    onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
+                    placeholder="No faktur / DO / req"
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block font-semibold mb-1">Catatan</label>

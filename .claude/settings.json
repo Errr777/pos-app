@@ -4,7 +4,8 @@
       "Bash(docker build:*)",
       "Bash(sort git:*)",
       "Bash(rsync -av --delete --exclude='.git/' --exclude='.env' --exclude='.env.*' --exclude='node_modules/' --exclude='vendor/' --exclude='bootstrap/cache/*.php' --exclude='storage/logs/*.log' --exclude='database/database.sqlite' --exclude='public/build/' --exclude='docker/' --exclude='Dockerfile' --exclude='docker-compose.coolify.yml' --exclude='docker-compose.yml' --exclude='DEPLOYMENT.md' --exclude='.dockerignore' --exclude='db_post' /Users/errr/Developer/Project/my/pos-app/ /Users/errr/Developer/Project/my/pos-app-production/)",
-      "Bash(grep -v '^sending\\\\|^sent\\\\|^total\\\\|^\\\\.$')"
+      "Bash(grep -v '^sending\\\\|^sent\\\\|^total\\\\|^\\\\.$')",
+      "Bash(lsof -ti:8000)"
     ],
     "additionalDirectories": [
       "/Users/errr/Developer/Project/my/pos-app-production/.claude"

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Eye, Download, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Eye, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -18,9 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { DateRange } from 'react-day-picker';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -87,28 +85,15 @@ export default function ReportStock() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
     filters.sort_dir === 'desc' ? 'desc' : 'asc'
   );
-  const [range, setRange] = useState<DateRange | undefined>(() => {
-    if (filters.date_from) {
-      return {
-        from: new Date(filters.date_from),
-        to: filters.date_to ? new Date(filters.date_to) : undefined,
-      };
-    }
-    return undefined;
-  });
+  const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
+  const [dateTo, setDateTo] = useState<string>(filters.date_to ?? '');
 
   useEffect(() => {
     setQuery(filters.search ?? '');
     setSortBy(filters.sort_by ?? 'name');
     setSortDir(filters.sort_dir === 'desc' ? 'desc' : 'asc');
-    if (filters.date_from) {
-      setRange({
-        from: new Date(filters.date_from),
-        to: filters.date_to ? new Date(filters.date_to) : undefined,
-      });
-    } else {
-      setRange(undefined);
-    }
+    setDateFrom(filters.date_from ?? '');
+    setDateTo(filters.date_to ?? '');
   }, [filters]);
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -119,8 +104,8 @@ export default function ReportStock() {
       route('Report_Stock'),
       {
         search:    query,
-        date_from: range?.from ? formatDateISO(range.from) : undefined,
-        date_to:   range?.to   ? formatDateISO(range.to)   : undefined,
+        date_from: dateFrom || undefined,
+        date_to:   dateTo || undefined,
         sort_by:   sortBy,
         sort_dir:  sortDir,
         per_page:  filters.per_page ?? 20,
@@ -145,16 +130,19 @@ export default function ReportStock() {
     navigate({ search: query, page: 1 });
   };
 
-  const handleDateRangeChange = (r: DateRange | undefined) => {
-    setRange(r);
-    navigate({
-      date_from: r?.from ? formatDateISO(r.from) : undefined,
-      date_to:   r?.to   ? formatDateISO(r.to)   : undefined,
-      page: 1,
-    });
+  const handleDateFromChange = (v: string) => {
+    setDateFrom(v);
+    navigate({ date_from: v || undefined, page: 1 });
   };
-
-  const clearDateRange = () => handleDateRangeChange(undefined);
+  const handleDateToChange = (v: string) => {
+    setDateTo(v);
+    navigate({ date_to: v || undefined, page: 1 });
+  };
+  const clearDates = () => {
+    setDateFrom('');
+    setDateTo('');
+    navigate({ date_from: undefined, date_to: undefined, page: 1 });
+  };
 
   const handlePage = (page: number) => {
     navigate({ page });
@@ -190,12 +178,6 @@ export default function ReportStock() {
     URL.revokeObjectURL(url);
   };
 
-  const rangeLabel = (() => {
-    if (range?.from && range?.to) return `${formatDateISO(range.from)} s/d ${formatDateISO(range.to)}`;
-    if (range?.from) return `${formatDateISO(range.from)} s/d …`;
-    return 'Pilih tanggal';
-  })();
-
   const meta = items;
 
   return (
@@ -222,25 +204,9 @@ export default function ReportStock() {
           </form>
 
           <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <CalendarIcon size={16} />
-                  {rangeLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={range}
-                  onSelect={handleDateRangeChange}
-                  numberOfMonths={1}
-                  defaultMonth={range?.from}
-                  className="w-auto max-w-md"
-                />
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" onClick={clearDateRange}>Clear</Button>
+            <DatePickerFilter value={dateFrom} onChange={handleDateFromChange} placeholder="Dari tanggal" />
+            <DatePickerFilter value={dateTo} onChange={handleDateToChange} placeholder="Sampai tanggal" />
+            <Button variant="outline" onClick={clearDates}>Clear</Button>
           </div>
 
           <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={items.data.length === 0}>
@@ -256,7 +222,7 @@ export default function ReportStock() {
         </div>
 
         <p className="text-xs text-muted-foreground mb-3">
-          {range?.from
+          {dateFrom
             ? `Stok masuk/keluar dihitung dalam rentang tanggal yang dipilih. Stok saat ini selalu menampilkan nilai terkini.`
             : `Menampilkan semua item. Pilih tanggal untuk memfilter jumlah masuk/keluar.`}
         </p>
@@ -373,10 +339,10 @@ export default function ReportStock() {
               <p><strong>Stok Saat Ini:</strong> <span className={selected.stock <= selected.stock_min ? 'text-rose-600 font-bold' : 'font-bold'}>{selected.stock}</span></p>
               <p><strong>Stok Minimal:</strong> {selected.stock_min}</p>
               <hr />
-              <p><strong>Total Masuk</strong> {range?.from ? '(periode)' : '(semua waktu)'}:
+              <p><strong>Total Masuk</strong> {dateFrom ? '(periode)' : '(semua waktu)'}:
                 <span className="ml-2 text-emerald-700 font-semibold">+{selected.total_in}</span>
               </p>
-              <p><strong>Total Keluar</strong> {range?.from ? '(periode)' : '(semua waktu)'}:
+              <p><strong>Total Keluar</strong> {dateFrom ? '(periode)' : '(semua waktu)'}:
                 <span className="ml-2 text-rose-600 font-semibold">-{selected.total_out}</span>
               </p>
               {selected.kode && (
