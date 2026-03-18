@@ -68,9 +68,6 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('items/add', function () {
         return Inertia::render('Items/Add_Items');
     })->name('Add_Items');
-    Route::get('items/categories', function () {
-        return Inertia::render('Items/Categories');
-    })->name('Categories');
     Route::get('items/stock_alerts', function () {
         return Inertia::render('Items/Stock_alerts');
     })->name('stock_alerts');

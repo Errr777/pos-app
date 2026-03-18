@@ -49,6 +49,33 @@ export default function ReportBranches() {
         router.get('/report/branches', { date_from: dateFrom, date_to: dateTo }, { preserveState: true, replace: true });
     };
 
+    const exportCSV = () => {
+        const headers = ['Nama Cabang', 'Kode', 'Kota', 'Telepon', 'Transaksi', 'Revenue', 'COGS', 'Profit', 'Rata-rata Order', 'Item Terlaris', '% Revenue'];
+        const rows = branches.map(b => [
+            b.name,
+            b.code,
+            b.city ?? '',
+            b.phone ?? '',
+            b.trxCount,
+            b.revenue,
+            b.cogs,
+            b.profit,
+            b.avgOrder,
+            b.topItem ?? '',
+            pct(b.revenue, totals.revenue),
+        ]);
+        const csvContent = [headers, ...rows]
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+            .join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `laporan-cabang_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const maxRevenue = Math.max(1, ...branches.map(b => b.revenue));
 
     return (
@@ -83,6 +110,14 @@ export default function ReportBranches() {
                         <Download className="h-4 w-4" />
                         Export Excel
                     </a>
+                    <button
+                        onClick={exportCSV}
+                        disabled={branches.length === 0}
+                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                    </button>
                 </div>
 
                 {/* Totals */}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, XCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, XCircle, CheckCircle, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -100,6 +100,9 @@ export default function PurchaseOrderShow() {
             <ArrowLeft size={15} className="mr-1" /> Kembali
           </Button>
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
+              <Printer size={15} className="mr-1" /> Cetak
+            </Button>
             {canOrder && (
               <Button size="sm" variant="outline" onClick={() => handleStatusChange('ordered')}>
                 <CheckCircle size={15} className="mr-1" /> Tandai Dipesan

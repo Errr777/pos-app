@@ -62,6 +62,31 @@ export default function ReportABC() {
         router.get('/report/abc', { date_from: dateFrom, date_to: dateTo, warehouse_id: warehouse }, { preserveState: true, replace: true });
     };
 
+    const exportCSV = () => {
+        const headers = ['#', 'Kelas', 'Nama Produk', 'Kategori', 'Terjual', 'Revenue', 'Profit', 'Margin (%)', 'Kumulatif (%)'];
+        const rows = displayed.map((item, i) => [
+            i + 1,
+            item.class,
+            item.name,
+            item.category ?? '',
+            item.totalSold,
+            item.totalRevenue,
+            item.profit,
+            item.margin,
+            item.cumulativePct,
+        ]);
+        const csv = [headers, ...rows]
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+            .join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `laporan-abc_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const displayed = filterClass ? items.filter(i => i.class === filterClass) : items;
 
     return (
@@ -95,13 +120,14 @@ export default function ReportABC() {
                         </div>
                     )}
                     <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
-                    <a
-                        href={`/report/abc/export/excel?date_from=${dateFrom}&date_to=${dateTo}&warehouse_id=${warehouse}`}
-                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    <button
+                        onClick={exportCSV}
+                        disabled={displayed.length === 0}
+                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download className="h-4 w-4" />
-                        Export Excel
-                    </a>
+                        Download CSV
+                    </button>
                 </div>
 
                 {/* Class Summary Cards */}

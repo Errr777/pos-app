@@ -15,6 +15,7 @@ interface DashboardStats {
     lowStockCount: number;
     itemsWithNoMinimum: number;
     categoriesCount: number;
+    pendingPoCount: number;
     salesToday: number;
     salesThisMonth: number;
     netRevenueThisMonth: number;
@@ -89,7 +90,7 @@ export default function Dashboard() {
         storeSettings,
     } = usePage<PageProps>().props;
     const safeStats: DashboardStats = {
-        ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0, transactionCountMonth: 0 }),
+        ...(stats ?? { totalItems: 0, lowStockCount: 0, itemsWithNoMinimum: 0, categoriesCount: 0, pendingPoCount: 0, salesToday: 0, salesThisMonth: 0, netRevenueThisMonth: 0, transactionCountMonth: 0 }),
     };
 
     const handleMonthChange = (month: string) => {
@@ -176,6 +177,17 @@ export default function Dashboard() {
             link: () => router.visit(route('kategori.index')),
             linkLabel: 'Lihat kategori →',
         },
+        {
+            label: 'PO Pending',
+            value: safeStats.pendingPoCount.toString(),
+            sub: 'draft / dipesan / sebagian',
+            cls: safeStats.pendingPoCount > 0
+                ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/40'
+                : 'border-border bg-card',
+            valCls: safeStats.pendingPoCount > 0 ? 'text-amber-600 dark:text-amber-400' : '',
+            link: () => router.visit(route('po.index')),
+            linkLabel: 'Lihat PO →',
+        },
     ];
 
     const storeName = storeSettings?.store_name;
@@ -257,7 +269,7 @@ export default function Dashboard() {
                 )}
 
                 {/* ── Row 1: KPI Cards ── */}
-                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
                     {/* Revenue card with sparkline */}
                     <div className={`rounded-xl border p-4 flex flex-col gap-1 shadow-sm col-span-2 md:col-span-1 ${kpiCards[0].cls}`}>
                         <span className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">{kpiCards[0].label}</span>

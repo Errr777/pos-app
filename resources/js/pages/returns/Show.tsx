@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, XCircle } from 'lucide-react';
+import { ArrowLeft, Printer, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -105,6 +105,9 @@ export default function ReturnsShow() {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${sc.cls}`}>{sc.label}</span>
+                        <Button size="sm" variant="outline" onClick={() => window.print()}>
+                            <Printer size={14} className="mr-1" /> Cetak
+                        </Button>
                         {returnData.status === 'completed' && (
                             <Button size="sm" variant="destructive" onClick={() => setShowVoid(true)}>
                                 <XCircle size={14} className="mr-1" /> Void

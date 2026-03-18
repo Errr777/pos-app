@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\Kategori;
+use App\Models\PurchaseOrder;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
 use App\Models\Transaction;
@@ -59,6 +60,7 @@ class DashboardController extends Controller
         $lowStockCount   = Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count();
         $itemsWithNoMinimum = Item::where('type', 'barang')->where('stok_minimal', 0)->count();
         $categoriesCount = Kategori::count();
+        $pendingPoCount  = PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count();
 
         $salesToday = $isCurrentMonth
             ? (int) SaleHeader::where('status', 'completed')
@@ -291,6 +293,7 @@ class DashboardController extends Controller
                 'lowStockCount'         => $lowStockCount,
                 'itemsWithNoMinimum'    => $itemsWithNoMinimum,
                 'categoriesCount'       => $categoriesCount,
+                'pendingPoCount'        => $pendingPoCount,
                 'salesToday'            => $salesToday,
                 'salesThisMonth'        => $salesThisMonth,
                 'netRevenueThisMonth'   => $netRevenueThisMonth,

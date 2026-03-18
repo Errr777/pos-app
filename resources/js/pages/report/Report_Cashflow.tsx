@@ -91,6 +91,29 @@ export default function ReportCashflow() {
     const [warehouseId, setWarehouseId] = useState(filters.warehouse_id ?? '');
     const [groupBy,     setGroupBy]     = useState(filters.group_by     ?? 'daily');
 
+    function exportCSV() {
+        const date = new Date().toISOString().slice(0, 10);
+        const filename = `laporan-kas_${date}.csv`;
+        const headers = ['Periode;Kas Masuk;Kas Keluar;Bersih'];
+        const rows = [...series].reverse().map(row =>
+            [
+                formatPeriod(row.period, groupBy),
+                row.cashIn,
+                row.cashOut,
+                row.net,
+            ].join(';')
+        );
+        const totalRow = ['Total', totals.cashIn, totals.cashOut, totals.net].join(';');
+        const csv = [...headers, ...rows, totalRow].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     function applyFilters() {
         router.get('/report/cashflow', {
             date_from:    dateFrom,
@@ -148,13 +171,14 @@ export default function ReportCashflow() {
                         className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
                         Tampilkan
                     </button>
-                    <a
-                        href={`/report/cashflow/export/excel?date_from=${dateFrom}&date_to=${dateTo}&warehouse_id=${warehouseId}&group_by=${groupBy}`}
-                        className="print:hidden flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    <button
+                        onClick={exportCSV}
+                        disabled={series.length === 0}
+                        className="print:hidden flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download className="h-4 w-4" />
-                        Export Excel
-                    </a>
+                        Export CSV
+                    </button>
                 </div>
 
                 {/* ── Summary Cards ── */}

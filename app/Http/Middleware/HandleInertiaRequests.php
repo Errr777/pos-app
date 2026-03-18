@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\AppSetting;
+use App\Models\Item;
+use App\Models\PurchaseOrder;
 use App\Models\RolePermission;
 use App\Models\UserPermission;
 use Illuminate\Foundation\Inspiring;
@@ -85,6 +87,15 @@ class HandleInertiaRequests extends Middleware
             ],
 
             'storeSettings' => fn () => AppSetting::allAsArray(),
+
+            'notifications' => function () use ($request) {
+                $user = $request->user();
+                if (!$user) return ['lowStockCount' => 0, 'pendingPoCount' => 0];
+                return [
+                    'lowStockCount' => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
+                    'pendingPoCount' => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
+                ];
+            },
         ];
     }
 }

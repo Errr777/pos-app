@@ -52,6 +52,24 @@ export default function ReportPeakHours() {
         router.get('/report/peak-hours', { date_from: dateFrom, date_to: dateTo, warehouse_id: warehouse }, { preserveState: true, replace: true });
     };
 
+    const exportCSV = () => {
+        const header = ['Jam', 'Hari', 'Jumlah Transaksi', 'Revenue (Rp)'];
+        const rows = DAYS_ORDER.flatMap(d =>
+            Array.from({ length: 24 }, (_, h) => {
+                const cell = cellMap[h]?.[d] ?? { hour: h, day: d, count: 0, revenue: 0 };
+                return [padHour(cell.hour), DAY_LABELS[cell.day], cell.count, cell.revenue].join(';');
+            })
+        );
+        const csv = [header.join(';'), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `laporan-jam-ramai_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     // Build cell lookup: cellMap[hour][day]
     const cellMap: Record<number, Record<number, Cell>> = {};
     for (const c of cells) {
@@ -97,13 +115,14 @@ export default function ReportPeakHours() {
                         </div>
                     )}
                     <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
-                    <a
-                        href={`/report/peak-hours/export/excel?date_from=${dateFrom}&date_to=${dateTo}&warehouse_id=${warehouse}`}
-                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    <button
+                        onClick={exportCSV}
+                        disabled={cells.length === 0}
+                        className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download className="h-4 w-4" />
-                        Export Excel
-                    </a>
+                        Export CSV
+                    </button>
                 </div>
 
                 {/* Summary Cards */}

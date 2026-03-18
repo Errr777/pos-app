@@ -1,6 +1,8 @@
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
+import { Download } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid,
     Tooltip, Legend, ResponsiveContainer,
@@ -67,6 +69,42 @@ export default function ReportProfitLoss() {
 
     const safeTotals: Totals = totals ?? { revenue: 0, cogs: 0, gross_profit: 0, expenses: 0, net_profit: 0 };
 
+    const exportCSV = () => {
+        const date = new Date().toISOString().slice(0, 10);
+        const rows: string[][] = [
+            ['Laporan Laba Rugi', String(year)],
+            [],
+            ['Bulan', 'Omzet', 'HPP', 'Laba Kotor', 'Beban Operasional', 'Laba Bersih', 'Margin %'],
+            ...monthly.map(r => [
+                `${r.month} ${year}`,
+                String(r.revenue),
+                String(r.cogs),
+                String(r.gross_profit),
+                String(r.expenses),
+                String(r.net_profit),
+                r.revenue > 0 ? ((r.net_profit / r.revenue) * 100).toFixed(1) + '%' : '-',
+            ]),
+            [],
+            [
+                `TOTAL ${year}`,
+                String(safeTotals.revenue),
+                String(safeTotals.cogs),
+                String(safeTotals.gross_profit),
+                String(safeTotals.expenses),
+                String(safeTotals.net_profit),
+                (safeTotals.revenue > 0 ? ((safeTotals.net_profit / safeTotals.revenue) * 100).toFixed(1) : '0.0') + '%',
+            ],
+        ];
+        const csv = rows.map(r => r.join(';')).join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `laporan-laba-rugi_${date}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const margin = safeTotals.revenue > 0
         ? ((safeTotals.gross_profit / safeTotals.revenue) * 100).toFixed(1)
         : '0.0';
@@ -83,6 +121,10 @@ export default function ReportProfitLoss() {
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold">Laporan Laba Rugi {year}</h1>
                     <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={exportCSV}>
+                            <Download className="w-4 h-4 mr-1.5" />
+                            Export CSV
+                        </Button>
                         {warehouses.length > 1 && (
                             <select
                                 defaultValue={warehouseId ?? ''}
