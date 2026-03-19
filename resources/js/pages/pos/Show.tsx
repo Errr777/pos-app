@@ -58,7 +58,7 @@ interface PageProps {
 }
 
 const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu',
+  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
 };
 
 function formatRp(n: number) {
@@ -87,8 +87,19 @@ export default function PosShow() {
             <ArrowLeft size={15} className="mr-1" /> Kembali
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Button variant="outline" size="sm" onClick={() => window.open(
+              route('pos.print', { saleHeader: sale.id }),
+              'nota',
+              'width=480,height=700,toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes'
+            )}>
               <Printer size={15} className="mr-1" /> Cetak
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.open(
+              route('pos.invoice', { saleHeader: sale.id }),
+              'invoice',
+              'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes'
+            )}>
+              <Printer size={15} className="mr-1" /> Invoice
             </Button>
             {sale.status === 'completed' && (
               <Button variant="destructive" size="sm" onClick={handleVoid}>
@@ -102,22 +113,7 @@ export default function PosShow() {
         <div className="border rounded-xl p-6 space-y-5 bg-background print:border-none print:shadow-none">
           {/* Header */}
           <div className="text-center space-y-1">
-            {storeSettings?.store_logo && (
-              <img
-                src={`/storage/${storeSettings.store_logo}`}
-                alt="Logo"
-                className="h-12 w-auto mx-auto mb-1"
-              />
-            )}
-            <div className="font-bold text-base">{storeSettings?.store_name ?? 'Toko'}</div>
-            {storeSettings?.store_address && (
-              <div className="text-xs text-muted-foreground">{storeSettings.store_address}</div>
-            )}
-            {storeSettings?.store_phone && (
-              <div className="text-xs text-muted-foreground">{storeSettings.store_phone}</div>
-            )}
-            <div className="border-t my-2" />
-            <div className="font-mono text-lg font-bold">{sale.saleNumber}</div>
+            <div className="font-mono text-xl font-bold">{sale.saleNumber}</div>
             <div className="text-sm text-muted-foreground">{formatDate(sale.date)}</div>
             {sale.status === 'void' && (
               <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700">VOID</span>
@@ -199,11 +195,9 @@ export default function PosShow() {
             )}
           </div>
 
-          {sale.note && (
-            <div className="border rounded p-3 bg-muted/30 text-sm">
-              <span className="text-muted-foreground">Catatan: </span>{sale.note}
-            </div>
-          )}
+          <div className="border rounded p-3 bg-muted/30 text-sm">
+            <span className="text-muted-foreground">Catatan: </span>{sale.note ?? '-'}
+          </div>
 
           {storeSettings?.receipt_footer && (
             <div className="text-center text-xs text-muted-foreground border-t pt-3">

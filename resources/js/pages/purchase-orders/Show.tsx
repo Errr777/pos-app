@@ -103,6 +103,13 @@ export default function PurchaseOrderShow() {
             <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Printer size={15} className="mr-1" /> Cetak
             </Button>
+            <Button size="sm" variant="outline" onClick={() => window.open(
+              route('po.invoice', { purchaseOrder: po.id }),
+              'invoice',
+              'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes'
+            )}>
+              Invoice
+            </Button>
             {canOrder && (
               <Button size="sm" variant="outline" onClick={() => handleStatusChange('ordered')}>
                 <CheckCircle size={15} className="mr-1" /> Tandai Dipesan
