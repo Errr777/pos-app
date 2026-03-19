@@ -14,6 +14,7 @@ class InvoiceNumber
         return DB::transaction(function () use ($today) {
             $row = DB::table('invoice_sequences')
                 ->where('date', $today)
+                // lockForUpdate() is a no-op on SQLite (dev) but provides row-level locking on MariaDB (production).
                 ->lockForUpdate()
                 ->first();
 
