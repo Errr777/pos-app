@@ -26,6 +26,9 @@ use App\Http\Controllers\AppSettingController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ItemVariantController;
+use App\Http\Controllers\WarehouseItemPriceController;
+use App\Http\Controllers\DeliveryOrderController;
+use App\Http\Controllers\InstallmentController;
 
 Route::get('/', function () {
     return Inertia::render('welcome', [
@@ -107,7 +110,25 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::post('warehouses',                                   [WarehouseController::class, 'store'])->name('warehouses.store');
     Route::put('warehouses/{warehouse}',                        [WarehouseController::class, 'update'])->name('warehouses.update');
     Route::delete('warehouses/{warehouse}',                     [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
-    Route::put('warehouses/{warehouse}/items/{item}/min',       [WarehouseController::class, 'updateItemMin'])->name('warehouses.item_min');
+    Route::put('warehouses/{warehouse}/items/{item}/min',        [WarehouseController::class, 'updateItemMin'])->name('warehouses.item_min');
+
+    // Outlet Pricing
+    Route::post('inventory/jasa-prices',                         [WarehouseItemPriceController::class, 'batchJasaPrices'])->name('inventory.jasa_prices');
+    Route::get('warehouses/{warehouse}/prices',                  [WarehouseItemPriceController::class, 'index'])->name('warehouses.prices');
+    Route::put('warehouses/{warehouse}/items/{item}/price',      [WarehouseItemPriceController::class, 'update'])->name('warehouses.item_price');
+    Route::post('warehouses/{warehouse}/prices/sync',            [WarehouseItemPriceController::class, 'sync'])->name('warehouses.prices.sync');
+    Route::post('warehouses/{warehouse}/items/{item}/price/sync',[WarehouseItemPriceController::class, 'syncOne'])->name('warehouses.item_price.sync');
+    Route::delete('warehouses/{warehouse}/items/{item}/jasa-price', [WarehouseItemPriceController::class, 'destroyJasaPrice'])->name('warehouses.jasa_price.destroy');
+
+    // Delivery Orders (Surat Jalan)
+    Route::get('inventory/delivery-orders',                          [DeliveryOrderController::class, 'index'])  ->name('delivery_orders.index');
+    Route::get('inventory/delivery-orders/create',                   [DeliveryOrderController::class, 'create']) ->name('delivery_orders.create');
+    Route::post('inventory/delivery-orders',                         [DeliveryOrderController::class, 'store'])  ->name('delivery_orders.store');
+    Route::get('inventory/delivery-orders/{deliveryOrder}',          [DeliveryOrderController::class, 'show'])   ->name('delivery_orders.show');
+    Route::post('inventory/delivery-orders/{deliveryOrder}/items',   [DeliveryOrderController::class, 'addItem']) ->name('delivery_orders.add_item');
+    Route::post('inventory/delivery-orders/{deliveryOrder}/confirm', [DeliveryOrderController::class, 'confirm'])->name('delivery_orders.confirm');
+    Route::post('inventory/delivery-orders/{deliveryOrder}/cancel',  [DeliveryOrderController::class, 'cancel']) ->name('delivery_orders.cancel');
+    Route::get('inventory/delivery-orders/{deliveryOrder}/print',    [DeliveryOrderController::class, 'print'])  ->name('delivery_orders.print');
 
     // Suppliers
     Route::get('/suppliers',                [SupplierController::class, 'index'])->name('suppliers.index');
@@ -117,17 +138,29 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
 
     // Customers
     Route::get('/customers',               [CustomerController::class, 'index'])  ->name('customers.index');
+    Route::get('/customers/{customer}',    [CustomerController::class, 'show'])   ->name('customers.show');
     Route::post('/customers',              [CustomerController::class, 'store'])  ->name('customers.store');
     Route::put('/customers/{customer}',    [CustomerController::class, 'update']) ->name('customers.update');
     Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
 
+    // Installments
+    Route::get( 'customers/{customer}/installments',              [InstallmentController::class, 'plans'])          ->name('installments.plans');
+    Route::get( 'pos/installments/customer/{customer}',           [InstallmentController::class, 'customerPlans'])  ->name('installments.customer_plans');
+    Route::post('pos/installments/pay',                           [InstallmentController::class, 'payFromTerminal'])->name('installments.pay_terminal');
+    Route::post('installments/{plan}/payments/{payment}/pay',     [InstallmentController::class, 'pay'])            ->name('installments.pay');
+
     // POS / Kasir (terminal must be before /{saleHeader} to avoid conflict)
+    Route::get('pos/installments/{plan}/invoice', [InstallmentController::class, 'invoice'])->name('installments.invoice');
+    Route::get('pos/installments',          [InstallmentController::class, 'terminalPage'])->name('pos.installments');
     Route::get('pos/terminal',              [PosController::class, 'terminal'])->name('pos.terminal');
+    Route::get('pos/items',                 [PosController::class, 'items'])   ->name('pos.items');
     Route::get('pos/pending',               fn () => Inertia::render('pos/PendingSync'))->name('pos.pending');
     Route::get('pos/promo/validate',        [PosController::class, 'validatePromo'])->name('pos.promo.validate');
     Route::get('pos',                       [PosController::class, 'index'])   ->name('pos.index');
     Route::post('pos',                      [PosController::class, 'store'])   ->name('pos.store');
     Route::get('pos/{saleHeader}',          [PosController::class, 'show'])    ->name('pos.show');
+    Route::get('pos/{saleHeader}/print',    [PosController::class, 'print'])   ->name('pos.print');
+    Route::get('pos/{saleHeader}/invoice',  [PosController::class, 'invoice']) ->name('pos.invoice');
     Route::post('pos/{saleHeader}/void',    [PosController::class, 'void'])    ->name('pos.void');
 
     // Returns
@@ -173,6 +206,7 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::post('purchase-orders/{purchaseOrder}/status',       [PurchaseOrderController::class, 'updateStatus'])        ->name('po.status');
     Route::post('purchase-orders/{purchaseOrder}/receive',      [PurchaseOrderController::class, 'receive'])             ->name('po.receive');
     Route::delete('purchase-orders/{purchaseOrder}',            [PurchaseOrderController::class, 'destroy'])             ->name('po.destroy');
+    Route::get('purchase-orders/{purchaseOrder}/invoice',       [PurchaseOrderController::class, 'invoice'])             ->name('po.invoice');
 
     // Expenses
     Route::get('expenses',              [ExpenseController::class, 'index'])  ->name('expenses.index');
