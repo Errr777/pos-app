@@ -17,6 +17,7 @@ class StockTransfer extends Model
         'actor',
         'note',
         'status',
+        'delivery_order_id',
     ];
 
     protected $casts = [
@@ -40,5 +41,10 @@ class StockTransfer extends Model
     public function item()
     {
         return $this->belongsTo(Item::class, 'item_id');
+    }
+
+    public function deliveryOrder()
+    {
+        return $this->belongsTo(DeliveryOrder::class);
     }
 }

@@ -19,6 +19,7 @@ interface Item {
   tags: { id: number; name: string; color: string }[];
   preferred_supplier_id: number | null;
   preferred_supplier_name: string | null;
+  image_url: string | null;
 }
 import { Button } from '@/components/ui/button';
 import {
@@ -69,7 +70,8 @@ export default function Items() {
   const [sortBy, setSortBy] = useState<string>(initialSortBy);
   const [sortDir, setSortDir] = useState<string>(filters.sort_dir ?? 'asc');
   const [perPage, setPerPage] = useState<number>(Number(filters.per_page) || ITEMS_PER_PAGE);
-  const [tagFilter, setTagFilter] = useState<string>(filters.tag_id ?? '');
+  const [tagFilter, setTagFilter]   = useState<string>(filters.tag_id ?? '');
+  const [typeFilter, setTypeFilter] = useState<string>(filters.type ?? '');
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewItem, setViewItem] = useState<Item | null>(null);
@@ -134,7 +136,8 @@ export default function Items() {
     per_page: perPage,
     sort_by: serverSortKey(),
     sort_dir: sortDir,
-    ...(tagFilter ? { tag_id: tagFilter } : {}),
+    ...(tagFilter  ? { tag_id: tagFilter }  : {}),
+    ...(typeFilter ? { type: typeFilter }    : {}),
     ...overrides,
   });
 
@@ -354,6 +357,23 @@ export default function Items() {
                 </select>
               </div>
             )}
+
+            {/* Type filter */}
+            <div className="flex items-center gap-0.5 rounded-lg border p-0.5 bg-muted/40">
+              {([{ value: '', label: 'Semua' }, { value: 'barang', label: 'Barang' }, { value: 'jasa', label: 'Jasa' }] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setTypeFilter(opt.value);
+                    router.get(route('item.index'), navParams({ type: opt.value || undefined, page: 1 }), { preserveState: true, replace: true });
+                  }}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${typeFilter === opt.value ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -527,23 +547,89 @@ export default function Items() {
 
       {/* View Modal */}
       <Dialog open={isViewModalOpen} onOpenChange={(open) => { if (!open) setViewItem(null); setIsViewModalOpen(open); }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{viewItem ? 'Detail Item' : 'Detail'}</DialogTitle>
+            <DialogTitle>{viewItem?.name ?? 'Detail Item'}</DialogTitle>
             <DialogDescription>Informasi lengkap dari item terpilih.</DialogDescription>
           </DialogHeader>
 
           {viewItem && (
-            <div className="space-y-2 gap-0.5">
-              <p><strong>Nama:</strong> {viewItem.name}</p>
-              <p><strong>Deskripsi:</strong> {viewItem.description}</p>
-              <p><strong>QR Code:</strong> {viewItem.qrcode}</p>
-              <p><strong>Stok:</strong> {viewItem.stock}</p>
-              <p><strong>Stok Minimal:</strong> {viewItem.stock_min}</p>
-              <p><strong>Harga Beli:</strong> Rp {viewItem.harga_beli?.toLocaleString('id-ID')}</p>
-              <p><strong>Harga Jual:</strong> Rp {viewItem.harga_jual?.toLocaleString('id-ID')}</p>
-              <p><strong>Kategori:</strong> {viewItem.category ?? (viewItem.kategori_rel ? viewItem.kategori_rel.nama : '-')}</p>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(viewItem.qrcode ?? '')}`} alt="QR Code" className="mx-auto mt-4 rounded-lg border border-white p-3" />
+            <div className="flex gap-4 mt-1">
+              {/* Left: product image (top) + QR code (bottom) */}
+              <div className="flex flex-col gap-3 shrink-0">
+                <div className="w-32 h-32 rounded-xl border bg-muted/40 overflow-hidden flex items-center justify-center">
+                  {viewItem.image_url ? (
+                    <img src={viewItem.image_url} alt={viewItem.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
+                      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs">No image</span>
+                    </div>
+                  )}
+                </div>
+                <div className="w-32 h-32 rounded-xl border bg-white p-1.5 flex items-center justify-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(viewItem.qrcode ?? '')}`}
+                    alt="QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground font-mono truncate w-32">{viewItem.qrcode}</p>
+              </div>
+
+              {/* Right: details */}
+              <div className="flex-1 space-y-2 text-sm min-w-0">
+                {viewItem.description && (
+                  <p className="text-muted-foreground text-xs">{viewItem.description}</p>
+                )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tipe</p>
+                    <p className="font-medium">{viewItem.type === 'jasa' ? 'Jasa' : 'Barang'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Kategori</p>
+                    <p className="font-medium">{viewItem.category ?? viewItem.kategori_rel?.nama ?? '—'}</p>
+                  </div>
+                  {viewItem.type === 'barang' && (
+                    <>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Stok</p>
+                        <p className="font-medium">{viewItem.stock.toLocaleString('id-ID')}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Stok Minimal</p>
+                        <p className="font-medium">{viewItem.stock_min > 0 ? viewItem.stock_min : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Harga Beli</p>
+                        <p className="font-medium">Rp {viewItem.harga_beli?.toLocaleString('id-ID')}</p>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground">Harga Jual</p>
+                    <p className="font-medium">Rp {viewItem.harga_jual?.toLocaleString('id-ID')}</p>
+                  </div>
+                  {viewItem.preferred_supplier_name && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Supplier</p>
+                      <p className="font-medium">{viewItem.preferred_supplier_name}</p>
+                    </div>
+                  )}
+                </div>
+                {viewItem.tags.length > 0 && (
+                  <div className="pt-1 flex flex-wrap gap-1">
+                    {viewItem.tags.map(t => (
+                      <span key={t.id} className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: t.color }}>
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

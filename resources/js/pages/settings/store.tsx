@@ -83,8 +83,9 @@ export default function StoreSettings() {
 
                     <div className="space-y-1.5">
                         <Label htmlFor="receipt_footer">Footer Struk</Label>
-                        <Input
+                        <Textarea
                             id="receipt_footer"
+                            rows={4}
                             value={data.receipt_footer}
                             onChange={(e) => setData('receipt_footer', e.target.value)}
                             placeholder="Terima kasih!"

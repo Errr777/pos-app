@@ -25,4 +25,23 @@ class Customer extends Model
     {
         return $this->hasMany(SaleHeader::class);
     }
+
+    public function installmentPlans()
+    {
+        return $this->hasMany(InstallmentPlan::class);
+    }
+
+    public function hasActiveCredit(): bool
+    {
+        return $this->installmentPlans()
+            ->whereIn('status', ['active', 'overdue'])
+            ->exists();
+    }
+
+    public function isBlockedForCredit(): bool
+    {
+        return $this->installmentPlans()
+            ->where('status', 'overdue')
+            ->exists();
+    }
 }

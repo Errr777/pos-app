@@ -9,6 +9,7 @@ use App\Models\Warehouse;
 use App\Models\WarehouseItem;
 use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -100,9 +101,20 @@ class WarehouseController extends Controller
             'totalStock' => (int) WarehouseItem::where('warehouse_id', $warehouse->id)->sum('stok'),
         ];
 
+        // Count jasa items that have an outlet price set for this warehouse
+        $jasaCount = !$warehouse->is_default
+            ? DB::table('items')
+                ->where('items.type', 'jasa')
+                ->join('warehouse_item_prices as wip', function ($j) use ($warehouse) {
+                    $j->on('wip.item_id', '=', 'items.id')->where('wip.warehouse_id', $warehouse->id);
+                })
+                ->count()
+            : 0;
+
         $items         = null;
         $lowStockItems = null;
         $movements     = null;
+        $jasaItems     = null;
 
         if ($tab === 'items') {
             $q = WarehouseItem::where('warehouse_items.warehouse_id', $warehouse->id)
@@ -159,6 +171,36 @@ class WarehouseController extends Controller
                     'shortage' => (int) $wi->stok_minimal - (int) $wi->stok,
                 ]);
 
+        } elseif ($tab === 'jasa' && !$warehouse->is_default) {
+            $q = DB::table('items')
+                ->where('items.type', 'jasa')
+                ->join('warehouse_item_prices as wip', function ($j) use ($warehouse) {
+                    $j->on('wip.item_id', '=', 'items.id')->where('wip.warehouse_id', $warehouse->id);
+                })
+                ->select('items.id', 'items.nama', 'items.kode_item', 'items.kategori',
+                         'items.harga_jual as global_price', 'wip.harga_jual as outlet_price');
+
+            if ($search !== '') {
+                $term = strtolower($search);
+                $q->where(function ($qu) use ($term) {
+                    $qu->whereRaw('LOWER(items.nama) like ?', ["%{$term}%"])
+                       ->orWhereRaw('LOWER(items.kode_item) like ?', ["%{$term}%"])
+                       ->orWhereRaw('LOWER(items.kategori) like ?', ["%{$term}%"]);
+                });
+            }
+
+            $jasaItems = $q->orderBy('items.nama')
+                ->paginate($perPage)
+                ->withQueryString()
+                ->through(fn($i) => [
+                    'itemId'      => $i->id,
+                    'name'        => $i->nama,
+                    'qrcode'      => $i->kode_item,
+                    'category'    => $i->kategori,
+                    'globalPrice' => (int) $i->global_price,
+                    'outletPrice' => (int) $i->outlet_price,
+                ]);
+
         } elseif ($tab === 'log') {
             $q = Transaction::with('item')
                 ->where('transactions.warehouse_id', $warehouse->id)
@@ -202,11 +244,12 @@ class WarehouseController extends Controller
                 'phone'       => $warehouse->phone,
                 'city'        => $warehouse->city,
             ],
-            'stats'         => $stats,
+            'stats'         => array_merge($stats, ['jasaCount' => $jasaCount]),
             'tab'           => $tab,
             'items'         => $items,
             'lowStockItems' => $lowStockItems,
             'movements'     => $movements,
+            'jasaItems'     => $jasaItems,
             'filters'       => ['search' => $search],
         ]);
     }

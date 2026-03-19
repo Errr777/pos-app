@@ -266,6 +266,9 @@ export default function CustomersIndex() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <button className="p-1.5 rounded hover:bg-sky-100 text-sky-600 transition-colors" title="Lihat detail" onClick={() => setViewTarget(c)}><Eye size={15} /></button>
+                      <a href={route('customers.show', { customer: c.id })} className="p-1.5 rounded hover:bg-indigo-100 text-indigo-600 transition-colors" title="Lihat cicilan">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                      </a>
                       <button className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition-colors" title="Edit" onClick={() => openEdit(c)}><Pencil size={15} /></button>
                       <button className="p-1.5 rounded hover:bg-red-100 text-red-600 transition-colors" title="Hapus" onClick={() => setDeleteTarget(c)}><Trash2 size={15} /></button>
                     </div>

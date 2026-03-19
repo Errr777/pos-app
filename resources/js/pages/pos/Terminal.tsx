@@ -55,6 +55,15 @@ interface CustomerOption {
   id: number;
   name: string;
   code: string | null;
+  isBlocked?: boolean;
+  hasCredit?: boolean;
+}
+
+interface ScheduleRow {
+  due_date: string;
+  amount_due: number;
+  interest_amount: number;
+  is_first: boolean;
 }
 
 interface WarehouseOption {
@@ -73,10 +82,46 @@ interface PageProps {
   [key: string]: unknown;
 }
 
-const PAYMENT_METHODS = ['cash', 'transfer', 'qris', 'card'];
+const PAYMENT_METHODS = ['cash', 'transfer', 'qris', 'card', 'credit'];
 const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu',
+  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
 };
+
+function generateSchedule(
+  grandTotal: number, dp: number, count: number,
+  intervalMonths: number, interestRate: number
+): ScheduleRow[] {
+  if (grandTotal <= 0 || count < 2) return [];
+  const safeDp    = Math.min(dp, grandTotal);
+  const remaining = grandTotal - safeDp;
+  const rows: ScheduleRow[] = [];
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // First row: DP paid today
+  rows.push({ due_date: todayStr, amount_due: safeDp, interest_amount: 0, is_first: true });
+
+  const installments = count - 1;
+  const baseAmount   = installments > 0 ? Math.floor(remaining / installments) : remaining;
+  let runningRemainder = remaining;
+
+  for (let i = 1; i < count; i++) {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() + i * intervalMonths);
+    const isLast    = i === count - 1;
+    const rowAmount = isLast ? runningRemainder : baseAmount;
+    runningRemainder -= rowAmount;
+    const interest  = Math.round(rowAmount * interestRate / 100);
+    rows.push({
+      due_date:        d.toISOString().split('T')[0],
+      amount_due:      rowAmount,
+      interest_amount: interest,
+      is_first:        false,
+    });
+  }
+  return rows;
+}
 
 function formatRp(n: number) {
   return 'Rp ' + n.toLocaleString('id-ID');
@@ -112,6 +157,41 @@ export default function PosTerminal() {
   useEffect(() => {
     setCartWarehouseId(warehouseId);
   }, [warehouseId, setCartWarehouseId]);
+
+  // Credit / installment state
+  const [dpAmount, setDpAmount]                 = useState(0);
+  const [installmentCount, setInstallmentCount] = useState(2);
+  const [intervalMonths, setIntervalMonths]     = useState(1);
+  const [creditInterestRate, setCreditInterestRate] = useState(0);
+  const [creditLateFee, setCreditLateFee]       = useState(0);
+  const [creditSchedule, setCreditSchedule]     = useState<ScheduleRow[]>([]);
+
+  // Outlet-resolved prices: itemId → price override
+  const [outletPrices, setOutletPrices] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    if (!warehouseId) { setOutletPrices({}); return; }
+    fetch(`/pos/items?warehouse_id=${warehouseId}`, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: Record<string, number>) => {
+        const parsed: Record<number, number> = {};
+        for (const [k, v] of Object.entries(data)) parsed[Number(k)] = v;
+        setOutletPrices(parsed);
+      })
+      .catch(() => setOutletPrices({}));
+  }, [warehouseId]);
+
+  // Resolve item price: outlet override if available, else global price
+  const resolvePrice = (item: ItemOption) =>
+    outletPrices[item.id] !== undefined ? outletPrices[item.id] : item.price;
+
+  // Items with resolved prices
+  const resolvedItems = useMemo(
+    () => items.map(i => ({ ...i, price: resolvePrice(i) })),
+    [items, outletPrices]
+  );
 
   const { toast } = useToast();
 
@@ -155,11 +235,11 @@ export default function PosTerminal() {
 
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
-    if (!q) return items;
-    return items.filter(i =>
+    if (!q) return resolvedItems;
+    return resolvedItems.filter(i =>
       i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q)
     );
-  }, [items, search]);
+  }, [resolvedItems, search]);
 
   const addToCartWithVariant = (item: ItemOption, variant?: ItemVariantOption) => {
     const unitPrice = variant ? item.price + variant.priceModifier : item.price;
@@ -172,7 +252,7 @@ export default function PosTerminal() {
       if (existing) {
         if (existing.quantity >= item.stock) return cart;
         const newQty = existing.quantity + 1;
-        const itemData = items.find(i => i.id === item.id) ?? item;
+        const itemData = resolvedItems.find(i => i.id === item.id) ?? item;
         const best = getBestPromo(itemData, newQty, promotions);
         return cart.map(c =>
           c.itemId === item.id && (variant ? c.variantId === variant.id : !c.variantId)
@@ -227,6 +307,13 @@ export default function PosTerminal() {
   const paid = parseInt(payAmount) || 0;
   const change = Math.max(0, paid - grandTotal);
 
+  // Regenerate credit schedule when grand total or credit params change
+  useEffect(() => {
+    if (payMethod === 'credit' && grandTotal > 0) {
+      setCreditSchedule(generateSchedule(grandTotal, dpAmount, installmentCount, intervalMonths, creditInterestRate));
+    }
+  }, [grandTotal, payMethod, dpAmount, installmentCount, intervalMonths, creditInterestRate]);
+
   const applyPromo = async () => {
     const code = promoCodeInput.trim();
     if (!code) return;
@@ -267,12 +354,13 @@ export default function PosTerminal() {
     if (cart.length === 0) return;
     setSubmitting(true);
 
-    const payload = {
+    const isCreditSale = payMethod === 'credit';
+    const basePayload = {
       warehouse_id:    warehouseId!,
       customer_id:     customerId,
       occurred_at:     date + ' ' + new Date().toTimeString().slice(0, 8),
       payment_method:  payMethod,
-      payment_amount:  paid || grandTotal,
+      payment_amount:  isCreditSale ? dpAmount : (paid || grandTotal),
       discount_amount: discountTotal,
       promo_code:      appliedPromo?.code ?? null,
       note,
@@ -285,6 +373,11 @@ export default function PosTerminal() {
         discount_amount: c.discountAmount,
       })),
     };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = isCreditSale
+      ? { ...basePayload, credit_schedule: creditSchedule, credit_interest_rate: creditInterestRate, credit_late_fee: creditLateFee }
+      : basePayload;
 
     // ── OFFLINE PATH ─────────────────────────────────────────
     if (!isOnline) {
@@ -375,6 +468,10 @@ export default function PosTerminal() {
                 <List size={15} />
               </button>
             </div>
+            <a href={route('pos.installments')}
+              className="px-3 py-1.5 text-xs rounded-lg border bg-background hover:bg-muted transition-colors font-medium whitespace-nowrap">
+              Bayar Cicilan
+            </a>
           </div>
 
           {/* Item grid / compact list */}
@@ -569,7 +666,7 @@ export default function PosTerminal() {
             </div>
 
             {/* Payment method */}
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               {PAYMENT_METHODS.map(m => (
                 <button key={m} onClick={() => setPayMethod(m)}
                   className={`text-xs py-1.5 rounded border transition-colors ${payMethod === m ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}>
@@ -578,7 +675,83 @@ export default function PosTerminal() {
               ))}
             </div>
 
-            {/* Payment amount */}
+            {/* Credit panel */}
+            {payMethod === 'credit' && (() => {
+              const selectedCust = customers.find(c => c.id === customerId);
+              return (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3 text-xs">
+                  {!customerId && (
+                    <div className="space-y-1">
+                      <p className="text-red-500 font-medium">Pilih pelanggan untuk menggunakan kredit:</p>
+                      <select
+                        className="w-full border border-red-300 rounded px-2 py-1.5 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        value=""
+                        onChange={e => setCustomerId(e.target.value ? parseInt(e.target.value) : null)}
+                      >
+                        <option value="">— Pilih pelanggan —</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {selectedCust?.isBlocked && (
+                    <p className="text-red-600 font-medium">⚠ Pelanggan ini memiliki cicilan jatuh tempo. Kredit diblokir.</p>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-medium block mb-0.5">Uang Muka (DP)</label>
+                      <input type="number" min={0} max={grandTotal} value={dpAmount}
+                        onChange={e => setDpAmount(parseInt(e.target.value) || 0)}
+                        className="w-full border rounded px-2 py-1 text-right bg-background focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="font-medium block mb-0.5">Jumlah Cicilan</label>
+                      <input type="number" min={2} max={24} value={installmentCount}
+                        onChange={e => setInstallmentCount(parseInt(e.target.value) || 2)}
+                        className="w-full border rounded px-2 py-1 text-right bg-background focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="font-medium block mb-0.5">Interval (bulan)</label>
+                      <input type="number" min={1} max={12} value={intervalMonths}
+                        onChange={e => setIntervalMonths(parseInt(e.target.value) || 1)}
+                        className="w-full border rounded px-2 py-1 text-right bg-background focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="font-medium block mb-0.5">Bunga % / cicilan</label>
+                      <input type="number" min={0} max={100} step={0.1} value={creditInterestRate}
+                        onChange={e => setCreditInterestRate(parseFloat(e.target.value) || 0)}
+                        className="w-full border rounded px-2 py-1 text-right bg-background focus:outline-none" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="font-medium block mb-0.5">Denda Keterlambatan (Rp)</label>
+                      <input type="number" min={0} value={creditLateFee}
+                        onChange={e => setCreditLateFee(parseInt(e.target.value) || 0)}
+                        className="w-full border rounded px-2 py-1 text-right bg-background focus:outline-none" />
+                    </div>
+                  </div>
+                  {creditSchedule.length > 0 && (
+                    <div>
+                      <div className="font-medium mb-1">Preview Jadwal:</div>
+                      <div className="space-y-0.5">
+                        {creditSchedule.map((row, i) => (
+                          <div key={i} className="flex justify-between bg-background rounded px-2 py-1 border">
+                            <span>{row.is_first ? 'Sekarang (DP)' : new Date(row.due_date).toLocaleDateString('id-ID')}</span>
+                            <span className="font-medium">
+                              {formatRp(row.amount_due + row.interest_amount)}
+                              {row.interest_amount > 0 && <span className="text-muted-foreground"> (+bunga)</span>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Payment amount (hidden for credit) */}
+            {payMethod !== 'credit' && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Bayar</label>
               <input type="number" min={0} placeholder={String(grandTotal)}
@@ -588,6 +761,7 @@ export default function PosTerminal() {
                 <div className="mt-1 text-sm font-medium text-emerald-600">Kembalian: {formatRp(change)}</div>
               )}
             </div>
+            )}
 
             {/* Note */}
             <div>
@@ -617,7 +791,12 @@ export default function PosTerminal() {
             <Button
               className="w-full"
               size="lg"
-              disabled={cart.length === 0 || submitting || cart.some(c => c.unitPrice <= 0) || (!isOnline ? false : paid < grandTotal)}
+              disabled={
+                cart.length === 0 || submitting || cart.some(c => c.unitPrice <= 0) ||
+                (payMethod === 'credit'
+                  ? (!customerId || customers.find(c => c.id === customerId)?.isBlocked || creditSchedule.length < 2)
+                  : (!isOnline ? false : paid < grandTotal))
+              }
               onClick={handleCheckout}
             >
               {submitting

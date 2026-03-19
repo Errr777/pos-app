@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('backup:database --keep=7')
     ->dailyAt('02:00')
     ->appendOutputTo(storage_path('logs/backup.log'));
+
+Schedule::command('installments:mark-overdue')
+    ->dailyAt('01:00')
+    ->appendOutputTo(storage_path('logs/installments.log'));

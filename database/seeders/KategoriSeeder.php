@@ -7,24 +7,19 @@ use Illuminate\Support\Facades\DB;
 
 class KategoriSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $kategoris = [
-            ['nama' => 'Elektronik', 'deskripsi' => 'Barang-barang elektronik seperti gadget, TV, dan komputer.'],
-            ['nama' => 'Pakaian', 'deskripsi' => 'Segala jenis pakaian pria, wanita, dan anak.'],
-            ['nama' => 'Makanan', 'deskripsi' => 'Produk makanan siap saji dan kemasan.'],
-            ['nama' => 'Minuman', 'deskripsi' => 'Berbagai jenis minuman ringan dan kemasan.'],
-            ['nama' => 'Peralatan Rumah Tangga', 'deskripsi' => 'Peralatan dan perlengkapan rumah tangga sehari-hari.'],
-            ['nama' => 'Aksesoris', 'deskripsi' => 'Aksesoris fashion, gadget, dan kendaraan.'],
-            ['nama' => 'Otomotif', 'deskripsi' => 'Produk dan perlengkapan untuk kendaraan.'],
-            ['nama' => 'Kesehatan', 'deskripsi' => 'Produk perawatan tubuh dan kesehatan.'],
-            ['nama' => 'Kecantikan', 'deskripsi' => 'Kosmetik dan produk kecantikan lainnya.'],
-            ['nama' => 'Alat Tulis Kantor', 'deskripsi' => 'Alat tulis dan perlengkapan kantor.'],
-        ];
-
-        DB::table('kategoris')->insert($kategoris);
+        DB::table('kategoris')->insert([
+            ['nama' => 'Elektronik',             'deskripsi' => 'Gadget, aksesoris digital, dan perangkat elektronik.'],
+            ['nama' => 'Pakaian',                'deskripsi' => 'Busana pria, wanita, dan anak-anak.'],
+            ['nama' => 'Makanan',                'deskripsi' => 'Produk makanan kemasan, snack, dan bahan pangan.'],
+            ['nama' => 'Minuman',                'deskripsi' => 'Minuman ringan, jus, air mineral, dan minuman kesehatan.'],
+            ['nama' => 'Peralatan Rumah Tangga', 'deskripsi' => 'Peralatan dapur, kebersihan, dan perlengkapan rumah.'],
+            ['nama' => 'Aksesoris',              'deskripsi' => 'Tas, dompet, jam tangan, dan aksesori fashion.'],
+            ['nama' => 'Otomotif',               'deskripsi' => 'Suku cadang, pelumas, dan perlengkapan kendaraan.'],
+            ['nama' => 'Kesehatan',              'deskripsi' => 'Obat-obatan, vitamin, dan alat kesehatan.'],
+            ['nama' => 'Kecantikan',             'deskripsi' => 'Skincare, kosmetik, dan perawatan rambut.'],
+            ['nama' => 'Alat Tulis Kantor',      'deskripsi' => 'Alat tulis, kertas, dan perlengkapan kantor.'],
+        ]);
     }
 }

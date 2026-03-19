@@ -95,7 +95,7 @@ export default function ReturnsShow() {
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <Button size="sm" variant="ghost" onClick={() => router.visit(route('returns.index'))}>
+                        <Button size="sm" variant="outline" onClick={() => router.visit(route('returns.index'))}>
                             <ArrowLeft size={15} className="mr-1" /> Kembali
                         </Button>
                         <div>

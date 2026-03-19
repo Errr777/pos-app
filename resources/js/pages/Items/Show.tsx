@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
-import { ArrowLeft, Pencil, Package, Tag, Truck, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Package, Tag, Truck, Trash2, Plus, ImageOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface ItemDetail {
@@ -18,6 +18,7 @@ interface ItemDetail {
     tags: { id: number; name: string; color: string }[];
     preferredSupplierId: number | null;
     preferredSupplierName: string | null;
+    imageUrl: string | null;
 }
 
 interface StockOutlet {
@@ -180,6 +181,25 @@ export default function ItemShow({ item, stockByOutlet, recentSales, canWrite }:
                         <Link href="/item" className="mt-1 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
+
+                        {/* Product image + QR code, same size */}
+                        <div className="flex gap-2 shrink-0">
+                            <div className="w-24 h-24 rounded-xl border bg-muted/40 overflow-hidden flex items-center justify-center">
+                                {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <ImageOff className="h-7 w-7 text-muted-foreground/30" />
+                                )}
+                            </div>
+                            <div className="w-24 h-24 rounded-xl border bg-white overflow-hidden flex items-center justify-center p-1">
+                                <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=192x192&data=${encodeURIComponent(item.qrcode)}`}
+                                    alt="QR Code"
+                                    className="w-full h-full object-contain"
+                                />
+                            </div>
+                        </div>
+
                         <div>
                             <h1 className="text-2xl font-bold">{item.name}</h1>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">

@@ -2,48 +2,66 @@
 
 namespace Database\Seeders;
 
-use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class WarehouseSeeder extends Seeder
 {
     public function run(): void
     {
-        $warehouses = [
-            [
-                'code'        => 'WH-001',
-                'name'        => 'Gudang Utama',
-                'city'        => 'Jakarta',
-                'location'    => 'Jl. Raya Kebon Jeruk No. 10, Jakarta Barat',
-                'phone'       => '021-53671234',
-                'description' => 'Gudang pusat dan outlet utama',
-                'is_active'   => true,
-                'is_default'  => true,
-            ],
+        $now = now();
+
+        // The migration seeds WH-MAIN as default — promote it to "Toko Pusat"
+        DB::table('warehouses')->where('code', 'WH-MAIN')->update([
+            'code'        => 'WH-001',
+            'name'        => 'Toko Pusat',
+            'location'    => 'Jl. Sudirman No. 12, Jakarta Pusat',
+            'city'        => 'Jakarta',
+            'phone'       => '021-55001234',
+            'description' => 'Outlet utama dan gudang sentral',
+            'is_active'   => true,
+            'is_default'  => true,
+            'updated_at'  => $now,
+        ]);
+
+        // Add 3 outlet branches
+        DB::table('warehouses')->insert([
             [
                 'code'        => 'WH-002',
                 'name'        => 'Outlet Semarang',
+                'location'    => 'Jl. Pemuda No. 45, Semarang Tengah',
                 'city'        => 'Semarang',
-                'location'    => 'Jl. Pandanaran No. 25, Semarang Tengah',
-                'phone'       => '024-84512345',
-                'description' => 'Cabang Semarang',
+                'phone'       => '024-76542100',
+                'description' => 'Outlet cabang Semarang',
                 'is_active'   => true,
                 'is_default'  => false,
+                'created_at'  => $now,
+                'updated_at'  => $now,
             ],
             [
                 'code'        => 'WH-003',
                 'name'        => 'Outlet Bandung',
+                'location'    => 'Jl. Braga No. 88, Bandung Wetan',
                 'city'        => 'Bandung',
-                'location'    => 'Jl. Dago No. 88, Bandung',
-                'phone'       => '022-25123456',
-                'description' => 'Cabang Bandung',
+                'phone'       => '022-42001567',
+                'description' => 'Outlet cabang Bandung',
                 'is_active'   => true,
                 'is_default'  => false,
+                'created_at'  => $now,
+                'updated_at'  => $now,
             ],
-        ];
-
-        foreach ($warehouses as $wh) {
-            Warehouse::firstOrCreate(['code' => $wh['code']], $wh);
-        }
+            [
+                'code'        => 'WH-004',
+                'name'        => 'Outlet Surabaya',
+                'location'    => 'Jl. Basuki Rahmat No. 33, Surabaya Pusat',
+                'city'        => 'Surabaya',
+                'phone'       => '031-99887766',
+                'description' => 'Outlet cabang Surabaya',
+                'is_active'   => true,
+                'is_default'  => false,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+        ]);
     }
 }

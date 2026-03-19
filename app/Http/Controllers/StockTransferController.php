@@ -127,10 +127,32 @@ class StockTransferController extends Controller
                 'stock'    => $i->stok,
             ]);
 
+        // Jasa (service) items with global price for outlet price-setting form
+        $jasaItems = Item::where('type', 'jasa')
+            ->select('id', 'nama', 'kode_item', 'kategori', 'harga_jual')
+            ->orderBy('nama')
+            ->get()
+            ->map(fn ($i) => [
+                'id'           => $i->id,
+                'name'         => $i->nama,
+                'code'         => $i->kode_item,
+                'category'     => $i->kategori,
+                'global_price' => $i->harga_jual,
+            ]);
+
+        // Outlet warehouses (non-default, active) for jasa price form
+        $outlets = Warehouse::where('is_active', true)
+            ->where('is_default', false)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+
         return Inertia::render('inventory/Stock_Transfer', [
             'transfers'  => $transfers,
             'warehouses' => $warehouses,
             'items'      => $items,
+            'jasaItems'  => $jasaItems,
+            'outlets'    => $outlets,
             'filters'    => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),
                 ['sort_by' => $sortKey, 'sort_dir' => $sortDir]
@@ -158,6 +180,18 @@ class StockTransferController extends Controller
         $qty    = (int) $data['quantity'];
         $fromId = (int) $data['from_warehouse_id'];
         $toId   = (int) $data['to_warehouse_id'];
+
+        // Transfers FROM the main warehouse TO an outlet are automatically
+        // converted into a Delivery Order (Surat Jalan) for traceability.
+        $mainWarehouse = Warehouse::where('is_default', true)->first();
+        if ($mainWarehouse && $fromId === $mainWarehouse->id) {
+            $toWarehouse = Warehouse::find($toId);
+            if ($toWarehouse && !$toWarehouse->is_default) {
+                return $this->autoCreateDeliveryOrder(
+                    $request, $data, $qty, $fromId, $toId, $mainWarehouse, $toWarehouse
+                );
+            }
+        }
 
         $errorResponse = null;
 
@@ -284,5 +318,36 @@ class StockTransferController extends Controller
         }
 
         return redirect()->route('stock_transfer.index')->with('success', 'Transfer berhasil dibatalkan.');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Auto-create Surat Jalan from transfer form (main → outlet)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private function autoCreateDeliveryOrder(
+        Request $request, array $data, int $qty,
+        int $fromId, int $toId,
+        Warehouse $mainWarehouse, Warehouse $toWarehouse
+    ) {
+        // Instead of auto-creating, redirect to Create SJ page with item pre-filled.
+        // The user can review, add more items, and submit manually.
+        $params = http_build_query(array_filter([
+            'from_id'   => $fromId,
+            'to_id'     => $toId,
+            'item_id'   => $data['item_id'],
+            'quantity'  => $qty,
+            'reference' => $data['reference'] ?? null,
+            'note'      => $data['note'] ?? null,
+        ], fn ($v) => $v !== null && $v !== ''));
+
+        $url = route('delivery_orders.create') . '?' . $params;
+
+        if ($request->wantsJson()) {
+            return response()->json(['redirect' => $url], 200);
+        }
+
+        return redirect($url)->with('info',
+            "Transfer ke {$toWarehouse->name} dibuka sebagai Surat Jalan. Tambah item lain jika perlu, lalu kirim."
+        );
     }
 }

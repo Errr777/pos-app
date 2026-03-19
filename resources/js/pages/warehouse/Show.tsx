@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { router, usePage } from '@inertiajs/react';
-import { Search, AlertTriangle, Package, ArrowDownToLine, ArrowUpFromLine, Settings2 } from 'lucide-react';
+import { Search, AlertTriangle, Package, ArrowDownToLine, ArrowUpFromLine, Settings2, Tag, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface WarehouseInfo {
@@ -20,6 +20,16 @@ interface Stats {
     itemCount: number;
     lowStockCount: number;
     totalStock: number;
+    jasaCount: number;
+}
+
+interface JasaRow {
+    itemId: number;
+    name: string;
+    qrcode: string | null;
+    category: string | null;
+    globalPrice: number;
+    outletPrice: number;
 }
 
 interface ItemRow {
@@ -68,6 +78,7 @@ interface PageProps {
     items: Paginated<ItemRow> | null;
     lowStockItems: Paginated<LowStockRow> | null;
     movements: Paginated<MovementRow> | null;
+    jasaItems: Paginated<JasaRow> | null;
     filters: { search: string };
     flash?: { success?: string };
     [key: string]: unknown;
@@ -82,8 +93,13 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 export default function WarehouseShow() {
-    const { warehouse, stats, tab, items, lowStockItems, movements, filters, flash } =
-        usePage<PageProps>().props;
+    const pageProps = usePage<PageProps>().props;
+    const { warehouse, stats, tab, items, lowStockItems, movements, jasaItems, filters, flash } = pageProps;
+    const permissions = (pageProps as unknown as { permissions: Record<string, Record<string, boolean>> }).permissions;
+
+    const canDelete = permissions?.warehouses?.can_delete ?? false;
+
+    const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Outlet', href: '/warehouses' },
@@ -137,16 +153,22 @@ export default function WarehouseShow() {
         { key: 'items',     label: 'Semua Item',    count: stats.itemCount },
         { key: 'low_stock', label: 'Stok Minim',    count: stats.lowStockCount, alert: stats.lowStockCount > 0 },
         { key: 'log',       label: 'Log Transaksi',  count: null },
+        ...(!warehouse.is_default && stats.jasaCount > 0
+            ? [{ key: 'jasa', label: 'Jasa', count: stats.jasaCount }]
+            : []),
     ];
 
-    const paged = tab === 'items' ? items : tab === 'low_stock' ? lowStockItems : movements;
+    const paged = tab === 'jasa' ? jasaItems
+        : tab === 'items' ? items
+        : tab === 'low_stock' ? lowStockItems
+        : movements;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="p-6 space-y-5">
                 {/* Header */}
                 <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <h1 className="text-xl font-semibold">{warehouse.name}</h1>
                         <span className="font-mono text-sm text-muted-foreground">({warehouse.code})</span>
                         {warehouse.is_default && (
@@ -155,6 +177,13 @@ export default function WarehouseShow() {
                         {!warehouse.is_active && (
                             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Nonaktif</span>
                         )}
+                        <button
+                            onClick={() => router.visit(`/warehouses/${warehouse.id}/prices`)}
+                            className="ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                        >
+                            <Tag className="w-3.5 h-3.5 text-indigo-500" />
+                            Harga Outlet
+                        </button>
                     </div>
                     {warehouse.location && (
                         <p className="text-sm text-muted-foreground">{warehouse.location}</p>
@@ -408,6 +437,70 @@ export default function WarehouseShow() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {/* ── Jasa tab ──────────────────────────────────────────────── */}
+                {tab === 'jasa' && jasaItems && (
+                    <div className="overflow-x-auto">
+                        {jasaItems.data.length === 0 ? (
+                            <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                                Belum ada harga jasa yang diatur untuk outlet ini.
+                            </div>
+                        ) : (
+                            <table className="min-w-full border rounded-xl text-sm">
+                                <thead>
+                                    <tr className="bg-muted">
+                                        <th className="px-4 py-2 text-left">Jasa</th>
+                                        <th className="px-4 py-2 text-left">Kategori</th>
+                                        <th className="px-4 py-2 text-right">Harga Global</th>
+                                        <th className="px-4 py-2 text-right">Harga Outlet</th>
+                                        <th className="px-4 py-2 text-center">Selisih</th>
+                                        {canDelete && <th className="px-4 py-2" />}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {jasaItems.data.map((row) => {
+                                        const diff = row.outletPrice - row.globalPrice;
+                                        return (
+                                            <tr key={row.itemId} className="border-b last:border-0 hover:bg-muted/30">
+                                                <td className="px-4 py-2">
+                                                    <div className="font-medium">{row.name}</div>
+                                                    {row.qrcode && <div className="text-xs text-muted-foreground font-mono">{row.qrcode}</div>}
+                                                </td>
+                                                <td className="px-4 py-2 text-muted-foreground">{row.category || '—'}</td>
+                                                <td className="px-4 py-2 text-right text-muted-foreground">{fmt(row.globalPrice)}</td>
+                                                <td className="px-4 py-2 text-right font-semibold">{fmt(row.outletPrice)}</td>
+                                                <td className="px-4 py-2 text-center">
+                                                    {diff === 0 ? (
+                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                    ) : (
+                                                        <span className={`text-xs font-medium ${diff > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                            {diff > 0 ? '+' : ''}{fmt(diff)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                {canDelete && (
+                                                    <td className="px-4 py-2 text-right">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (!confirm(`Hapus harga jasa "${row.name}" dari outlet ini?`)) return;
+                                                                router.delete(route('warehouses.jasa_price.destroy', { warehouse: warehouse.id, item: row.itemId }), { preserveScroll: true });
+                                                            }}
+                                                            className="p-1.5 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                            title="Hapus dari outlet ini"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 )}
 

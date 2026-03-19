@@ -4,33 +4,33 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
 use App\Models\Customer;
+use App\Models\InstallmentPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        if (!$request->user()->hasPermission('customers', 'can_view')) {
+        if (! $request->user()->hasPermission('customers', 'can_view')) {
             abort(403);
         }
 
         $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
             ? (int) $request->get('per_page', 20) : 20;
-        $search  = trim((string) $request->get('search', ''));
-        $status  = $request->get('status', 'all');
+        $search = trim((string) $request->get('search', ''));
+        $status = $request->get('status', 'all');
         $sortDir = strtolower($request->get('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $allowedSort = [
-            'name'    => 'name',
-            'code'    => 'code',
-            'city'    => 'city',
-            'phone'   => 'phone',
+            'name' => 'name',
+            'code' => 'code',
+            'city' => 'city',
+            'phone' => 'phone',
             'created' => 'created_at',
         ];
-        $sortKey    = $request->get('sort_by', 'name');
+        $sortKey = $request->get('sort_by', 'name');
         $sortColumn = $allowedSort[$sortKey] ?? 'name';
 
         $query = Customer::query();
@@ -39,55 +39,118 @@ class CustomerController extends Controller
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(code) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(phone) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(email) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(city) like ?', ["%{$term}%"]);
+                    ->orWhereRaw('LOWER(code) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(phone) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(email) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(city) like ?', ["%{$term}%"]);
             });
         }
 
-        if ($status === 'active')   $query->where('is_active', true);
-        if ($status === 'inactive') $query->where('is_active', false);
+        if ($status === 'active') {
+            $query->where('is_active', true);
+        }
+        if ($status === 'inactive') {
+            $query->where('is_active', false);
+        }
 
         $query->orderBy($sortColumn, $sortDir);
 
         $customers = $query->paginate($perPage)->withQueryString()->through(fn ($c) => [
-            'id'        => $c->id,
-            'code'      => $c->code,
-            'name'      => $c->name,
-            'phone'     => $c->phone,
-            'email'     => $c->email,
-            'address'   => $c->address,
-            'city'      => $c->city,
-            'notes'     => $c->notes,
-            'isActive'  => $c->is_active,
+            'id' => $c->id,
+            'code' => $c->code,
+            'name' => $c->name,
+            'phone' => $c->phone,
+            'email' => $c->email,
+            'address' => $c->address,
+            'city' => $c->city,
+            'notes' => $c->notes,
+            'isActive' => $c->is_active,
             'createdAt' => $c->created_at?->toISOString(),
         ]);
 
         return Inertia::render('customers/Index', [
             'customers' => $customers,
-            'filters'   => array_merge(
+            'filters' => array_merge(
                 $request->only(['search', 'per_page', 'status']),
                 ['sort_by' => $sortKey, 'sort_dir' => $sortDir]
             ),
         ]);
     }
 
+    public function show(Request $request, Customer $customer)
+    {
+        if (! $request->user()->hasPermission('customers', 'can_view')) {
+            abort(403);
+        }
+
+        $plans = InstallmentPlan::where('customer_id', $customer->id)
+            ->with(['payments' => fn ($q) => $q->orderBy('due_date'), 'saleHeader:id,sale_number,occurred_at,grand_total'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($plan) => [
+                'id' => $plan->id,
+                'saleNumber' => $plan->saleHeader?->sale_number,
+                'occurredAt' => $plan->saleHeader?->occurred_at?->toISOString(),
+                'grandTotal' => $plan->saleHeader?->grand_total,
+                'totalAmount' => $plan->total_amount,
+                'paidAmount' => $plan->paid_amount,
+                'remainingAmount' => $plan->remainingAmount(),
+                'installmentCount' => $plan->installment_count,
+                'interestRate' => (float) $plan->interest_rate,
+                'lateFeeAmount' => $plan->late_fee_amount,
+                'status' => $plan->status,
+                'note' => $plan->note,
+                'payments' => $plan->payments->map(fn ($p) => [
+                    'id' => $p->id,
+                    'dueDate' => $p->due_date->toDateString(),
+                    'amountDue' => $p->amount_due,
+                    'interestAmount' => $p->interest_amount,
+                    'lateFeeApplied' => $p->late_fee_applied,
+                    'totalDue' => $p->totalDue(),
+                    'amountPaid' => $p->amount_paid,
+                    'paidAt' => $p->paid_at?->toISOString(),
+                    'status' => $p->status,
+                    'paymentMethod' => $p->payment_method,
+                    'note' => $p->note,
+                ]),
+            ]);
+
+        $totalOutstanding = $plans
+            ->where('status', '!=', 'completed')
+            ->sum(fn ($p) => $p['remainingAmount']);
+
+        return Inertia::render('customers/Show', [
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'code' => $customer->code,
+                'phone' => $customer->phone,
+                'email' => $customer->email,
+                'address' => $customer->address,
+                'city' => $customer->city,
+                'notes' => $customer->notes,
+            ],
+            'plans' => $plans,
+            'totalOutstanding' => $totalOutstanding,
+            'isBlocked' => $customer->isBlockedForCredit(),
+        ]);
+    }
+
     public function store(Request $request)
     {
-        if (!$request->user()->hasPermission('customers', 'can_write')) {
+        if (! $request->user()->hasPermission('customers', 'can_write')) {
             abort(403);
         }
 
         $validator = Validator::make($request->all(), [
-            'name'     => 'required|string|max:150',
-            'code'     => 'nullable|string|max:30|unique:customers,code',
-            'phone'    => 'nullable|string|max:30',
-            'email'    => 'nullable|email|max:150',
-            'address'  => 'nullable|string|max:500',
-            'city'     => 'nullable|string|max:100',
-            'notes'    => 'nullable|string|max:1000',
-            'is_active'=> 'boolean',
+            'name' => 'required|string|max:150',
+            'code' => 'nullable|string|max:30|unique:customers,code',
+            'phone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:150',
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
+            'is_active' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -98,7 +161,7 @@ class CustomerController extends Controller
 
         if (empty($data['code'])) {
             $next = (Customer::max('id') ?? 0) + 1;
-            $data['code'] = 'CUST-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+            $data['code'] = 'CUST-'.str_pad($next, 4, '0', STR_PAD_LEFT);
         }
 
         $customer = Customer::create($data);
@@ -109,19 +172,19 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer)
     {
-        if (!$request->user()->hasPermission('customers', 'can_write')) {
+        if (! $request->user()->hasPermission('customers', 'can_write')) {
             abort(403);
         }
 
         $validator = Validator::make($request->all(), [
-            'name'     => 'required|string|max:150',
-            'code'     => 'nullable|string|max:30|unique:customers,code,' . $customer->id,
-            'phone'    => 'nullable|string|max:30',
-            'email'    => 'nullable|email|max:150',
-            'address'  => 'nullable|string|max:500',
-            'city'     => 'nullable|string|max:100',
-            'notes'    => 'nullable|string|max:1000',
-            'is_active'=> 'boolean',
+            'name' => 'required|string|max:150',
+            'code' => 'nullable|string|max:30|unique:customers,code,'.$customer->id,
+            'phone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:150',
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
+            'is_active' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -137,7 +200,7 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
-        if (!request()->user()->hasPermission('customers', 'can_delete')) {
+        if (! request()->user()->hasPermission('customers', 'can_delete')) {
             abort(403);
         }
 

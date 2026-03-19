@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, Eye, Trash, Download, ArrowRightLeft, ArrowLeftRight } from 'lucide-react';
+import { Search, Plus, Eye, Trash, Download, ArrowRightLeft, ArrowLeftRight, Package, Wrench, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
-import { DatePickerFilter, DatePickerInput } from '@/components/DatePickerInput';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 import Pagination from '@/components/Pagination';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -69,10 +69,30 @@ interface Filters {
   per_page?: string | number;
 }
 
+interface JasaOption {
+  id: number;
+  name: string;
+  code: string;
+  category: string | null;
+  global_price: number;
+}
+
+interface JasaCartItem {
+  item_id: number;
+  name: string;
+  code: string;
+  global_price: number;
+  outlet_price: number;
+}
+
+interface OutletOption { id: number; name: string; code: string; }
+
 interface PageProps {
   transfers: PaginatedTransfers;
   warehouses: WarehouseOption[];
   items: ItemOption[];
+  jasaItems: JasaOption[];
+  outlets: OutletOption[];
   filters: Filters;
   flash?: { success?: string };
   errors?: Record<string, string>;
@@ -89,7 +109,10 @@ function formatDateISO(d: string | Date | null | undefined): string {
 
 export default function Stock_Transfer() {
   const { props } = usePage<PageProps>();
-  const { transfers, warehouses, items: itemOptions, filters, flash, errors: pageErrors } = props;
+  const { transfers, warehouses, items: itemOptions, jasaItems, outlets, filters, flash, errors: pageErrors } = props;
+
+  // Only show Jasa transfer if user has access to the default warehouse
+  const hasDefaultWarehouse = warehouses.some(w => w.is_default);
 
   const [query, setQuery]     = useState(filters.search ?? '');
   const [sortBy, setSortBy]   = useState(filters.sort_by ?? 'date');
@@ -107,24 +130,6 @@ export default function Stock_Transfer() {
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selected, setSelected]         = useState<TransferRow | null>(null);
-
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [itemSearch, setItemSearch] = useState('');
-  const filteredItems = itemOptions.filter((it) =>
-    it.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-    (it.category && it.category.toLowerCase().includes(itemSearch.toLowerCase()))
-  );
-  const [form, setForm] = useState({
-    from_warehouse_id: warehouses[0]?.id ?? 0,
-    to_warehouse_id:   warehouses[1]?.id ?? warehouses[0]?.id ?? 0,
-    item_id:           itemOptions[0]?.id ?? 0,
-    quantity:          1,
-    date:              formatDateISO(new Date()),
-    reference:         '',
-    note:              '',
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [fromStock, setFromStock]   = useState<number | null>(null);
 
   // Navigate helper
   const navigate = (overrides: Record<string, unknown> = {}) => {
@@ -163,50 +168,56 @@ export default function Stock_Transfer() {
 
   const handlePage = (page: number) => navigate({ page });
 
-  // Update fromStock when from_warehouse or item changes
-  useEffect(() => {
-    if (!form.item_id || !form.from_warehouse_id) { setFromStock(null); return; }
-    router.get(route('stock_transfer.index'), {}, {
-      preserveState: true,
-      only: [],
-      onSuccess: () => {},
-    });
-    // Just show item global stock as approximation; real check is server-side
-    const item = itemOptions.find(i => i.id === form.item_id);
-    setFromStock(item?.stock ?? null);
-  }, [form.item_id, form.from_warehouse_id]);
+  const goToCreateSJ = () => router.visit(route('delivery_orders.create'));
 
-  const openAdd = () => {
-    setFormErrors({});
-    setItemSearch('');
-    setForm({
-      from_warehouse_id: warehouses[0]?.id ?? 0,
-      to_warehouse_id:   warehouses[1]?.id ?? warehouses[0]?.id ?? 0,
-      item_id:           itemOptions[0]?.id ?? 0,
-      quantity:          1,
-      date:              formatDateISO(new Date()),
-      reference:         '',
-      note:              '',
-    });
-    setIsFormOpen(true);
-  };
+  // ── Transfer-type choice + Jasa form ──────────────────────────────────────
+  const [showChoice, setShowChoice]       = useState(false);
+  const [showJasaForm, setShowJasaForm]   = useState(false);
+  const [jasaOutlet, setJasaOutlet]       = useState('');
+  const [jasaCart, setJasaCart]           = useState<JasaCartItem[]>([]);
+  const [jasaSearch, setJasaSearch]       = useState('');
+  const [jasaDropOpen, setJasaDropOpen]   = useState(false);
+  const [jasaProcessing, setJasaProcessing] = useState(false);
+  const [jasaErrors, setJasaErrors]       = useState<Record<string, string>>({});
+  const jasaSearchRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const filteredJasa = jasaItems.filter(it => {
+    const q = jasaSearch.toLowerCase();
+    return !q || it.name.toLowerCase().includes(q) || it.code.toLowerCase().includes(q);
+  }).filter(it => !jasaCart.some(c => c.item_id === it.id)).slice(0, 20);
+
+  function addJasa(it: JasaOption) {
+    setJasaCart(prev => [...prev, { item_id: it.id, name: it.name, code: it.code, global_price: it.global_price, outlet_price: it.global_price }]);
+    setJasaSearch('');
+    setJasaDropOpen(false);
+  }
+  function removeJasa(id: number) { setJasaCart(prev => prev.filter(c => c.item_id !== id)); }
+  function setJasaPrice(id: number, val: number) {
+    setJasaCart(prev => prev.map(c => c.item_id === id ? { ...c, outlet_price: Math.max(0, val) } : c));
+  }
+
+  function submitJasa(e: React.FormEvent) {
     e.preventDefault();
-    setFormErrors({});
-    router.post(route('stock_transfer.store'), {
-      from_warehouse_id: form.from_warehouse_id,
-      to_warehouse_id:   form.to_warehouse_id,
-      item_id:           form.item_id,
-      quantity:          form.quantity,
-      date:              form.date,
-      reference:         form.reference || null,
-      note:              form.note || null,
+    setJasaErrors({});
+    setJasaProcessing(true);
+    router.post(route('inventory.jasa_prices'), {
+      warehouse_id: jasaOutlet,
+      services: jasaCart.map(c => ({ item_id: c.item_id, outlet_price: c.outlet_price })),
     }, {
-      onSuccess: () => setIsFormOpen(false),
-      onError:   (errs) => setFormErrors(errs),
+      onError: (errs) => setJasaErrors(errs as Record<string, string>),
+      onFinish: () => setJasaProcessing(false),
+      onSuccess: () => { setShowJasaForm(false); setShowChoice(false); setJasaCart([]); setJasaOutlet(''); },
     });
-  };
+  }
+
+  function openJasaFlow() {
+    setShowChoice(false);
+    setJasaCart([]);
+    setJasaOutlet(outlets[0] ? String(outlets[0].id) : '');
+    setJasaSearch('');
+    setJasaErrors({});
+    setShowJasaForm(true);
+  }
 
   const handleDelete = (row: TransferRow) => {
     if (!confirm(`Batalkan transfer "${row.txnId}"?\nIni akan mengembalikan ${row.quantity} unit "${row.itemName}" dari ${row.toName} ke ${row.fromName}.`)) return;
@@ -262,9 +273,37 @@ export default function Stock_Transfer() {
             <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={transfers.data.length === 0}>
               <Download size={16} /> Export CSV
             </Button>
-            <Button onClick={openAdd} className="gap-2">
-              <Plus size={16} /> Transfer Stok
-            </Button>
+            <div className="relative">
+              <Button onClick={() => { setShowChoice(c => !c); setShowJasaForm(false); }} className="gap-2">
+                <Plus size={16} /> Transfer
+              </Button>
+              {showChoice && (
+                <div className="absolute right-0 top-full mt-2 z-20 w-56 rounded-xl border bg-popover shadow-lg p-2 space-y-1">
+                  <button
+                    onClick={() => { setShowChoice(false); goToCreateSJ(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-left transition-colors"
+                  >
+                    <Package size={18} className="text-indigo-500 shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium">Barang</div>
+                      <div className="text-xs text-muted-foreground">Buat Surat Jalan</div>
+                    </div>
+                  </button>
+                  {hasDefaultWarehouse && outlets.length > 0 && (
+                    <button
+                      onClick={openJasaFlow}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-left transition-colors"
+                    >
+                      <Wrench size={18} className="text-amber-500 shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium">Jasa</div>
+                        <div className="text-xs text-muted-foreground">Atur harga jasa di outlet</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -274,6 +313,126 @@ export default function Stock_Transfer() {
         )}
         {pageErrors?.general && (
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{pageErrors.general}</div>
+        )}
+
+        {/* Jasa price form */}
+        {showJasaForm && (
+          <div className="mb-4 rounded-xl border bg-card p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold flex items-center gap-2">
+                  <Wrench size={16} className="text-amber-500" /> Atur Harga Jasa di Outlet
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Tetapkan harga jual jasa untuk outlet tertentu. Bisa lebih dari 1 jenis jasa.</p>
+              </div>
+              <button onClick={() => setShowJasaForm(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={submitJasa} className="space-y-4">
+              {/* Outlet selector */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Outlet Tujuan <span className="text-red-500">*</span></label>
+                <select
+                  value={jasaOutlet}
+                  onChange={e => setJasaOutlet(e.target.value)}
+                  className="w-full max-w-xs px-3 py-2 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                >
+                  <option value="">— Pilih Outlet —</option>
+                  {outlets.map(o => <option key={o.id} value={o.id}>{o.name} ({o.code})</option>)}
+                </select>
+                {jasaErrors.warehouse_id && <p className="text-xs text-red-500 mt-1">{jasaErrors.warehouse_id}</p>}
+              </div>
+
+              {/* Jasa search */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Tambah Jasa</label>
+                <div className="relative max-w-md">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    ref={jasaSearchRef}
+                    type="text"
+                    value={jasaSearch}
+                    onChange={e => { setJasaSearch(e.target.value); setJasaDropOpen(true); }}
+                    onFocus={() => setJasaDropOpen(true)}
+                    onBlur={() => setTimeout(() => setJasaDropOpen(false), 150)}
+                    placeholder="Cari nama jasa…"
+                    className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  {jasaDropOpen && filteredJasa.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-popover border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredJasa.map(it => (
+                        <button key={it.id} type="button" onMouseDown={() => addJasa(it)}
+                          className="w-full text-left px-3 py-2 hover:bg-muted/60 flex items-center justify-between gap-2 text-sm">
+                          <div>
+                            <div className="font-medium">{it.name}</div>
+                            <div className="text-xs text-muted-foreground">{it.code}{it.category ? ` · ${it.category}` : ''}</div>
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(it.global_price)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {jasaErrors.services && <p className="text-xs text-red-500 mt-1">{jasaErrors.services}</p>}
+              </div>
+
+              {/* Cart */}
+              {jasaCart.length > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-3 py-2 font-medium">Jasa</th>
+                        <th className="text-right px-3 py-2 font-medium w-36">Harga Global</th>
+                        <th className="text-right px-3 py-2 font-medium w-40">Harga Outlet</th>
+                        <th className="w-8 px-2 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {jasaCart.map(c => (
+                        <tr key={c.item_id} className="hover:bg-muted/10">
+                          <td className="px-3 py-2">
+                            <div className="font-medium">{c.name}</div>
+                            <div className="text-xs text-muted-foreground">{c.code}</div>
+                          </td>
+                          <td className="px-3 py-2 text-right text-muted-foreground">
+                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(c.global_price)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number" min={0}
+                              value={c.outlet_price}
+                              onChange={e => setJasaPrice(c.item_id, parseInt(e.target.value) || 0)}
+                              className="w-full text-right border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <button type="button" onClick={() => removeJasa(c.item_id)}
+                              className="text-muted-foreground hover:text-red-500 transition-colors">
+                              <X size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={jasaProcessing || !jasaOutlet || jasaCart.length === 0}
+                  className="gap-2 bg-amber-600 hover:bg-amber-700">
+                  <Wrench size={15} /> {jasaProcessing ? 'Menyimpan…' : 'Simpan Harga Jasa'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowJasaForm(false)}>Batal</Button>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* Table */}
@@ -302,10 +461,10 @@ export default function Stock_Transfer() {
                         <p className="text-sm mt-1">Transfer stok untuk memindahkan barang antar gudang.</p>
                       </div>
                       <button
-                        onClick={openAdd}
+                        onClick={() => { setShowChoice(c => !c); setShowJasaForm(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                         className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
                       >
-                        <Plus size={15} /> Transfer Stok
+                        <Plus size={15} /> Transfer
                       </button>
                     </div>
                   </td>
@@ -380,103 +539,6 @@ export default function Stock_Transfer() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Transfer Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-lg">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>Transfer Stok Antar Outlet</DialogTitle>
-              <DialogDescription>Pindahkan stok dari satu gudang ke gudang lain.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 mt-3">
-              <div>
-                <label className="block font-semibold mb-1">Tanggal</label>
-                <DatePickerInput value={form.date} onChange={(v) => setForm(f => ({ ...f, date: v }))} />
-                {formErrors.date && <p className="text-destructive text-sm mt-1">{formErrors.date}</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold mb-1">Dari Outlet</label>
-                  <select value={form.from_warehouse_id}
-                    onChange={(e) => setForm(f => ({ ...f, from_warehouse_id: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border rounded-lg">
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                  </select>
-                  {formErrors.from_warehouse_id && <p className="text-destructive text-sm mt-1">{formErrors.from_warehouse_id}</p>}
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Ke Outlet</label>
-                  <select value={form.to_warehouse_id}
-                    onChange={(e) => setForm(f => ({ ...f, to_warehouse_id: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border rounded-lg">
-                    {warehouses.filter(w => w.id !== form.from_warehouse_id).map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                  {formErrors.to_warehouse_id && <p className="text-destructive text-sm mt-1">{formErrors.to_warehouse_id}</p>}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Item</label>
-                <input
-                  type="text"
-                  placeholder="Cari item..."
-                  value={itemSearch}
-                  onChange={(e) => setItemSearch(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-t-lg border-b-0"
-                />
-                <select value={form.item_id}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setForm(f => ({ ...f, item_id: id }));
-                    setFromStock(itemOptions.find(i => i.id === id)?.stock ?? null);
-                  }}
-                  className="w-full px-3 py-2 border rounded-b-lg"
-                  size={Math.min(Math.max(filteredItems.length, 1), 6)}
-                >
-                  {filteredItems.map(it => (
-                    <option key={it.id} value={it.id}>{it.name}{it.category ? ` — ${it.category}` : ''} (stok global: {it.stock})</option>
-                  ))}
-                </select>
-                {formErrors.item_id && <p className="text-destructive text-sm mt-1">{formErrors.item_id}</p>}
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Jumlah</label>
-                <input type="number" min={1} value={form.quantity}
-                  onChange={(e) => setForm(f => ({ ...f, quantity: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border rounded-lg" required />
-                {fromStock !== null && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Stok global item: <b>{fromStock}</b></p>
-                )}
-                {formErrors.quantity && <p className="text-destructive text-sm mt-1">{formErrors.quantity}</p>}
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Referensi (opsional)</label>
-                <input value={form.reference}
-                  onChange={(e) => setForm(f => ({ ...f, reference: e.target.value }))}
-                  placeholder="No. dokumen / referensi"
-                  className="w-full px-3 py-2 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Catatan (opsional)</label>
-                <textarea value={form.note}
-                  onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))}
-                  placeholder="Alasan transfer..."
-                  className="w-full px-3 py-2 border rounded-lg" rows={2} />
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="submit" className="gap-2"><ArrowRightLeft size={16} /> Transfer</Button>
-              <DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   );
 }

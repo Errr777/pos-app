@@ -73,7 +73,8 @@ class ItemController extends Controller
             }
         }
 
-        $tagId = $request->get('tag_id') ? (int) $request->get('tag_id') : null;
+        $tagId      = $request->get('tag_id') ? (int) $request->get('tag_id') : null;
+        $typeFilter = in_array($request->get('type'), ['barang', 'jasa']) ? $request->get('type') : null;
 
         $itemsQuery = Item::with(['kategoriRelation', 'tags', 'preferredSupplier'])
             ->when($search, function ($q, $search) {
@@ -83,6 +84,7 @@ class ItemController extends Controller
             ->when($tagId, function ($q) use ($tagId) {
                 $q->whereHas('tags', fn($tq) => $tq->where('tags.id', $tagId));
             })
+            ->when($typeFilter, fn($q) => $q->where('type', $typeFilter))
             ->orderBy($sortColumn, $requestedDir);
 
         $items = $itemsQuery
@@ -132,7 +134,7 @@ class ItemController extends Controller
         // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
             'items'        => $items,
-            'filters'      => $request->only(['search', 'per_page', 'tag_id']) + [
+            'filters'      => $request->only(['search', 'per_page', 'tag_id', 'type']) + [
                 'sort_by'  => $requestedSort,
                 'sort_dir' => $requestedDir,
             ],
@@ -185,7 +187,7 @@ class ItemController extends Controller
                 'type'        => $item->type ?? 'barang',
                 'name'        => $item->nama,
                 'description' => $item->deskripsi,
-                'image_url'   => $item->image_path ? Storage::url($item->image_path) : null,
+                'imageUrl'    => $item->image_path ? Storage::url($item->image_path) : null,
                 'qrcode'      => $item->kode_item,
                 'stock'       => $item->stok,
                 'stockMin'    => $item->stok_minimal,

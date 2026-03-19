@@ -54,4 +54,9 @@ class Item extends Model
     {
         return $this->hasMany(ItemVariant::class)->where('is_active', true)->orderBy('name');
     }
+
+    public function warehousePrices()
+    {
+        return $this->hasMany(WarehouseItemPrice::class);
+    }
 }
