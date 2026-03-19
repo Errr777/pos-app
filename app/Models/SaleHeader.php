@@ -23,20 +23,38 @@ class SaleHeader extends Model
         'note',
         'idempotency_key',
         'promo_code_used',
+        'invoice_number',
+        'invoice_issued_at',
     ];
 
     protected $casts = [
-        'occurred_at'     => 'datetime',
-        'subtotal'        => 'integer',
+        'occurred_at' => 'datetime',
+        'invoice_issued_at' => 'datetime',
+        'subtotal' => 'integer',
         'discount_amount' => 'integer',
-        'tax_amount'      => 'integer',
-        'grand_total'     => 'integer',
-        'payment_amount'  => 'integer',
-        'change_amount'   => 'integer',
+        'tax_amount' => 'integer',
+        'grand_total' => 'integer',
+        'payment_amount' => 'integer',
+        'change_amount' => 'integer',
     ];
 
-    public function warehouse()  { return $this->belongsTo(Warehouse::class); }
-    public function customer()   { return $this->belongsTo(Customer::class); }
-    public function cashier()    { return $this->belongsTo(User::class, 'cashier_id'); }
-    public function saleItems()  { return $this->hasMany(SaleItem::class); }
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function cashier()
+    {
+        return $this->belongsTo(User::class, 'cashier_id');
+    }
+
+    public function saleItems()
+    {
+        return $this->hasMany(SaleItem::class);
+    }
 }
