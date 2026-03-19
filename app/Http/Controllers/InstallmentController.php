@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
+use App\Helpers\InvoiceNumber;
 use App\Models\Customer;
 use App\Models\InstallmentPayment;
 use App\Models\InstallmentPlan;
@@ -136,13 +137,17 @@ class InstallmentController extends Controller
 
     public function invoice(InstallmentPlan $plan)
     {
+        // Permission enforced by constructor middleware (pos / can_view for GET).
         $plan->load(['payments', 'saleHeader.saleItems', 'customer', 'saleHeader.warehouse']);
+
+        abort_if(! $plan->saleHeader, 404);
 
         if (! $plan->invoice_number) {
             $plan->update([
-                'invoice_number' => \App\Helpers\InvoiceNumber::generate(),
+                'invoice_number' => InvoiceNumber::generate(),
                 'invoice_issued_at' => now(),
             ]);
+            $plan->refresh();
         }
 
         return Inertia::render('pos/Invoice', [

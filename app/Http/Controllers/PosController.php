@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\InvoiceNumber;
 use App\Models\Customer;
 use App\Models\InstallmentPayment;
 use App\Models\InstallmentPlan;
@@ -574,9 +575,10 @@ class PosController extends Controller
 
         if (! $saleHeader->invoice_number) {
             $saleHeader->update([
-                'invoice_number' => \App\Helpers\InvoiceNumber::generate(),
+                'invoice_number' => InvoiceNumber::generate(),
                 'invoice_issued_at' => now(),
             ]);
+            $saleHeader->refresh();
         }
 
         $plan = null;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
+use App\Helpers\InvoiceNumber;
 use App\Models\Item;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
@@ -350,9 +351,10 @@ class PurchaseOrderController extends Controller
 
         if (! $purchaseOrder->invoice_number) {
             $purchaseOrder->update([
-                'invoice_number' => \App\Helpers\InvoiceNumber::generate(),
+                'invoice_number' => InvoiceNumber::generate(),
                 'invoice_issued_at' => now(),
             ]);
+            $purchaseOrder->refresh();
         }
 
         return Inertia::render('purchase-orders/Invoice', [

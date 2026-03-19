@@ -205,8 +205,8 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('purchase-orders/{purchaseOrder}',               [PurchaseOrderController::class, 'show'])                ->name('po.show');
     Route::post('purchase-orders/{purchaseOrder}/status',       [PurchaseOrderController::class, 'updateStatus'])        ->name('po.status');
     Route::post('purchase-orders/{purchaseOrder}/receive',      [PurchaseOrderController::class, 'receive'])             ->name('po.receive');
-    Route::delete('purchase-orders/{purchaseOrder}',            [PurchaseOrderController::class, 'destroy'])             ->name('po.destroy');
     Route::get('purchase-orders/{purchaseOrder}/invoice',       [PurchaseOrderController::class, 'invoice'])             ->name('po.invoice');
+    Route::delete('purchase-orders/{purchaseOrder}',            [PurchaseOrderController::class, 'destroy'])             ->name('po.destroy');
 
     // Expenses
     Route::get('expenses',              [ExpenseController::class, 'index'])  ->name('expenses.index');
