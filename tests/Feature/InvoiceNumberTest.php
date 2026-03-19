@@ -24,7 +24,7 @@ class InvoiceNumberTest extends TestCase
 
     public function test_second_call_increments_sequence(): void
     {
-        $first  = InvoiceNumber::generate();
+        $first = InvoiceNumber::generate();
         $second = InvoiceNumber::generate();
         $this->assertStringEndsWith('-0001', $first);
         $this->assertStringEndsWith('-0002', $second);
@@ -32,7 +32,7 @@ class InvoiceNumberTest extends TestCase
 
     public function test_uses_todays_date_in_number(): void
     {
-        $today  = now()->format('Ymd');
+        $today = now()->format('Ymd');
         $number = InvoiceNumber::generate();
         $this->assertStringContainsString("INV-{$today}-", $number);
     }
