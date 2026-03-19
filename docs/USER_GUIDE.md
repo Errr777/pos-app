@@ -19,6 +19,7 @@
 15. [Manajemen Pengguna](#15-manajemen-pengguna)
 16. [Log Aktivitas](#16-log-aktivitas)
 17. [Pengaturan Akun](#17-pengaturan-akun)
+18. [Pengaturan Toko](#18-pengaturan-toko)
 
 ---
 
@@ -320,6 +321,14 @@ Kode pelanggan digenerate otomatis (format: `CUST-0001`, dst).
 - **Edit** — klik tombol Edit, ubah data, simpan
 - **Hapus** — klik tombol Hapus, konfirmasi
 
+### 8.4 Rencana Cicilan Pelanggan
+
+Di halaman detail pelanggan, klik nama pelanggan untuk melihat:
+- **Riwayat transaksi** pelanggan tersebut
+- **Rencana cicilan aktif** — daftar cicilan dengan status dan jadwal pembayaran
+
+Per baris cicilan tersedia tombol **Invoice** untuk membuka invoice formal cicilan dalam popup window.
+
 ---
 
 ## 9. Kasir (POS)
@@ -340,7 +349,7 @@ Halaman **Kasir** menampilkan semua transaksi penjualan dengan filter:
 3. **Atur qty & diskon** — klik item di keranjang untuk mengubah jumlah atau tambah diskon per item
 4. **Pilih pelanggan** *(opsional)* — cari pelanggan terdaftar atau biarkan kosong untuk Walk-in
 5. **Terapkan promo** *(opsional)* — masukkan kode promo jika ada
-6. **Pilih metode pembayaran** — Tunai, Transfer, atau QRIS
+6. **Pilih metode pembayaran** — Tunai, Transfer, QRIS, atau **Kredit (Cicilan)**
 7. **Masukkan nominal bayar** (untuk transaksi tunai)
 8. Klik **Proses Transaksi**
 9. Sistem menampilkan kembalian dan struk transaksi
@@ -356,7 +365,27 @@ Setelah transaksi berhasil, struk otomatis ditampilkan dengan:
 
 Klik **Cetak** untuk mencetak struk.
 
-### 9.4 Detail Transaksi
+### 9.4 Cetak Struk (Nota)
+
+Klik tombol **Cetak** di halaman detail transaksi untuk membuka popup struk termal. Struk akan otomatis menampilkan dialog cetak. Gunakan printer termal 80mm untuk hasil terbaik.
+
+### 9.5 Cetak Invoice
+
+Klik tombol **Invoice** di halaman detail transaksi untuk membuka invoice formal A4 dalam popup window. Invoice memiliki nomor unik format `INV-YYYYMMDD-XXXX` yang tersimpan permanen dan tidak berubah meski dicetak ulang.
+
+Invoice kredit menampilkan **jadwal cicilan lengkap** beserta status pembayaran setiap angsuran.
+
+### 9.6 Transaksi Kredit (Cicilan)
+
+Untuk penjualan dengan sistem angsuran:
+1. Pilih **Kredit** sebagai metode pembayaran
+2. Pilih **pelanggan terdaftar** (wajib — kredit tidak bisa untuk Walk-in)
+3. Isi nominal **Uang Muka (DP)** dan **Jumlah Cicilan**
+4. Klik **Proses Transaksi**
+
+Rencana cicilan otomatis dibuat dan dapat dilihat di halaman **Pelanggan → detail pelanggan**.
+
+### 9.7 Detail Transaksi
 
 Klik nomor transaksi di riwayat untuk melihat detail lengkap:
 - Item yang terjual, qty, harga satuan, subtotal
@@ -365,7 +394,7 @@ Klik nomor transaksi di riwayat untuk melihat detail lengkap:
 - Metode pembayaran dan kembalian
 - Diskon yang diterapkan
 
-### 9.5 Void Transaksi
+### 9.8 Void Transaksi
 
 Jika transaksi perlu dibatalkan:
 1. Buka detail transaksi
@@ -412,6 +441,10 @@ Di halaman detail PO, klik tombol sesuai alur:
 - **Batalkan** → status jadi `cancelled`
 
 > Saat barang diterima, stok gudang otomatis bertambah.
+
+### 10.5 Cetak Invoice PO
+
+Di halaman detail Purchase Order, klik tombol **Invoice** untuk membuka invoice PO formal A4 dalam popup. Invoice PO berisi informasi supplier, gudang tujuan, daftar item yang dipesan, dan total tagihan.
 
 ---
 
@@ -699,6 +732,24 @@ Klik ikon **matahari/bulan/monitor** di pojok kanan atas untuk memilih:
 - **Light** — tema terang
 - **Dark** — tema gelap
 - **System** — mengikuti tema sistem/OS
+
+---
+
+## 18. Pengaturan Toko
+
+Menu: **Pengaturan → Toko** *(hanya Admin)*
+
+Mengatur informasi toko yang muncul di struk dan invoice.
+
+### 18.1 Informasi Toko
+
+- **Nama Toko** *(wajib)* — muncul di header struk dan invoice
+- **Alamat** — alamat toko
+- **Nomor Telepon**
+- **Footer Struk** — teks yang muncul di bagian bawah struk termal. Mendukung multi-baris (tekan Enter untuk baris baru). Contoh: pesan terima kasih, jam operasional, kebijakan retur.
+- **Logo Toko** — upload file gambar (JPG/PNG). Muncul di header invoice A4.
+
+Klik **Simpan Pengaturan** setelah mengubah data.
 
 ---
 
