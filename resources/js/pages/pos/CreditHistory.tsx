@@ -231,8 +231,9 @@ export default function CreditHistoryPage() {
                                                         className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border hover:bg-muted transition-colors">
                                                         <FileText size={12} /> Invoice
                                                     </button>
-                                                    {plan.status !== 'completed' && plan.status !== 'cancelled' && (
+                                                    {plan.remainingAmount > 0 && (
                                                         <a href={route('pos.installments')}
+                                                            title="Buka terminal pembayaran cicilan"
                                                             className="inline-flex items-center px-2 py-1 text-xs rounded border border-primary text-primary hover:bg-primary/10 transition-colors font-medium">
                                                             Bayar
                                                         </a>

@@ -70,11 +70,16 @@ class InstallmentController extends Controller
                 return [
                     'id'              => $plan->id,
                     'saleNumber'      => $plan->saleHeader?->sale_number,
+                    'occurredAt'      => $plan->saleHeader?->occurred_at?->toISOString(),
+                    'createdAt'       => $plan->created_at?->toISOString(),
                     'totalAmount'     => $plan->total_amount,
                     'paidAmount'      => $plan->paid_amount,
                     'remainingAmount' => $remainingAmount,
+                    'interestRate'    => (float) $plan->interest_rate,
+                    'lateFeeAmount'   => $plan->late_fee_amount,
                     'status'          => $plan->status,
                     'totalPayments'   => $totalCount,
+                    'note'            => $plan->note,
                     'canPayExtra'     => $allScheduledPaid && $remainingAmount > 0,
                     'payments'        => $allPmts->map(fn ($p) => [
                         'id'             => $p->id,
