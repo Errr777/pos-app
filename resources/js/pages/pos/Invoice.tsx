@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { formatRp, fmtDate, METHOD_LABEL, STATUS_LABEL } from '@/lib/formats';
 import { Head, usePage } from '@inertiajs/react';
 
 interface ScheduleRow {
@@ -54,30 +55,32 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-const METHOD_LABEL: Record<string, string> = {
-    cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
-};
 
-const STATUS_LABEL: Record<string, string> = {
-    pending: 'Belum Lunas', active: 'Aktif', overdue: 'Jatuh Tempo',
-    completed: 'Lunas', paid: 'Lunas', partial: 'Sebagian',
-};
-
-function fmt(n: number) {
-    return 'Rp ' + n.toLocaleString('id-ID');
-}
-function fmtDate(iso: string | null) {
-    if (!iso) return '-';
-    return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-}
 
 export default function PosInvoice() {
     const { invoice, storeSettings } = usePage<PageProps>().props;
 
+    const isWalkIn = invoice.customer.name === 'Walk-in';
+    const [showDialog, setShowDialog] = useState(isWalkIn);
+    const [customerName, setCustomerName] = useState(isWalkIn ? '' : invoice.customer.name);
+    const [ready, setReady] = useState(!isWalkIn);
+    const inputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
+        if (showDialog) inputRef.current?.focus();
+    }, [showDialog]);
+
+    useEffect(() => {
+        if (!ready) return;
         const t = setTimeout(() => window.print(), 400);
         return () => clearTimeout(t);
-    }, []);
+    }, [ready]);
+
+    const handlePrint = (name: string) => {
+        setCustomerName(name.trim() || 'Walk-in');
+        setShowDialog(false);
+        setReady(true);
+    };
 
     const dueDate = invoice.schedule
         ? invoice.schedule[invoice.schedule.length - 1]?.dueDate
@@ -86,6 +89,28 @@ export default function PosInvoice() {
     return (
         <>
             <Head title={`Invoice ${invoice.invoiceNumber}`} />
+
+            {showDialog && (
+                <div className="nd-overlay">
+                    <div className="nd-box">
+                        <div className="nd-title">Nama Penerima Invoice</div>
+                        <div className="nd-desc">Tidak ada pelanggan terdaftar. Masukkan nama penerima (opsional).</div>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            className="nd-input"
+                            placeholder="Contoh: Budi Santoso"
+                            value={customerName}
+                            onChange={e => setCustomerName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handlePrint(customerName)}
+                        />
+                        <div className="nd-actions">
+                            <button className="nd-btn-skip" onClick={() => handlePrint('')}>Lewati</button>
+                            <button className="nd-btn-print" onClick={() => handlePrint(customerName)}>Cetak Invoice</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="inv-root">
                 {/* Header */}
                 <div className="inv-header">
@@ -113,7 +138,7 @@ export default function PosInvoice() {
                 {/* To */}
                 <div className="inv-to-section">
                     <div className="inv-label">KEPADA:</div>
-                    <div className="inv-to-name">{invoice.customer.name}</div>
+                    <div className="inv-to-name">{customerName}</div>
                     {invoice.customer.phone && <div className="inv-small">{invoice.customer.phone}</div>}
                     {invoice.customer.address && <div className="inv-small">{invoice.customer.address}</div>}
                 </div>
@@ -138,12 +163,12 @@ export default function PosInvoice() {
                                     <div className="inv-item-name">{item.name}</div>
                                     {item.code && <div className="inv-small inv-muted">{item.code}</div>}
                                 </td>
-                                <td className="inv-td inv-td-right">{fmt(item.unitPrice)}</td>
+                                <td className="inv-td inv-td-right">{formatRp(item.unitPrice)}</td>
                                 <td className="inv-td inv-td-center">{item.quantity}</td>
                                 <td className="inv-td inv-td-right">
-                                    {item.discountAmount > 0 ? <span className="inv-discount">-{fmt(item.discountAmount)}</span> : '-'}
+                                    {item.discountAmount > 0 ? <span className="inv-discount">-{formatRp(item.discountAmount)}</span> : '-'}
                                 </td>
-                                <td className="inv-td inv-td-right inv-bold">{fmt(item.lineTotal)}</td>
+                                <td className="inv-td inv-td-right inv-bold">{formatRp(item.lineTotal)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -154,28 +179,28 @@ export default function PosInvoice() {
                     <div className="inv-totals">
                         <div className="inv-total-row">
                             <span className="inv-muted">Subtotal</span>
-                            <span>{fmt(invoice.subtotal)}</span>
+                            <span>{formatRp(invoice.subtotal)}</span>
                         </div>
                         {invoice.discountAmount > 0 && (
                             <div className="inv-total-row inv-discount">
-                                <span>Diskon</span><span>-{fmt(invoice.discountAmount)}</span>
+                                <span>Diskon</span><span>-{formatRp(invoice.discountAmount)}</span>
                             </div>
                         )}
                         {invoice.taxAmount > 0 && (
                             <div className="inv-total-row">
-                                <span className="inv-muted">Pajak</span><span>{fmt(invoice.taxAmount)}</span>
+                                <span className="inv-muted">Pajak</span><span>{formatRp(invoice.taxAmount)}</span>
                             </div>
                         )}
                         <div className="inv-total-row inv-grand-total">
-                            <span>Total</span><span>{fmt(invoice.grandTotal)}</span>
+                            <span>Total</span><span>{formatRp(invoice.grandTotal)}</span>
                         </div>
                         <div className="inv-total-row inv-muted">
                             <span>Bayar ({METHOD_LABEL[invoice.paymentMethod] ?? invoice.paymentMethod})</span>
-                            <span>{fmt(invoice.paymentAmount)}</span>
+                            <span>{formatRp(invoice.paymentAmount)}</span>
                         </div>
                         {invoice.changeAmount > 0 && (
                             <div className="inv-total-row inv-change">
-                                <span>Kembalian</span><span>{fmt(invoice.changeAmount)}</span>
+                                <span>Kembalian</span><span>{formatRp(invoice.changeAmount)}</span>
                             </div>
                         )}
                     </div>
@@ -200,9 +225,9 @@ export default function PosInvoice() {
                                     <tr key={i} className="inv-tr">
                                         <td className="inv-td inv-td-center">{i + 1}</td>
                                         <td className="inv-td">{i === 0 ? 'Sekarang (DP)' : fmtDate(row.dueDate)}</td>
-                                        <td className="inv-td inv-td-right">{fmt(row.amountDue)}</td>
+                                        <td className="inv-td inv-td-right">{formatRp(row.amountDue)}</td>
                                         <td className="inv-td inv-td-right">
-                                            {row.interestAmount > 0 ? fmt(row.interestAmount) : '-'}
+                                            {row.interestAmount > 0 ? formatRp(row.interestAmount) : '-'}
                                         </td>
                                         <td className="inv-td">{STATUS_LABEL[row.status] ?? row.status}</td>
                                     </tr>
@@ -229,7 +254,7 @@ export default function PosInvoice() {
                     <div className="inv-sig-col">
                         <div className="inv-muted inv-small">Penerima,</div>
                         <div className="inv-sig-line" />
-                        <div className="inv-small">{invoice.customer.name}</div>
+                        <div className="inv-small">{customerName}</div>
                     </div>
                 </div>
 
@@ -301,10 +326,24 @@ export default function PosInvoice() {
                 /* Footer */
                 .inv-footer { text-align: center; font-size: 11px; color: #888; border-top: 1px dashed #ccc; padding-top: 10px; white-space: pre-wrap; }
 
+                /* Name dialog */
+                .nd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+                .nd-box { background: #fff; border-radius: 10px; padding: 28px 24px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+                .nd-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+                .nd-desc { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.5; }
+                .nd-input { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 9px 12px; font-size: 14px; outline: none; box-sizing: border-box; }
+                .nd-input:focus { border-color: #1d4ed8; box-shadow: 0 0 0 3px rgba(29,78,216,0.12); }
+                .nd-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+                .nd-btn-skip { padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; color: #374151; }
+                .nd-btn-skip:hover { background: #f3f4f6; }
+                .nd-btn-print { padding: 8px 18px; border: none; border-radius: 6px; background: #1d4ed8; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+                .nd-btn-print:hover { background: #1e40af; }
+
                 @page { size: A4; margin: 0; }
                 @media print {
                     body { margin: 0; }
                     .inv-root { padding: 15mm; max-width: 100%; }
+                    .nd-overlay { display: none; }
                 }
             `}</style>
         </>

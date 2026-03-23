@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Item;
+use App\Models\Supplier;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -92,15 +95,16 @@ class StockMovementController extends Controller
         $items = WarehouseItem::where('warehouse_items.warehouse_id', $warehouseId)
             ->where('warehouse_items.stok', '>', 0)
             ->join('items', 'items.id', '=', 'warehouse_items.item_id')
-            ->select('items.id', 'items.nama', 'items.kategori', 'items.kode_item', 'warehouse_items.stok')
+            ->select('items.id', 'items.nama', 'items.kategori', 'items.kode_item', 'items.image_path', 'warehouse_items.stok')
             ->orderBy('items.nama')
             ->get()
             ->map(fn($row) => [
-                'id'       => $row->id,
-                'name'     => $row->nama,
-                'category' => $row->kategori,
-                'stock'    => (int) $row->stok,
-                'kode'     => $row->kode_item,
+                'id'        => $row->id,
+                'name'      => $row->nama,
+                'category'  => $row->kategori,
+                'stock'     => (int) $row->stok,
+                'kode'      => $row->kode_item,
+                'image_url' => $row->image_path ? Storage::url($row->image_path) : null,
             ]);
 
         return response()->json($items);
@@ -108,16 +112,30 @@ class StockMovementController extends Controller
 
     private function itemOptions(): \Illuminate\Support\Collection
     {
-        return Item::select('id', 'nama', 'kategori', 'stok', 'kode_item')
+        return Item::select('id', 'nama', 'kategori', 'stok', 'kode_item', 'image_path')
             ->orderBy('nama')
             ->get()
             ->map(fn($i) => [
-                'id'       => $i->id,
-                'name'     => $i->nama,
-                'category' => $i->kategori,
-                'stock'    => $i->stok,
-                'kode'     => $i->kode_item,
+                'id'        => $i->id,
+                'name'      => $i->nama,
+                'category'  => $i->kategori,
+                'stock'     => $i->stok,
+                'kode'      => $i->kode_item,
+                'image_url' => $i->image_path ? Storage::url($i->image_path) : null,
             ]);
+    }
+
+    private function supplierOptions(): \Illuminate\Support\Collection
+    {
+        return Supplier::where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    private function staffOptions(): \Illuminate\Support\Collection
+    {
+        return User::orderBy('name')
+            ->get(['id', 'name']);
     }
 
     /** Return active warehouses for the dropdown. */
@@ -161,7 +179,7 @@ class StockMovementController extends Controller
             'date'      => 'transactions.occurred_at',
             'itemName'  => 'items.nama',
             'quantity'  => 'transactions.amount',
-            'supplier'  => 'transactions.party',
+            'party'     => 'transactions.party',
             'reference' => 'transactions.reference',
         ];
         $requestedSort = (string) $request->get('sort_by', 'date');
@@ -193,9 +211,10 @@ class StockMovementController extends Controller
                 'itemId'      => $t->item_id,
                 'itemName'    => $t->item?->nama ?? '(item deleted)',
                 'quantity'    => (int) abs($t->amount),
-                'supplier'    => $t->party,
+                'party'       => $t->party,
                 'reference'   => $t->reference,
                 'qrcode'      => $t->qrcode,
+                'image_url'   => $t->item?->image_path ? Storage::url($t->item->image_path) : null,
                 'note'        => $t->note,
                 'warehouseId' => $t->warehouse_id,
             ]);
@@ -204,6 +223,7 @@ class StockMovementController extends Controller
             'movements'  => $movements,
             'items'      => $this->itemOptions(),
             'warehouses' => $this->warehouseOptions(),
+            'suppliers'  => $this->supplierOptions(),
             'totalQty'   => (int) $totalQty,
             'filters'    => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),
@@ -228,7 +248,7 @@ class StockMovementController extends Controller
             'date'      => 'transactions.occurred_at',
             'itemName'  => 'items.nama',
             'quantity'  => 'transactions.amount',
-            'receiver'  => 'transactions.party',
+            'party'     => 'transactions.party',
             'reference' => 'transactions.reference',
         ];
         $requestedSort = (string) $request->get('sort_by', 'date');
@@ -259,9 +279,10 @@ class StockMovementController extends Controller
                 'itemId'      => $t->item_id,
                 'itemName'    => $t->item?->nama ?? '(item deleted)',
                 'quantity'    => (int) abs($t->amount),
-                'receiver'    => $t->party,
+                'party'       => $t->party,
                 'reference'   => $t->reference,
                 'qrcode'      => $t->qrcode,
+                'image_url'   => $t->item?->image_path ? Storage::url($t->item->image_path) : null,
                 'note'        => $t->note,
                 'warehouseId' => $t->warehouse_id,
             ]);
@@ -269,6 +290,7 @@ class StockMovementController extends Controller
         return Inertia::render('inventory/Stock_Out', [
             'movements'  => $movements,
             'warehouses' => $this->warehouseOptions(),
+            'staffList'  => $this->staffOptions(),
             'totalQty'   => (int) $totalQty,
             'filters'    => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),

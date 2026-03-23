@@ -39,4 +39,9 @@ class InstallmentPayment extends Model
     {
         return $this->amount_due + $this->interest_amount + $this->late_fee_applied;
     }
+
+    public function remainingDue(): int
+    {
+        return max(0, $this->totalDue() - $this->amount_paid);
+    }
 }

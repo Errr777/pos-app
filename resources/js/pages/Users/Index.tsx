@@ -238,7 +238,7 @@ export default function UsersIndex() {
     setPermSaving(true);
     router.post(
       route('users.permissions', { user: permTarget.id }),
-      { permissions: permForm },
+      { permissions: permForm as unknown as Record<string, Record<string, boolean>> },
       {
         onSuccess: () => { setIsPermOpen(false); setPermSaving(false); },
         onError: () => setPermSaving(false),

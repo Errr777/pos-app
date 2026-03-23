@@ -74,7 +74,8 @@ class PosController extends Controller
         $sortKey = $request->get('sort_by', 'date');
         $sortColumn = $allowedSort[$sortKey] ?? 'sale_headers.occurred_at';
 
-        $query = SaleHeader::with(['warehouse', 'customer', 'cashier', 'saleItems'])
+        $query = SaleHeader::with(['warehouse', 'customer', 'cashier'])
+            ->withCount('saleItems')
             ->leftJoin('users', 'sale_headers.cashier_id', '=', 'users.id')
             ->leftJoin('customers', 'sale_headers.customer_id', '=', 'customers.id')
             ->select('sale_headers.*');
@@ -122,7 +123,7 @@ class PosController extends Controller
             'changeAmount' => $s->change_amount,
             'status' => $s->status,
             'note' => $s->note,
-            'itemCount' => $s->saleItems->count(),
+            'itemCount' => $s->sale_items_count,
         ]);
 
         return Inertia::render('pos/Index', [
@@ -412,8 +413,7 @@ class PosController extends Controller
                         $ld['wi']->stok -= $ld['qty'];
                         $ld['wi']->save();
 
-                        $ld['item']->stok = (int) WarehouseItem::where('item_id', $ld['item']->id)->sum('stok');
-                        $ld['item']->save();
+                        $ld['item']->decrement('stok', $ld['qty']);
                     }
 
                     SaleItem::create([
@@ -444,6 +444,12 @@ class PosController extends Controller
                     $lateFee = (int) ($data['credit_late_fee'] ?? 0);
                     $dpPaid = (int) $data['payment_amount'];
 
+                    // Validate that schedule totals match grand total
+                    $scheduleTotal = (int) array_sum(array_column($schedule, 'amount_due'));
+                    if ($scheduleTotal !== $grandTotal) {
+                        throw new \RuntimeException("Total jadwal cicilan (Rp {$scheduleTotal}) tidak sesuai dengan total penjualan (Rp {$grandTotal}). Periksa kembali jadwal cicilan.");
+                    }
+
                     $plan = InstallmentPlan::create([
                         'sale_header_id' => $sale->id,
                         'customer_id' => $data['customer_id'],
@@ -459,6 +465,10 @@ class PosController extends Controller
                         $isFirst = $i === 0;
                         $amountDue = (int) $row['amount_due'];
                         $interestAmt = (int) ($row['interest_amount'] ?? 0);
+                        $firstPaid = $isFirst ? $dpPaid : 0;
+                        $firstStatus = $isFirst
+                            ? ($dpPaid >= $amountDue ? 'paid' : 'partial')
+                            : 'pending';
 
                         InstallmentPayment::create([
                             'installment_plan_id' => $plan->id,
@@ -466,9 +476,9 @@ class PosController extends Controller
                             'amount_due' => $amountDue,
                             'interest_amount' => $interestAmt,
                             'late_fee_applied' => 0,
-                            'amount_paid' => $isFirst ? $dpPaid : 0,
-                            'paid_at' => $isFirst ? now() : null,
-                            'status' => $isFirst ? 'paid' : 'pending',
+                            'amount_paid' => $firstPaid,
+                            'paid_at' => $isFirst && $dpPaid >= $amountDue ? now() : null,
+                            'status' => $firstStatus,
                             'payment_method' => null,
                             'recorded_by' => Auth::id(),
                         ]);
@@ -646,37 +656,54 @@ class PosController extends Controller
             return back()->withErrors(['status' => 'Penjualan ini sudah di-void.']);
         }
 
+        // Block void if credit sale has an active installment plan
+        if ($saleHeader->payment_method === 'credit') {
+            $activePlan = \App\Models\InstallmentPlan::where('sale_header_id', $saleHeader->id)
+                ->whereIn('status', ['active', 'overdue'])
+                ->exists();
+            if ($activePlan) {
+                return back()->withErrors(['status' => 'Tidak bisa di-void: penjualan kredit ini masih memiliki cicilan yang belum lunas.']);
+            }
+        }
+
         $saleHeader->load(['saleItems']);
 
         DB::transaction(function () use ($saleHeader) {
-            foreach ($saleHeader->saleItems as $si) {
-                if (! $si->item_id) {
-                    continue;
+            $saleItems = $saleHeader->saleItems->filter(fn ($si) => $si->item_id);
+
+            if ($saleItems->isNotEmpty()) {
+                $itemIds = $saleItems->pluck('item_id')->unique();
+
+                // Batch-lock all items and warehouse items in two queries instead of N×3
+                $items = Item::lockForUpdate()->whereIn('id', $itemIds)->get()->keyBy('id');
+                $warehouseItems = WarehouseItem::where('warehouse_id', $saleHeader->warehouse_id)
+                    ->whereIn('item_id', $itemIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('item_id');
+
+                foreach ($saleItems as $si) {
+                    $item = $items->get($si->item_id);
+                    if (! $item) {
+                        continue;
+                    }
+
+                    $wi = $warehouseItems->get($si->item_id);
+                    if ($wi) {
+                        $wi->stok += $si->quantity;
+                        $wi->save();
+                    } else {
+                        WarehouseItem::create([
+                            'warehouse_id' => $saleHeader->warehouse_id,
+                            'item_id' => $si->item_id,
+                            'stok' => $si->quantity,
+                            'stok_minimal' => 0,
+                        ]);
+                    }
+
+                    // Atomic increment — avoids a separate SUM() query per item
+                    $item->increment('stok', $si->quantity);
                 }
-
-                $item = Item::lockForUpdate()->find($si->item_id);
-                if (! $item) {
-                    continue;
-                }
-
-                $wi = WarehouseItem::where('warehouse_id', $saleHeader->warehouse_id)
-                    ->where('item_id', $si->item_id)
-                    ->lockForUpdate()->first();
-
-                if ($wi) {
-                    $wi->stok += $si->quantity;
-                    $wi->save();
-                } else {
-                    WarehouseItem::create([
-                        'warehouse_id' => $saleHeader->warehouse_id,
-                        'item_id' => $si->item_id,
-                        'stok' => $si->quantity,
-                        'stok_minimal' => 0,
-                    ]);
-                }
-
-                $item->stok = (int) WarehouseItem::where('item_id', $item->id)->sum('stok');
-                $item->save();
             }
 
             $saleHeader->status = 'void';

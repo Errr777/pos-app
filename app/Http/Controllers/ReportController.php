@@ -26,9 +26,10 @@ class ReportController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!$request->user()->hasPermission('reports', 'can_view')) {
+            if (! $request->user()->hasPermission('reports', 'can_view')) {
                 abort(403);
             }
+
             return $next($request);
         });
     }
@@ -41,6 +42,7 @@ class ReportController extends Controller
     private function sanitizePerPage(Request $request, int $default = 20): int
     {
         $pp = (int) $request->get('per_page', $default);
+
         return in_array($pp, $this->allowedPerPage(), true) ? $pp : $default;
     }
 
@@ -49,27 +51,57 @@ class ReportController extends Controller
         return strtolower($request->get('sort_dir', $default)) === 'desc' ? 'desc' : 'asc';
     }
 
+    /** Returns active warehouses as [{id, name}] arrays, cached for 5 minutes. */
+    private function getActiveWarehouses(array $allowedIds = []): \Illuminate\Support\Collection
+    {
+        $cacheKey = 'active_warehouses_mapped'.(empty($allowedIds) ? '' : '_'.implode('_', $allowedIds));
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($allowedIds) {
+            $q = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+            if (! empty($allowedIds)) {
+                $q->whereIn('id', $allowedIds);
+            }
+
+            return $q->get(['id', 'name'])->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+        });
+    }
+
+    /** Returns active warehouse Eloquent models, cached for 5 minutes. */
+    private function getActiveWarehouseModels(array $allowedIds = []): \Illuminate\Support\Collection
+    {
+        $cacheKey = 'active_warehouses_models'.(empty($allowedIds) ? '' : '_'.implode('_', $allowedIds));
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($allowedIds) {
+            $q = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
+            if (! empty($allowedIds)) {
+                $q->whereIn('id', $allowedIds);
+            }
+
+            return $q->get();
+        });
+    }
+
     // ─── Laporan Stok ────────────────────────────────────────────────────────
 
     public function stock(Request $request)
     {
-        $perPage   = $this->sanitizePerPage($request);
-        $search    = trim((string) $request->get('search', ''));
-        $dateFrom  = $request->get('date_from');
-        $dateTo    = $request->get('date_to');
-        $sortDir   = $this->sanitizeSortDir($request);
+        $perPage = $this->sanitizePerPage($request);
+        $search = trim((string) $request->get('search', ''));
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $sortDir = $this->sanitizeSortDir($request);
 
         $clientToDb = [
-            'code'      => 'items.kode_item',
-            'name'      => 'items.nama',
-            'category'  => 'items.kategori',
-            'stock'     => 'items.stok',
+            'code' => 'items.kode_item',
+            'name' => 'items.nama',
+            'category' => 'items.kategori',
+            'stock' => 'items.stok',
             'stock_min' => 'items.stok_minimal',
-            'total_in'  => 'total_in',
+            'total_in' => 'total_in',
             'total_out' => 'total_out',
         ];
         $requestedSort = (string) $request->get('sort_by', 'name');
-        $sortColumn    = $clientToDb[$requestedSort] ?? 'items.nama';
+        $sortColumn = $clientToDb[$requestedSort] ?? 'items.nama';
 
         $query = Item::select([
             'items.id',
@@ -81,25 +113,25 @@ class ReportController extends Controller
             DB::raw('COALESCE(SUM(CASE WHEN t.type = "stock_in" THEN ABS(t.amount) ELSE 0 END), 0) as total_in'),
             DB::raw('COALESCE(SUM(CASE WHEN t.type = "stock_out" THEN ABS(t.amount) ELSE 0 END), 0) as total_out'),
         ])
-        ->leftJoin('transactions as t', function ($join) use ($dateFrom, $dateTo) {
-            $join->on('t.item_id', '=', 'items.id')
-                 ->where('t.status', 'completed')
-                 ->whereIn('t.type', ['stock_in', 'stock_out']);
-            if ($dateFrom) {
-                $join->where('t.occurred_at', '>=', $dateFrom . ' 00:00:00');
-            }
-            if ($dateTo) {
-                $join->where('t.occurred_at', '<=', $dateTo . ' 23:59:59');
-            }
-        })
-        ->groupBy('items.id', 'items.kode_item', 'items.nama', 'items.kategori', 'items.stok', 'items.stok_minimal');
+            ->leftJoin('transactions as t', function ($join) use ($dateFrom, $dateTo) {
+                $join->on('t.item_id', '=', 'items.id')
+                    ->where('t.status', 'completed')
+                    ->whereIn('t.type', ['stock_in', 'stock_out']);
+                if ($dateFrom) {
+                    $join->where('t.occurred_at', '>=', $dateFrom.' 00:00:00');
+                }
+                if ($dateTo) {
+                    $join->where('t.occurred_at', '<=', $dateTo.' 23:59:59');
+                }
+            })
+            ->groupBy('items.id', 'items.kode_item', 'items.nama', 'items.kategori', 'items.stok', 'items.stok_minimal');
 
         if ($search !== '') {
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(items.nama) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(items.kode_item) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(items.kategori) like ?', ["%{$term}%"]);
+                    ->orWhereRaw('LOWER(items.kode_item) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(items.kategori) like ?', ["%{$term}%"]);
             });
         }
 
@@ -108,19 +140,19 @@ class ReportController extends Controller
         $items = $query
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn($i) => [
-                'id'        => $i->id,
-                'kode'      => $i->kode_item,
-                'name'      => $i->nama,
-                'category'  => $i->kategori,
-                'stock'     => (int) $i->stok,
+            ->through(fn ($i) => [
+                'id' => $i->id,
+                'kode' => $i->kode_item,
+                'name' => $i->nama,
+                'category' => $i->kategori,
+                'stock' => (int) $i->stok,
                 'stock_min' => (int) $i->stok_minimal,
-                'total_in'  => (int) $i->total_in,
+                'total_in' => (int) $i->total_in,
                 'total_out' => (int) $i->total_out,
             ]);
 
         return Inertia::render('report/Report_Stock', [
-            'items'   => $items,
+            'items' => $items,
             'filters' => array_merge(
                 $request->only(['search', 'date_from', 'date_to', 'per_page']),
                 ['sort_by' => $requestedSort, 'sort_dir' => $sortDir]
@@ -132,8 +164,74 @@ class ReportController extends Controller
 
     public function exportStockExcel()
     {
-        $filename = 'laporan-stok-' . now()->format('Y-m-d') . '.xlsx';
-        return Excel::download(new StockReportExport(), $filename);
+        $filename = 'laporan-stok-'.now()->format('Y-m-d').'.xlsx';
+
+        return Excel::download(new StockReportExport, $filename);
+    }
+
+    // ─── Export Stok ke CSV (filtered, all pages) ─────────────────────────────
+
+    public function exportStockCsv(Request $request)
+    {
+        $search   = trim((string) $request->get('search', ''));
+        $dateFrom = $request->get('date_from');
+        $dateTo   = $request->get('date_to');
+
+        $query = Item::select([
+            'items.id',
+            'items.kode_item',
+            'items.nama',
+            'items.kategori',
+            'items.stok',
+            'items.stok_minimal',
+            DB::raw('COALESCE(SUM(CASE WHEN t.type = "stock_in" THEN ABS(t.amount) ELSE 0 END), 0) as total_in'),
+            DB::raw('COALESCE(SUM(CASE WHEN t.type = "stock_out" THEN ABS(t.amount) ELSE 0 END), 0) as total_out'),
+        ])
+            ->leftJoin('transactions as t', function ($join) use ($dateFrom, $dateTo) {
+                $join->on('t.item_id', '=', 'items.id')
+                    ->where('t.status', 'completed')
+                    ->whereIn('t.type', ['stock_in', 'stock_out']);
+                if ($dateFrom) {
+                    $join->where('t.occurred_at', '>=', $dateFrom.' 00:00:00');
+                }
+                if ($dateTo) {
+                    $join->where('t.occurred_at', '<=', $dateTo.' 23:59:59');
+                }
+            })
+            ->groupBy('items.id', 'items.kode_item', 'items.nama', 'items.kategori', 'items.stok', 'items.stok_minimal');
+
+        if ($search !== '') {
+            $term = strtolower($search);
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(items.nama) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(items.kode_item) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(items.kategori) like ?', ["%{$term}%"]);
+            });
+        }
+
+        $rows = $query->orderBy('items.nama')->get();
+
+        $headers = ['Kode', 'Nama', 'Kategori', 'Stok Saat Ini', 'Stok Minimal', 'Total Masuk', 'Total Keluar'];
+        $lines   = $rows->map(fn ($i) => [
+            $i->kode_item ?? '',
+            $i->nama,
+            $i->kategori ?? '',
+            (int) $i->stok,
+            (int) $i->stok_minimal,
+            (int) $i->total_in,
+            (int) $i->total_out,
+        ]);
+
+        $csv = collect([$headers])->concat($lines)
+            ->map(fn ($row) => implode(',', array_map(fn ($cell) => '"'.str_replace('"', '""', (string) $cell).'"', $row)))
+            ->implode("\n");
+
+        $filename = 'laporan-stok-'.now()->format('Y-m-d').'.csv';
+
+        return response($csv, 200, [
+            'Content-Type'        => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     // ─── Laporan Penjualan ────────────────────────────────────────────────────
@@ -141,21 +239,21 @@ class ReportController extends Controller
     public function salesReport(Request $request)
     {
         $perPage     = $this->sanitizePerPage($request);
-        $dateFrom    = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
+        $dateFrom    = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
         $search      = trim((string) $request->get('search', ''));
-        $method      = $request->get('method', '');
-        $warehouseId = $request->get('warehouse_id', '');
-        $sortDir     = $this->sanitizeSortDir($request, 'desc');
+        $method      = (string) $request->get('method', '');
+        $warehouseId = (string) $request->get('warehouse_id', '');
+        $sortDir = $this->sanitizeSortDir($request, 'desc');
 
         $allowedIds = $this->allowedWarehouseIds();
 
-        $query = SaleHeader::with('cashier', 'customer')
+        $query = SaleHeader::with('cashier', 'customer', 'warehouse')
             ->where('status', 'completed')
-            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+            ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59']);
 
         // Warehouse restriction (user-level)
-        if (!empty($allowedIds)) {
+        if (! empty($allowedIds)) {
             $query->whereIn('warehouse_id', $allowedIds);
         }
         // UI warehouse filter (optional, within allowed)
@@ -169,7 +267,9 @@ class ReportController extends Controller
         if ($search !== '') {
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
-                $q->whereRaw('LOWER(sale_number) like ?', ["%{$term}%"]);
+                $q->whereRaw('LOWER(sale_number) like ?', ["%{$term}%"])
+                    ->orWhereHas('customer', fn ($cq) => $cq->whereRaw('LOWER(nama) like ?', ["%{$term}%"]))
+                    ->orWhereHas('cashier',  fn ($uq) => $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"]));
             });
         }
 
@@ -179,21 +279,22 @@ class ReportController extends Controller
 
         $query->orderBy('occurred_at', $sortDir);
 
-        $sales = $query->paginate($perPage)->withQueryString()->through(fn($s) => [
-            'id'         => $s->id,
+        $sales = $query->paginate($perPage)->withQueryString()->through(fn ($s) => [
+            'id' => $s->id,
             'saleNumber' => $s->sale_number,
             'occurredAt' => $s->occurred_at?->format('d/m/Y H:i'),
-            'cashier'    => $s->cashier?->name ?? '-',
-            'customer'   => $s->customer?->name ?? 'Walk-in',
+            'cashier' => $s->cashier?->name ?? '-',
+            'customer' => $s->customer?->name ?? 'Walk-in',
             'grandTotal' => $s->grand_total,
             'method'     => $s->payment_method,
+            'outlet'     => $s->warehouse?->name ?? '-',
         ]);
 
         $summaryQuery = SaleHeader::where('status', 'completed')
-            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+            ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59']);
 
         // Warehouse restriction (user-level)
-        if (!empty($allowedIds)) {
+        if (! empty($allowedIds)) {
             $summaryQuery->whereIn('warehouse_id', $allowedIds);
         }
         // UI warehouse filter (optional, within allowed)
@@ -208,19 +309,24 @@ class ReportController extends Controller
             ->selectRaw('COUNT(*) as total_trx, SUM(grand_total) as total_revenue, SUM(discount_amount) as total_discount')
             ->first();
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_Sales', [
-            'sales'      => $sales,
-            'summary'    => [
-                'totalTrx'      => (int) ($summary->total_trx ?? 0),
-                'totalRevenue'  => (int) ($summary->total_revenue ?? 0),
+            'sales' => $sales,
+            'summary' => [
+                'totalTrx' => (int) ($summary->total_trx ?? 0),
+                'totalRevenue' => (int) ($summary->total_revenue ?? 0),
                 'totalDiscount' => (int) ($summary->total_discount ?? 0),
             ],
             'warehouses' => $warehouses,
-            'filters'    => $request->only(['search', 'date_from', 'date_to', 'per_page', 'method', 'warehouse_id']),
+            'filters' => [
+                'search'       => $search,
+                'date_from'    => $dateFrom,
+                'date_to'      => $dateTo,
+                'method'       => $method,
+                'warehouse_id' => $warehouseId,
+                'per_page'     => $perPage,
+            ],
         ]);
     }
 
@@ -228,31 +334,38 @@ class ReportController extends Controller
 
     public function exportSalesExcel(Request $request)
     {
-        $from     = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $to       = $request->get('date_to', now()->format('Y-m-d'));
-        $filename = 'laporan-penjualan-' . $from . '-' . $to . '.xlsx';
-        return Excel::download(new SalesReportExport($from, $to), $filename);
+        $from        = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $warehouseId = (string) $request->get('warehouse_id', '');
+        $method      = (string) $request->get('method', '');
+        $allowedIds  = $this->allowedWarehouseIds();
+        $filename    = 'laporan-penjualan-'.$from.'-'.$to.'.xlsx';
+
+        return Excel::download(new SalesReportExport($from, $to, $warehouseId, $method, $allowedIds), $filename);
     }
 
     // ─── Laporan Kas ──────────────────────────────────────────────────────────
 
     public function cashReport(Request $request)
     {
-        $dateFrom    = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $dateTo      = $request->get('date_to',   now()->format('Y-m-d'));
-        $warehouseId = $request->get('warehouse_id', '');
-        $groupBy     = $request->get('group_by', 'daily'); // 'daily' | 'monthly'
-        $allowedIds  = $this->allowedWarehouseIds();
+        $dateFrom    = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
+        $warehouseId = (string) ($request->get('warehouse_id') ?? '');
+        $groupBy     = in_array($request->get('group_by'), ['daily', 'monthly'])
+                        ? $request->get('group_by') : 'daily';
+        $allowedIds = $this->allowedWarehouseIds();
 
         $fmt = $groupBy === 'monthly' ? '%Y-%m' : '%Y-%m-%d';
 
         // ── Cash IN: completed sales ──────────────────────────────────────────
         $inQuery = SaleHeader::selectRaw("DATE_FORMAT(occurred_at, '{$fmt}') as period, SUM(grand_total) as total")
             ->where('status', 'completed')
-            ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
             ->groupByRaw("DATE_FORMAT(occurred_at, '{$fmt}')");
 
-        if (!empty($allowedIds)) $inQuery->whereIn('warehouse_id', $allowedIds);
+        if (! empty($allowedIds)) {
+            $inQuery->whereIn('warehouse_id', $allowedIds);
+        }
         if ($warehouseId !== '') {
             $wId = (int) $warehouseId;
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
@@ -260,16 +373,18 @@ class ReportController extends Controller
             }
         }
 
-        $cashIn = $inQuery->pluck('total', 'period')->map(fn($v) => (int) $v);
+        $cashIn = $inQuery->pluck('total', 'period')->map(fn ($v) => (int) $v);
 
         // ── Cash OUT: received purchase orders ────────────────────────────────
         $outQuery = \App\Models\PurchaseOrder::selectRaw("DATE_FORMAT(received_at, '{$fmt}') as period, SUM(grand_total) as total")
             ->where('status', 'received')
             ->whereNotNull('received_at')
-            ->whereBetween('received_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->whereBetween('received_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
             ->groupByRaw("DATE_FORMAT(received_at, '{$fmt}')");
 
-        if (!empty($allowedIds)) $outQuery->whereIn('warehouse_id', $allowedIds);
+        if (! empty($allowedIds)) {
+            $outQuery->whereIn('warehouse_id', $allowedIds);
+        }
         if ($warehouseId !== '') {
             $wId = (int) $warehouseId;
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
@@ -277,34 +392,37 @@ class ReportController extends Controller
             }
         }
 
-        $cashOut = $outQuery->pluck('total', 'period')->map(fn($v) => (int) $v);
+        $cashOut = $outQuery->pluck('total', 'period')->map(fn ($v) => (int) $v);
 
         // ── Build unified timeline ────────────────────────────────────────────
         $allPeriods = $cashIn->keys()->merge($cashOut->keys())->unique()->sort()->values();
 
-        $series = $allPeriods->map(fn($p) => [
-            'period'  => $p,
-            'cashIn'  => $cashIn->get($p, 0),
+        $series = $allPeriods->map(fn ($p) => [
+            'period' => $p,
+            'cashIn' => $cashIn->get($p, 0),
             'cashOut' => $cashOut->get($p, 0),
-            'net'     => $cashIn->get($p, 0) - $cashOut->get($p, 0),
+            'net' => $cashIn->get($p, 0) - $cashOut->get($p, 0),
         ])->values()->all();
 
-        $totalIn  = (int) $cashIn->sum();
+        $totalIn = (int) $cashIn->sum();
         $totalOut = (int) $cashOut->sum();
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_Cashflow', [
-            'series'     => $series,
-            'totals'     => [
-                'cashIn'  => $totalIn,
+            'series' => $series,
+            'totals' => [
+                'cashIn' => $totalIn,
                 'cashOut' => $totalOut,
-                'net'     => $totalIn - $totalOut,
+                'net' => $totalIn - $totalOut,
             ],
             'warehouses' => $warehouses,
-            'filters'    => $request->only(['date_from', 'date_to', 'warehouse_id', 'group_by']),
+            'filters' => [
+                'date_from'    => $dateFrom,
+                'date_to'      => $dateTo,
+                'warehouse_id' => $warehouseId,
+                'group_by'     => $groupBy,
+            ],
         ]);
     }
 
@@ -312,9 +430,9 @@ class ReportController extends Controller
 
     public function profitLoss(Request $request)
     {
-        $year        = (int) $request->get('year', now()->year);
+        $year = (int) $request->get('year', now()->year);
         $warehouseId = $request->get('warehouse_id', '');
-        $allowedIds  = $this->allowedWarehouseIds();
+        $allowedIds = $this->allowedWarehouseIds();
 
         $effectiveIds = $allowedIds; // start with user restriction
         if ($warehouseId !== '') {
@@ -327,81 +445,78 @@ class ReportController extends Controller
         $monthly = [];
         for ($m = 1; $m <= 12; $m++) {
             $start = Carbon::create($year, $m, 1)->startOfMonth();
-            $end   = $start->copy()->endOfMonth();
+            $end = $start->copy()->endOfMonth();
 
             $revenue = (int) SaleHeader::where('status', 'completed')
                 ->whereBetween('occurred_at', [$start, $end])
-                ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
                 ->sum('grand_total');
 
-            $cogs = (int) SaleItem::whereHas('saleHeader', fn($q) =>
-                $q->where('status', 'completed')
-                  ->whereBetween('occurred_at', [$start, $end])
-                  ->when(!empty($effectiveIds), fn($q2) => $q2->whereIn('warehouse_id', $effectiveIds))
+            $cogs = (int) SaleItem::whereHas('saleHeader', fn ($q) => $q->where('status', 'completed')
+                ->whereBetween('occurred_at', [$start, $end])
+                ->when(! empty($effectiveIds), fn ($q2) => $q2->whereIn('warehouse_id', $effectiveIds))
             )->join('items', 'items.id', '=', 'sale_items.item_id')
-             ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
+                ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
             $expenses = (int) Expense::whereBetween('occurred_at', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->when(!empty($effectiveIds), fn($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
                 ->sum('amount');
 
             $monthly[] = [
-                'month'        => Carbon::create($year, $m, 1)->format('M'),
-                'month_num'    => $m,
-                'revenue'      => $revenue,
-                'cogs'         => $cogs,
+                'month' => Carbon::create($year, $m, 1)->format('M'),
+                'month_num' => $m,
+                'revenue' => $revenue,
+                'cogs' => $cogs,
                 'gross_profit' => $revenue - $cogs,
-                'expenses'     => $expenses,
-                'net_profit'   => $revenue - $cogs - $expenses,
+                'expenses' => $expenses,
+                'net_profit' => $revenue - $cogs - $expenses,
             ];
         }
 
         $totals = [
-            'revenue'      => array_sum(array_column($monthly, 'revenue')),
-            'cogs'         => array_sum(array_column($monthly, 'cogs')),
+            'revenue' => array_sum(array_column($monthly, 'revenue')),
+            'cogs' => array_sum(array_column($monthly, 'cogs')),
             'gross_profit' => array_sum(array_column($monthly, 'gross_profit')),
-            'expenses'     => array_sum(array_column($monthly, 'expenses')),
-            'net_profit'   => array_sum(array_column($monthly, 'net_profit')),
+            'expenses' => array_sum(array_column($monthly, 'expenses')),
+            'net_profit' => array_sum(array_column($monthly, 'net_profit')),
         ];
 
         $currentYear = now()->year;
-        $years       = range($currentYear, max($currentYear - 3, 2020));
+        $years = range($currentYear, max($currentYear - 3, 2020));
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_ProfitLoss', [
-            'monthly'     => $monthly,
-            'totals'      => $totals,
-            'year'        => $year,
-            'years'       => $years,
-            'warehouses'  => $warehouses,
+            'monthly' => $monthly,
+            'totals' => $totals,
+            'year' => $year,
+            'years' => $years,
+            'warehouses' => $warehouses,
             'warehouseId' => $warehouseId !== '' ? (int) $warehouseId : null,
         ]);
     }
 
     public function abcAnalysis(Request $request)
     {
-        $dateFrom    = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
-        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
+        $dateFrom = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
+        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
         $warehouseId = $request->get('warehouse_id', '');
-        $allowedIds  = $this->allowedWarehouseIds();
+        $allowedIds = $this->allowedWarehouseIds();
 
         // Build subquery for sales aggregates per item
         $salesSub = SaleItem::select(
-                'sale_items.item_id',
-                DB::raw('SUM(sale_items.quantity) as qty'),
-                DB::raw('SUM(sale_items.line_total) as rev')
-            )
+            'sale_items.item_id',
+            DB::raw('SUM(sale_items.quantity) as qty'),
+            DB::raw('SUM(sale_items.line_total) as rev')
+        )
             ->join('sale_headers', function ($j) use ($dateFrom, $dateTo, $allowedIds, $warehouseId) {
                 $j->on('sale_headers.id', '=', 'sale_items.sale_header_id')
-                  ->where('sale_headers.status', 'completed')
-                  ->whereBetween('sale_headers.occurred_at', [
-                      $dateFrom . ' 00:00:00',
-                      $dateTo   . ' 23:59:59',
-                  ]);
-                if (!empty($allowedIds)) {
+                    ->where('sale_headers.status', 'completed')
+                    ->whereBetween('sale_headers.occurred_at', [
+                        $dateFrom.' 00:00:00',
+                        $dateTo.' 23:59:59',
+                    ]);
+                if (! empty($allowedIds)) {
                     $j->whereIn('sale_headers.warehouse_id', $allowedIds);
                 }
                 if ($warehouseId !== '') {
@@ -414,43 +529,45 @@ class ReportController extends Controller
             ->groupBy('sale_items.item_id');
 
         $items = Item::select([
-                'items.id',
-                'items.kode_item',
-                'items.nama',
-                'items.kategori',
-                'items.harga_beli',
-                'items.harga_jual',
-                DB::raw('COALESCE(si.qty, 0) as total_sold'),
-                DB::raw('COALESCE(si.rev, 0) as total_revenue'),
-                DB::raw('COALESCE(si.qty * items.harga_beli, 0) as total_cogs'),
-            ])
+            'items.id',
+            'items.kode_item',
+            'items.nama',
+            'items.kategori',
+            'items.harga_beli',
+            'items.harga_jual',
+            DB::raw('COALESCE(si.qty, 0) as total_sold'),
+            DB::raw('COALESCE(si.rev, 0) as total_revenue'),
+            DB::raw('COALESCE(si.qty * items.harga_beli, 0) as total_cogs'),
+            DB::raw('SUM(COALESCE(si.rev, 0)) OVER () as grand_total'),
+            DB::raw('SUM(COALESCE(si.rev, 0)) OVER (ORDER BY COALESCE(si.rev, 0) DESC) as cumulative_revenue'),
+        ])
             ->leftJoinSub($salesSub, 'si', 'si.item_id', '=', 'items.id')
             ->orderByDesc('total_revenue')
             ->get();
 
-        $grandTotal = (int) $items->sum('total_revenue');
+        $grandTotal = (int) ($items->first()?->grand_total ?? 0);
 
-        $cumulative = 0;
-        $result = $items->map(function ($item) use ($grandTotal, &$cumulative) {
-            $cumulative += (int) $item->total_revenue;
-            $cumulativePct = $grandTotal > 0 ? round($cumulative / $grandTotal * 100, 1) : 0;
-            $class  = $cumulativePct <= 80 ? 'A' : ($cumulativePct <= 95 ? 'B' : 'C');
+        $result = $items->map(function ($item) {
+            $gTotal = (int) $item->grand_total;
+            $cumulativePct = $gTotal > 0 ? round((int) $item->cumulative_revenue / $gTotal * 100, 1) : 0;
+            $class = $cumulativePct <= 80 ? 'A' : ($cumulativePct <= 95 ? 'B' : 'C');
             $profit = (int) $item->total_revenue - (int) $item->total_cogs;
             $margin = (int) $item->total_revenue > 0
                 ? round($profit / (int) $item->total_revenue * 100, 1)
                 : 0;
+
             return [
-                'id'            => $item->id,
-                'code'          => $item->kode_item,
-                'name'          => $item->nama,
-                'category'      => $item->kategori,
-                'totalSold'     => (int) $item->total_sold,
-                'totalRevenue'  => (int) $item->total_revenue,
-                'totalCogs'     => (int) $item->total_cogs,
-                'profit'        => $profit,
-                'margin'        => $margin,
+                'id' => $item->id,
+                'code' => $item->kode_item,
+                'name' => $item->nama,
+                'category' => $item->kategori,
+                'totalSold' => (int) $item->total_sold,
+                'totalRevenue' => (int) $item->total_revenue,
+                'totalCogs' => (int) $item->total_cogs,
+                'profit' => $profit,
+                'margin' => $margin,
                 'cumulativePct' => $cumulativePct,
-                'class'         => $class,
+                'class' => $class,
             ];
         })->values()->all();
 
@@ -460,103 +577,97 @@ class ReportController extends Controller
             'C' => collect($result)->where('class', 'C')->count(),
         ];
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_ABC', [
-            'items'        => $result,
-            'grandTotal'   => $grandTotal,
+            'items' => $result,
+            'grandTotal' => $grandTotal,
             'classSummary' => $classSummary,
-            'warehouses'   => $warehouses,
-            'filters'      => $request->only(['date_from', 'date_to', 'warehouse_id']),
+            'warehouses' => $warehouses,
+            'filters' => $request->only(['date_from', 'date_to', 'warehouse_id']),
         ]);
     }
 
     public function branchComparison(Request $request)
     {
-        $dateFrom   = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $dateTo     = $request->get('date_to', now()->format('Y-m-d'));
+        $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
         $allowedIds = $this->allowedWarehouseIds();
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get();
+        $warehouses = $this->getActiveWarehouseModels($allowedIds);
 
         $branches = $warehouses->map(function ($w) use ($dateFrom, $dateTo) {
             $baseSales = SaleHeader::where('warehouse_id', $w->id)
                 ->where('status', 'completed')
-                ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+                ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59']);
 
             $trxCount = (int) (clone $baseSales)->count();
-            $revenue  = (int) (clone $baseSales)->sum('grand_total');
+            $revenue = (int) (clone $baseSales)->sum('grand_total');
             $avgOrder = $trxCount > 0 ? (int) round($revenue / $trxCount) : 0;
 
-            $cogs = (int) SaleItem::whereHas('saleHeader', fn($q) =>
-                $q->where('warehouse_id', $w->id)
-                  ->where('status', 'completed')
-                  ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            $cogs = (int) SaleItem::whereHas('saleHeader', fn ($q) => $q->where('warehouse_id', $w->id)
+                ->where('status', 'completed')
+                ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
             )->join('items', 'items.id', '=', 'sale_items.item_id')
-             ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
+                ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
 
-            $topItem = SaleItem::whereHas('saleHeader', fn($q) =>
-                $q->where('warehouse_id', $w->id)
-                  ->where('status', 'completed')
-                  ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            $topItem = SaleItem::whereHas('saleHeader', fn ($q) => $q->where('warehouse_id', $w->id)
+                ->where('status', 'completed')
+                ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
             )->selectRaw('item_name_snapshot, SUM(quantity) as qty')
-             ->groupBy('item_name_snapshot')
-             ->orderByDesc('qty')
-             ->first();
+                ->groupBy('item_name_snapshot')
+                ->orderByDesc('qty')
+                ->first();
 
             return [
-                'id'        => $w->id,
-                'name'      => $w->name,
-                'code'      => $w->code,
-                'city'      => $w->city,
-                'phone'     => $w->phone,
+                'id' => $w->id,
+                'name' => $w->name,
+                'code' => $w->code,
+                'city' => $w->city,
+                'phone' => $w->phone,
                 'isDefault' => (bool) $w->is_default,
-                'trxCount'  => $trxCount,
-                'revenue'   => $revenue,
-                'cogs'      => $cogs,
-                'profit'    => $revenue - $cogs,
-                'avgOrder'  => $avgOrder,
-                'topItem'   => $topItem?->item_name_snapshot,
+                'trxCount' => $trxCount,
+                'revenue' => $revenue,
+                'cogs' => $cogs,
+                'profit' => $revenue - $cogs,
+                'avgOrder' => $avgOrder,
+                'topItem' => $topItem?->item_name_snapshot,
             ];
         })->values()->all();
 
         $totals = [
             'trxCount' => array_sum(array_column($branches, 'trxCount')),
-            'revenue'  => array_sum(array_column($branches, 'revenue')),
-            'profit'   => array_sum(array_column($branches, 'profit')),
+            'revenue' => array_sum(array_column($branches, 'revenue')),
+            'profit' => array_sum(array_column($branches, 'profit')),
         ];
 
         return Inertia::render('report/Report_Branches', [
             'branches' => $branches,
-            'totals'   => $totals,
-            'filters'  => $request->only(['date_from', 'date_to']),
+            'totals' => $totals,
+            'filters' => $request->only(['date_from', 'date_to']),
         ]);
     }
 
     public function peakHours(Request $request)
     {
-        $dateFrom    = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));
-        $dateTo      = $request->get('date_to', now()->format('Y-m-d'));
-        $warehouseId = $request->get('warehouse_id', '');
+        $dateFrom    = $request->get('date_from') ?: now()->subDays(29)->format('Y-m-d');
+        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
+        $warehouseId = (string) ($request->get('warehouse_id') ?? '');
         $allowedIds  = $this->allowedWarehouseIds();
 
         $query = SaleHeader::select([
-            DB::raw("HOUR(occurred_at) as hour"),
-            DB::raw("DAYOFWEEK(occurred_at) - 1 as day_of_week"),
+            DB::raw('HOUR(occurred_at) as hour'),
+            DB::raw('DAYOFWEEK(occurred_at) - 1 as day_of_week'),
             DB::raw('COUNT(*) as trx_count'),
             DB::raw('SUM(grand_total) as revenue'),
         ])
-        ->where('status', 'completed')
-        ->whereBetween('occurred_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-        ->groupBy('hour', 'day_of_week')
-        ->orderBy('hour')
-        ->orderBy('day_of_week');
+            ->where('status', 'completed')
+            ->whereBetween('occurred_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
+            ->groupBy('hour', 'day_of_week')
+            ->orderBy('hour')
+            ->orderBy('day_of_week');
 
-        if (!empty($allowedIds)) {
+        if (! empty($allowedIds)) {
             $query->whereIn('warehouse_id', $allowedIds);
         }
         if ($warehouseId !== '') {
@@ -576,8 +687,8 @@ class ReportController extends Controller
             }
         }
         foreach ($rows as $row) {
-            $matrix[(int)$row->hour][(int)$row->day_of_week] = [
-                'count'   => (int) $row->trx_count,
+            $matrix[(int) $row->hour][(int) $row->day_of_week] = [
+                'count' => (int) $row->trx_count,
                 'revenue' => (int) $row->revenue,
             ];
         }
@@ -586,9 +697,9 @@ class ReportController extends Controller
         for ($h = 0; $h < 24; $h++) {
             for ($d = 0; $d < 7; $d++) {
                 $cells[] = [
-                    'hour'    => $h,
-                    'day'     => $d,
-                    'count'   => $matrix[$h][$d]['count'],
+                    'hour' => $h,
+                    'day' => $d,
+                    'count' => $matrix[$h][$d]['count'],
                     'revenue' => $matrix[$h][$d]['revenue'],
                 ];
             }
@@ -596,15 +707,17 @@ class ReportController extends Controller
 
         $maxCount = max(1, collect($cells)->max('count'));
 
-        $warehouseQuery = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-        if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name'])->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_PeakHours', [
-            'cells'      => $cells,
-            'maxCount'   => $maxCount,
+            'cells' => $cells,
+            'maxCount' => $maxCount,
             'warehouses' => $warehouses,
-            'filters'    => $request->only(['date_from', 'date_to', 'warehouse_id']),
+            'filters' => [
+                'date_from'    => $dateFrom,
+                'date_to'      => $dateTo,
+                'warehouse_id' => $warehouseId,
+            ],
         ]);
     }
 
@@ -612,11 +725,11 @@ class ReportController extends Controller
 
     public function exportAbcExcel(Request $request)
     {
-        $from        = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
-        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $from = $request->get('date_from', now()->startOfYear()->format('Y-m-d'));
+        $to = $request->get('date_to', now()->format('Y-m-d'));
         $warehouseId = $request->get('warehouse_id', '');
-        $allowedIds  = $this->allowedWarehouseIds();
-        $filename    = 'abc-analysis-' . $from . '-' . $to . '.xlsx';
+        $allowedIds = $this->allowedWarehouseIds();
+        $filename = 'abc-analysis-'.$from.'-'.$to.'.xlsx';
 
         return Excel::download(new AbcAnalysisExport($from, $to, $allowedIds, $warehouseId), $filename);
     }
@@ -625,12 +738,12 @@ class ReportController extends Controller
 
     public function exportCashflowExcel(Request $request)
     {
-        $from        = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $to          = $request->get('date_to', now()->format('Y-m-d'));
-        $groupBy     = $request->get('group_by', 'daily');
+        $from = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to = $request->get('date_to', now()->format('Y-m-d'));
+        $groupBy = $request->get('group_by', 'daily');
         $warehouseId = $request->get('warehouse_id', '');
-        $allowedIds  = $this->allowedWarehouseIds();
-        $filename    = 'laporan-kas-' . $from . '-' . $to . '.xlsx';
+        $allowedIds = $this->allowedWarehouseIds();
+        $filename = 'laporan-kas-'.$from.'-'.$to.'.xlsx';
 
         return Excel::download(new CashflowExport($from, $to, $groupBy, $allowedIds, $warehouseId), $filename);
     }
@@ -639,10 +752,10 @@ class ReportController extends Controller
 
     public function exportBranchesExcel(Request $request)
     {
-        $from       = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $to         = $request->get('date_to', now()->format('Y-m-d'));
+        $from = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to = $request->get('date_to', now()->format('Y-m-d'));
         $allowedIds = $this->allowedWarehouseIds();
-        $filename   = 'perbandingan-cabang-' . $from . '-' . $to . '.xlsx';
+        $filename = 'perbandingan-cabang-'.$from.'-'.$to.'.xlsx';
 
         return Excel::download(new BranchComparisonExport($from, $to, $allowedIds), $filename);
     }
@@ -651,11 +764,11 @@ class ReportController extends Controller
 
     public function exportPeakHoursExcel(Request $request)
     {
-        $from        = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));
-        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $from = $request->get('date_from', now()->subDays(29)->format('Y-m-d'));
+        $to = $request->get('date_to', now()->format('Y-m-d'));
         $warehouseId = $request->get('warehouse_id', '');
-        $allowedIds  = $this->allowedWarehouseIds();
-        $filename    = 'peak-hours-' . $from . '-' . $to . '.xlsx';
+        $allowedIds = $this->allowedWarehouseIds();
+        $filename = 'peak-hours-'.$from.'-'.$to.'.xlsx';
 
         return Excel::download(new PeakHoursExport($from, $to, $allowedIds, $warehouseId), $filename);
     }

@@ -23,7 +23,7 @@ export interface NavItem {
     isActive?: boolean;
     single?: boolean;
     module?: string;
-    items?: { title: string; href: string; icon?: string; adminOnly?: boolean }[];
+    items?: { title: string; href: string; icon?: string; adminOnly?: boolean; module?: string }[];
 }
 
 export type ModuleKey =

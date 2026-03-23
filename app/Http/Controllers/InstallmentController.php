@@ -175,7 +175,122 @@ class InstallmentController extends Controller
 
     /**
      * GET /pos/kredit
-     * Paginated history of all installment plans (all statuses).
+     * Combined credit management page — all plans, all statuses, inline payment.
+     */
+    public function kreditPelangganPage(Request $request)
+    {
+        $status  = $request->get('status', 'all');
+        $search  = trim((string) $request->get('search', ''));
+        $perPage = in_array((int) $request->get('per_page', 20), [20, 50, 100])
+            ? (int) $request->get('per_page', 20) : 20;
+
+        $allowedSort = [
+            'created'   => 'installment_plans.created_at',
+            'remaining' => 'remaining_amount',
+            'customer'  => 'customers.name',
+        ];
+        $sortKey = $request->get('sort_by', 'created');
+        $sortCol = $allowedSort[$sortKey] ?? 'installment_plans.created_at';
+        $sortDir = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = InstallmentPlan::query()
+            ->select(
+                'installment_plans.*',
+                DB::raw('GREATEST(CAST(installment_plans.total_amount AS SIGNED) - CAST(installment_plans.paid_amount AS SIGNED), 0) as remaining_amount')
+            )
+            ->join('customers', 'customers.id', '=', 'installment_plans.customer_id')
+            ->with([
+                'customer:id,name,code',
+                'saleHeader:id,sale_number,occurred_at',
+                'payments',
+            ]);
+
+        if ($status === 'belum_lunas') {
+            $query->where(fn ($q) => $q
+                ->whereIn('installment_plans.status', ['active', 'overdue'])
+                ->orWhere(fn ($q2) => $q2
+                    ->where('installment_plans.status', 'completed')
+                    ->whereColumn('installment_plans.paid_amount', '<', 'installment_plans.total_amount')));
+        } elseif ($status === 'lunas') {
+            $query->where('installment_plans.status', 'completed')
+                  ->whereColumn('installment_plans.paid_amount', '>=', 'installment_plans.total_amount');
+        } elseif (in_array($status, ['active', 'overdue', 'completed', 'cancelled'])) {
+            $query->where('installment_plans.status', $status);
+        }
+
+        if ($search !== '') {
+            $term = strtolower($search);
+            $query->where(fn ($q) => $q
+                ->whereRaw('LOWER(customers.name) like ?', ["%{$term}%"])
+                ->orWhereRaw('LOWER(customers.code) like ?', ["%{$term}%"])
+                ->orWhereHas('saleHeader', fn ($sq) =>
+                    $sq->whereRaw('LOWER(sale_number) like ?', ["%{$term}%"])
+                )
+            );
+        }
+
+        if ($sortKey === 'customer') {
+            $query->orderBy('customers.name', $sortDir);
+        } else {
+            $query->orderBy($sortCol, $sortDir);
+        }
+
+        $plans = $query->paginate($perPage)->withQueryString()
+            ->through(function ($plan) {
+                $allPmts   = $plan->payments;
+                $total     = $allPmts->count();
+                $paidCount = $allPmts->where('status', 'paid')->count();
+                $seq       = $allPmts->pluck('id')->flip();
+                $remaining = (int) $plan->remaining_amount;
+                $allPaid   = $allPmts->every(fn ($p) => $p->status === 'paid');
+
+                return [
+                    'id'               => $plan->id,
+                    'customerId'       => $plan->customer?->id,
+                    'customerName'     => $plan->customer?->name,
+                    'customerCode'     => $plan->customer?->code,
+                    'saleNumber'       => $plan->saleHeader?->sale_number,
+                    'occurredAt'       => $plan->saleHeader?->occurred_at?->toISOString(),
+                    'createdAt'        => $plan->created_at?->toISOString(),
+                    'totalAmount'      => $plan->total_amount,
+                    'paidAmount'       => $plan->paid_amount,
+                    'remainingAmount'  => $remaining,
+                    'installmentCount' => $plan->installment_count,
+                    'paidCount'        => $paidCount,
+                    'interestRate'     => (float) $plan->interest_rate,
+                    'lateFeeAmount'    => $plan->late_fee_amount,
+                    'status'           => $plan->status,
+                    'note'             => $plan->note,
+                    'canPayExtra'      => $allPaid && $remaining > 0,
+                    'payments'         => $allPmts->map(fn ($p) => [
+                        'id'             => $p->id,
+                        'dueDate'        => $p->due_date->toDateString(),
+                        'amountDue'      => $p->amount_due,
+                        'interestAmount' => $p->interest_amount,
+                        'lateFeeApplied' => $p->late_fee_applied,
+                        'totalDue'       => $p->totalDue(),
+                        'alreadyPaid'    => $p->amount_paid,
+                        'remainingDue'   => $p->remainingDue(),
+                        'isPaid'         => $p->status === 'paid',
+                        'status'         => $p->status,
+                        'paymentNumber'  => $seq->get($p->id) + 1,
+                        'remainingAfter' => $total - $seq->get($p->id) - 1,
+                        'paymentMethod'  => $p->payment_method,
+                        'paidAt'         => $p->paid_at?->toISOString(),
+                        'note'           => $p->note,
+                    ])->values(),
+                ];
+            });
+
+        return Inertia::render('pos/KreditPelanggan', [
+            'plans'   => $plans,
+            'filters' => $request->only(['search', 'status', 'per_page', 'sort_by', 'sort_dir']),
+        ]);
+    }
+
+    /**
+     * GET /pos/kredit  (legacy — kept for historyPage compatibility)
+     * @deprecated use kreditPelangganPage
      */
     public function historyPage(Request $request)
     {

@@ -153,8 +153,8 @@ Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(f
 
     // POS / Kasir (terminal must be before /{saleHeader} to avoid conflict)
     Route::get('pos/installments/{plan}/invoice', [InstallmentController::class, 'invoice'])->name('installments.invoice');
-    Route::get('pos/installments', [InstallmentController::class, 'terminalPage'])->name('pos.installments');
-    Route::get('pos/kredit', [InstallmentController::class, 'historyPage'])->name('installments.history');
+    Route::get('pos/installments', fn () => redirect()->route('installments.history'))->name('pos.installments');
+    Route::get('pos/kredit', [InstallmentController::class, 'kreditPelangganPage'])->name('installments.history');
     Route::get('pos/terminal', [PosController::class, 'terminal'])->name('pos.terminal');
     Route::get('pos/items', [PosController::class, 'items'])->name('pos.items');
     Route::get('pos/pending', fn () => Inertia::render('pos/PendingSync'))->name('pos.pending');
@@ -175,6 +175,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(f
     // Reports
     Route::get('report/stock', [ReportController::class, 'stock'])->name('Report_Stock');
     Route::get('report/stock/export/excel', [ReportController::class, 'exportStockExcel'])->name('report.stock.excel');
+    Route::get('report/stock/export/csv', [ReportController::class, 'exportStockCsv'])->name('report.stock.csv');
     Route::get('report/sales', [ReportController::class, 'salesReport'])->name('Report_Sales');
     Route::get('report/sales/export/excel', [ReportController::class, 'exportSalesExcel'])->name('report.sales.excel');
     Route::get('report/cashflow', [ReportController::class, 'cashReport'])->name('Report_Cashflow');

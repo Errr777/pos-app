@@ -2,7 +2,8 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Building2, TrendingUp, ShoppingCart, BarChart3, Download } from 'lucide-react';
+import { Building2, TrendingUp, ShoppingCart, BarChart3, Download, X } from 'lucide-react';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -45,8 +46,15 @@ export default function ReportBranches() {
     const [dateFrom, setDateFrom] = useState(filters?.date_from ?? new Date().toISOString().slice(0, 7) + '-01');
     const [dateTo, setDateTo]     = useState(filters?.date_to ?? new Date().toISOString().slice(0, 10));
 
-    const navigate = () => {
-        router.get('/report/branches', { date_from: dateFrom, date_to: dateTo }, { preserveState: true, replace: true });
+    const navigate = (overrides: Record<string, string> = {}) => {
+        router.get('/report/branches', { date_from: dateFrom, date_to: dateTo, ...overrides }, { preserveState: true, replace: true });
+    };
+
+    const resetFilters = () => {
+        const defaultFrom = new Date().toISOString().slice(0, 7) + '-01';
+        const defaultTo   = new Date().toISOString().slice(0, 10);
+        setDateFrom(defaultFrom); setDateTo(defaultTo);
+        navigate({ date_from: defaultFrom, date_to: defaultTo });
     };
 
     const exportCSV = () => {
@@ -96,13 +104,16 @@ export default function ReportBranches() {
                 <div className="flex flex-wrap gap-3 items-end">
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dari</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} placeholder="Dari tanggal" />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Sampai</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} placeholder="Sampai tanggal" />
                     </div>
-                    <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <button onClick={() => navigate()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <button onClick={resetFilters} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+                        <X className="h-4 w-4" /> Reset Filter
+                    </button>
                     <a
                         href={`/report/branches/export/excel?date_from=${dateFrom}&date_to=${dateTo}`}
                         className="print:hidden flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"

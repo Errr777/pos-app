@@ -12,10 +12,11 @@ Aplikasi POS (Point of Sale) berbasis web untuk manajemen penjualan, inventaris,
 |---|---|
 | Backend | PHP 8.2+, Laravel 12, Inertia.js v2 |
 | Frontend | React 19, TypeScript, Tailwind CSS v4, Radix UI / shadcn-ui |
-| Database | SQLite (`database/database.sqlite`) |
+| Database | MariaDB (`DB_CONNECTION=mariadb`) |
 | Build Tool | Vite 6 + `laravel-vite-plugin` |
 | Charts | Recharts |
 | Icons | Lucide React |
+| Date Picker | react-day-picker v9 (`captionLayout="dropdown"`, `startMonth`/`endMonth`) |
 
 ---
 
@@ -42,11 +43,18 @@ pos-app/
 │   └── js/
 │       ├── components/
 │       │   ├── ui/             # shadcn-ui primitives (Button, Dialog, Input, dll)
-│       │   ├── notification-bell.tsx  # Bell icon + popover (low stock + pending PO)
+│       │   ├── DatePickerInput.tsx   # DatePickerInput + DatePickerFilter (shared date pickers)
+│       │   ├── StockMovementPage.tsx # Shared component untuk Stock In & Stock Out
+│       │   ├── StockViewPage.tsx
+│       │   ├── StockMovementPage.tsx
+│       │   ├── ContactsPage.tsx      # Shared component untuk Customers & Suppliers
+│       │   ├── notification-bell.tsx
 │       │   ├── app-sidebar.tsx
 │       │   └── app-sidebar-header.tsx
 │       ├── hooks/              # React hooks (useAppearance, dll)
 │       ├── layouts/            # AppLayout wrapper
+│       ├── lib/
+│       │   └── formats.ts      # Shared formatting utilities (formatRp, METHOD_LABEL, dll)
 │       ├── pages/              # Inertia page components
 │       │   ├── dashboard.tsx
 │       │   ├── Items/
@@ -55,7 +63,7 @@ pos-app/
 │       │   ├── warehouse/
 │       │   ├── supplier/
 │       │   ├── customers/
-│       │   ├── pos/
+│       │   ├── pos/            # Terminal, Show, Print, Invoice, KreditPelanggan
 │       │   ├── purchase-orders/
 │       │   ├── returns/
 │       │   ├── report/         # 7 halaman laporan
@@ -129,6 +137,12 @@ pos-app/
 | PUT | `/inventory/stock/{transaction}` | `stock.update` | Update pergerakan |
 | DELETE | `/inventory/stock/{transaction}` | `stock.destroy` | Hapus pergerakan |
 
+Form tambah/edit Stock In & Out:
+- Dialog lebar (max-w-3xl), layout 2 kolom
+- Foto produk ditampilkan di samping selector item
+- Field **Supplier** (Stock In) / **Penerima** (Stock Out): combobox — pilih dari daftar supplier/staff terdaftar atau ketik bebas
+- Search item berdasarkan nama atau kode produk
+
 ### Transfer Stok
 | Method | URL | Route Name | Deskripsi |
 |---|---|---|---|
@@ -201,11 +215,16 @@ pos-app/
 | GET | `/pos/{saleHeader}/print` | `pos.print` | Halaman struk termal (popup print) |
 | GET | `/pos/{saleHeader}/invoice` | `pos.invoice` | Invoice A4 (popup print, generate/reuse INV-number) |
 
-### POS / Cicilan (Kredit)
+### POS / Kredit Pelanggan
 | Method | URL | Route Name | Deskripsi |
 |---|---|---|---|
-| GET | `/pos/installments` | `pos.installments` | Halaman rencana cicilan aktif |
+| GET | `/pos/kredit` | `installments.history` | Halaman semua rencana cicilan aktif (ganti: bayar cicilan + riwayat kredit) |
+| POST | `/pos/installments/{plan}/pay` | `installments.pay` | Bayar angsuran |
 | GET | `/pos/installments/{plan}/invoice` | `installments.invoice` | Invoice cicilan A4 (popup print) |
+
+Halaman Kredit Pelanggan menggunakan dua modal terpisah:
+- **Modal Detail** — ringkasan finansial, status, dan tabel jadwal cicilan (read-only)
+- **Modal Bayar** — form pembayaran per angsuran, dengan auto-advance ke angsuran berikutnya setelah bayar
 
 ### Purchase Order
 | Method | URL | Route Name | Deskripsi |
@@ -237,17 +256,28 @@ pos-app/
 | DELETE | `/expenses/{expense}` | `expenses.destroy` | Hapus pengeluaran |
 
 ### Laporan
-| Method | URL | Route Name | Export |
-|---|---|---|---|
-| GET | `/report/stock` | `Report_Stock` | Excel |
-| GET | `/report/sales` | `Report_Sales` | Excel |
-| GET | `/report/cashflow` | `Report_Cashflow` | Excel + **CSV** |
-| GET | `/report/profit-loss` | `Report_ProfitLoss` | **CSV** |
-| GET | `/report/abc` | `report.abc` | Excel + **CSV** |
-| GET | `/report/peak-hours` | `report.peak_hours` | Excel + **CSV** |
-| GET | `/report/branches` | `report.branches` | Excel + **CSV** |
+| Method | URL | Route Name | Export | Reset Filter |
+|---|---|---|---|---|
+| GET | `/report/stock` | `Report_Stock` | Excel + CSV | — |
+| GET | `/report/sales` | `Report_Sales` | Excel | ✓ |
+| GET | `/report/cashflow` | `Report_Cashflow` | Excel + CSV | ✓ |
+| GET | `/report/profit-loss` | `Report_ProfitLoss` | CSV | — |
+| GET | `/report/abc` | `report.abc` | Excel + CSV | ✓ |
+| GET | `/report/peak-hours` | `report.peak_hours` | Excel + CSV | ✓ |
+| GET | `/report/branches` | `report.branches` | Excel + CSV | ✓ |
+| GET | `/report/stock/export/csv` | `report.stock.csv` | (CSV endpoint backend) | — |
 
-> Excel export via Laravel backend route (`/export/excel`). CSV export via frontend `Blob` download (client-side, no server call needed).
+**Catatan filter laporan:**
+- Semua filter tanggal backend menggunakan `?:` fallback (bukan `get($key, $default)`) untuk menghindari bug empty-string.
+- Backend selalu mengembalikan nilai filter efektif di props `filters` (bukan raw `$request->only()`), sehingga state frontend konsisten.
+
+**Laporan Kas (Cashflow) — mode Bulanan:**
+- Picker berubah menjadi dua field: **Dari Bulan** dan **Sampai Bulan** (`<input type="month">`)
+- Memilih bulan langsung menavigasi (tanpa tombol Terapkan)
+- Mode Harian tetap menggunakan date picker biasa + tombol Tampilkan
+
+**Laporan Jam Ramai (Peak Hours):**
+- Pilihan outlet langsung menavigasi tanpa perlu klik Terapkan
 
 ### Audit Log
 | Method | URL | Route Name | Deskripsi |
@@ -335,7 +365,9 @@ Frontend fetch request harus menyertakan `Accept: application/json` untuk mendap
 
 Untuk kredit (cicilan):
     ↓ payment_method = credit → buat InstallmentPlan + InstallmentPayments
-    ↓ /pos/installments → lihat semua cicilan aktif
+    ↓ /pos/kredit → lihat semua cicilan aktif
+        → Modal Detail: ringkasan finansial + jadwal
+        → Modal Bayar: form bayar angsuran, auto-advance ke angsuran berikutnya
 ```
 
 ### 4. Purchase Order Flow
@@ -387,13 +419,31 @@ Artisan: BackupDatabase command
 
 Restore flow:
     → BackupEncryption::decryptToTemp() → .sql temp
-    → mysql CLI / sqlite copy
+    → mysql CLI restore
     → hapus .sql temp
 
 FIFO prune: otomatis hapus backup terlama jika > 7 file
 ```
 
-### 8. Report CSV Export Flow
+### 8. Report Filter Pattern
+
+```
+Backend (semua laporan):
+    $dateFrom = $request->get('date_from') ?: <default>;   // ?:, bukan get($k, default)
+    $dateTo   = $request->get('date_to')   ?: <default>;
+    ...
+    'filters' => [
+        'date_from' => $dateFrom,   // selalu kembalikan nilai efektif
+        'date_to'   => $dateTo,
+        ...
+    ]
+
+Frontend:
+    const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
+    // state diinisialisasi dari nilai efektif → navigate() tidak pernah kirim ''
+```
+
+### 9. Report CSV Export Flow
 
 ```
 Client-side (tidak perlu server call):
@@ -403,6 +453,9 @@ Client-side (tidak perlu server call):
     → URL.createObjectURL(blob)
     → klik <a download="..."> programatik
     → URL.revokeObjectURL()
+
+Server-side (report/stock):
+    GET /report/stock/export/csv  ← route terpisah, query ulang tanpa pagination
 ```
 
 ---
@@ -411,8 +464,9 @@ Client-side (tidak perlu server call):
 
 ### Item
 - **Table:** `items`
-- **Fields:** `nama`, `deskripsi`, `kode_item` (QR), `kategori`, `id_kategori` (FK), `harga_beli` (int), `harga_jual` (int), `stok`, `stok_minimal`, `image`
+- **Fields:** `nama`, `deskripsi`, `kode_item` (QR), `kategori`, `id_kategori` (FK), `harga_beli` (int), `harga_jual` (int), `stok`, `stok_minimal`, `image_path`
 - **Relations:** `kategoriRelation()` → Kategori, `variants()` → ItemVariant, `tags()` → Tag (many-to-many)
+- **image_path:** path relatif di storage public. URL: `Storage::url($item->image_path)`. Ditampilkan di form Stock In/Out (preview foto produk).
 
 ### ItemVariant
 - **Table:** `item_variants`
@@ -431,6 +485,7 @@ Client-side (tidak perlu server call):
 - **Table:** `transactions`
 - **Types:** `stock_in`, `stock_out`, `adjustment`, `transfer_in`, `transfer_out`, `sale`, `purchase_return`
 - **Fields:** `item_id`, `warehouse_id`, `type`, `amount`, `party`, `occurred_at`, `status`, `note`
+- **`party` field:** nama supplier (stock_in) atau penerima (stock_out). Diset dari combobox yang mencari daftar supplier/staff terdaftar.
 - **Audit:** `TransactionAudit` mencatat setiap perubahan
 
 ### SaleHeader & SaleItem
@@ -473,7 +528,7 @@ Client-side (tidak perlu server call):
 ### Expense
 - **Table:** `expenses`
 - **Fields:** `date`, `category`, `amount`, `description`, `warehouse_id`
-- **Pengaruh:** diperhitungkan dalam laporan cashflow
+- **Pengaruh:** diperhitungkan dalam laporan cashflow dan laba rugi
 
 ### AppSetting
 - **Table:** `app_settings`
@@ -483,6 +538,11 @@ Client-side (tidak perlu server call):
 - **Tables:** `users`, `roles`, `role_permissions`, `user_permissions`
 - **Roles default:** `admin`, `staff`, `kasir`
 - **Modules:** `dashboard`, `items`, `inventory`, `warehouses`, `reports`, `suppliers`, `customers`, `pos`, `purchase_orders`, `returns`, `users`
+
+### Supplier
+- **Table:** `suppliers`
+- **Fields:** `name`, `code`, `contact_person`, `phone`, `email`, `address`, `city`, `notes`, `is_active`
+- **Digunakan di:** dropdown combobox field Supplier pada form Stock In
 
 ---
 
@@ -535,24 +595,39 @@ Semua harga dan total disimpan sebagai **integer** (tidak ada desimal). Contoh: 
 |---|---|
 | `nama` | `name` |
 | `deskripsi` | `description` |
-| `kode_item` | `qrcode` |
+| `kode_item` | `qrcode` / `kode` |
 | `stok` | `stock` |
 | `stok_minimal` | `stock_min` / `minimumStock` |
 | `kategori` | `category` |
 | `harga_beli` | `purchase_price` |
 | `harga_jual` | `selling_price` |
+| `image_path` | `image_url` (setelah `Storage::url()`) |
+| `party` | `party` (unified — dulu `supplier`/`receiver` terpisah, sekarang konsisten `party`) |
+
+### DatePicker Components
+Dua komponen shared di `resources/js/components/DatePickerInput.tsx`:
+- `DatePickerInput` — untuk form entry (tinggi penuh, h-10)
+- `DatePickerFilter` — untuk filter bar (compact, h-9)
+
+Keduanya menggunakan `captionLayout="dropdown"` dengan `startMonth`/`endMonth` (react-day-picker v9). Jangan gunakan `fromYear`/`toYear` (props v8, tidak kompatibel).
+
+### Report Filter Bug Pattern
+`$request->get('key', $default)` TIDAK menggunakan default jika value adalah `''` (empty string). Selalu gunakan:
+```php
+$value = $request->get('key') ?: $default;
+```
 
 ### Backup Encryption
 File backup dienkripsi dengan **AES-256-CBC**. IV 16 byte ditulis di awal file, diikuti ciphertext. Key diambil dari `APP_KEY` (base64 decoded). Extension file: `.sql.enc`.
 
 ### Storage Path
-`Storage::disk('local')` root = `storage/app/private/` (Laravel 11+). Selalu gunakan `Storage::disk('local')->path($relativePath)` — jangan `storage_path("app/...")`.
+`Storage::disk('local')` root = `storage/app/private/` (Laravel 11+). `Storage::disk('public')` untuk gambar produk. Selalu gunakan `Storage::url($path)` untuk generate URL gambar.
 
 ### Sorting Pattern
 Controller whitelist kolom sort untuk mencegah SQL injection. Frontend kirim `sort_by` dan `sort_dir` query param; controller kembalikan di `filters` agar UI bisa inisialisasi state.
 
 ### CSV Export (Client-side)
-Report CSV tidak perlu route backend. Data sudah ada di Inertia props. Build string CSV di browser, download via Blob API.
+Report CSV tidak perlu route backend (kecuali stock yang pagination). Data sudah ada di Inertia props. Build string CSV di browser, download via Blob API.
 
 ---
 
@@ -600,3 +675,4 @@ php artisan db:backup
   - Indigo = draft / info
   - Slate = unknown / neutral
 - **Print support:** struk termal dan invoice A4 masing-masing membuka popup window terpisah (tanpa chrome browser). Auto-trigger window.print() setelah 400ms. Tersedia di: detail POS (struk + invoice), rencana cicilan pelanggan (invoice), detail PO (invoice), detail Retur (struk).
+- **Reset Filter:** Tersedia di Laporan Penjualan, Laporan Kas, Analisis ABC, Perbandingan Cabang, Jam Ramai. Mereset ke default periode bulan berjalan.

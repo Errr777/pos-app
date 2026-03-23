@@ -56,6 +56,13 @@ export default function Add_Items() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Revoke object URL on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
   // A sentinel value for the placeholder SelectItem (must be non-empty string)
   const PLACEHOLDER_VALUE = "__none";
 
@@ -138,24 +145,57 @@ export default function Add_Items() {
         <h2 className="text-xl font-semibold mb-6">Tambah Item Baru</h2>
 
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Left: QR Code Preview */}
-          <div className="md:w-1/3 flex flex-col items-center justify-start">
+          {/* Left: Image Preview / QR Code Preview */}
+          <div className="md:w-1/3 flex flex-col items-center justify-start gap-3">
             <div className="bg-muted p-4 rounded-lg border w-full flex flex-col items-center min-h-[200px]">
-              <span className="mb-2 text-black text-sm text-center">Preview QR Code</span>
-              {form.data.kode_item ? (
+              <span className="mb-2 text-sm text-muted-foreground">Preview Foto Produk</span>
+              {imagePreview ? (
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                    String(form.data.kode_item)
-                  )}`}
-                  alt="QR Preview"
-                  className="rounded shadow border"
+                  src={imagePreview}
+                  alt="Preview Produk"
+                  className="rounded-lg shadow border object-cover"
                   style={{ width: 180, height: 180 }}
                 />
               ) : (
-                <div className="w-[200px] h-[200px] flex items-center justify-center bg-white rounded border text-black text-sm text-center">
-                  QR code belum diisi
+                <div className="w-[180px] h-[180px] flex items-center justify-center bg-white rounded border text-muted-foreground text-sm text-center px-2">
+                  Belum ada foto
                 </div>
               )}
+            </div>
+
+            {/* Image upload controls */}
+            <div className="w-full flex flex-col gap-1">
+              <label className="text-sm font-medium text-center w-full block">Foto Produk</label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/jpg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  form.setData("image", file);
+                  setImagePreview(file ? URL.createObjectURL(file) : null);
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => imageInputRef.current?.click()}>
+                Pilih Foto
+              </Button>
+              {imagePreview && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => {
+                    form.setData("image", null);
+                    setImagePreview(null);
+                    if (imageInputRef.current) imageInputRef.current.value = "";
+                  }}
+                >
+                  Hapus Foto
+                </Button>
+              )}
+              {form.errors.image && <div className="text-red-600 text-xs mt-1">{form.errors.image}</div>}
             </div>
           </div>
 
@@ -301,47 +341,6 @@ export default function Add_Items() {
                 onChange={(e) => form.setData("kode_item", e.target.value)}
               />
               {form.errors.kode_item && <div className="text-red-600 text-xs mt-1">{form.errors.kode_item}</div>}
-            </div>
-
-            <div>
-              <label className="block mb-1">Foto Produk</label>
-              <div className="flex items-center gap-3">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="preview" className="w-16 h-16 rounded-lg object-cover border" />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-muted border flex items-center justify-center text-muted-foreground text-xs text-center">
-                    No image
-                  </div>
-                )}
-                <div className="flex flex-col gap-1">
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      form.setData("image", file);
-                      setImagePreview(file ? URL.createObjectURL(file) : null);
-                    }}
-                  />
-                  <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()}>
-                    Pilih Foto
-                  </Button>
-                  {imagePreview && (
-                    <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        form.setData("image", null);
-                        setImagePreview(null);
-                        if (imageInputRef.current) imageInputRef.current.value = "";
-                      }}
-                    >
-                      Hapus
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {form.errors.image && <div className="text-red-600 text-xs mt-1">{form.errors.image}</div>}
             </div>
 
             <div className="pt-4 flex gap-2">

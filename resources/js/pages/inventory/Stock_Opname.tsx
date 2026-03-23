@@ -174,7 +174,7 @@ export default function StockOpname() {
                     </table>
                 </div>
 
-                <Pagination data={safeOpnames} />
+                <Pagination meta={safeOpnames} onPageChange={(page) => router.get(route('opname.index'), { page }, { preserveState: true })} />
             </div>
         </AppLayout>
     );

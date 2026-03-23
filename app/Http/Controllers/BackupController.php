@@ -153,25 +153,34 @@ class BackupController extends Controller
         $username = $conn['username'];
         $password = $conn['password'];
 
-        $cnfFile   = tempnam(sys_get_temp_dir(), 'mysql_cnf_');
-        $escapedPw = str_replace('"', '\\"', $password);
-        file_put_contents($cnfFile, "[client]\npassword=\"{$escapedPw}\"\n");
-        chmod($cnfFile, 0600);
-
         $cmd = sprintf(
-            'mysql --defaults-extra-file=%s --host=%s --port=%s --user=%s %s < %s 2>&1',
-            escapeshellarg($cnfFile),
+            'mysql --host=%s --port=%s --user=%s %s',
             escapeshellarg($host),
             escapeshellarg((string) $port),
             escapeshellarg($username),
             escapeshellarg($database),
-            escapeshellarg($filePath),
         );
-        exec($cmd, $output, $exitCode);
-        @unlink($cnfFile);
+
+        // Pass password via child-process env var — no credentials written to disk
+        $proc = proc_open(
+            $cmd,
+            [0 => ['file', $filePath, 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            null,
+            array_merge($_ENV, ['MYSQL_PWD' => $password]),
+        );
+
+        if (! is_resource($proc)) {
+            abort(500, 'Restore gagal: tidak dapat menjalankan mysql.');
+        }
+
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($proc);
 
         if ($exitCode !== 0) {
-            abort(500, 'Restore gagal: ' . implode(' ', $output));
+            abort(500, 'Restore gagal: ' . $stderr);
         }
     }
 }

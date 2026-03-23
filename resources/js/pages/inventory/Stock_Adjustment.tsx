@@ -417,7 +417,7 @@ export default function Stock_Adjustment() {
               </div>
             </div>
             <DialogFooter className="mt-4">
-              <Button type="submit" className="gap-2"><ClipboardCheck size={16} /> Simpan Penyesuaian</Button>
+              <Button type="submit" className="gap-2" disabled={loadingStock}>{loadingStock ? 'Memuat stok…' : <><ClipboardCheck size={16} /> Simpan Penyesuaian</>}</Button>
               <DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose>
             </DialogFooter>
           </form>

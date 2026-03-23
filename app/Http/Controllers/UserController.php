@@ -23,6 +23,7 @@ class UserController extends Controller
     private function sanitizePerPage(Request $request, int $default = 20): int
     {
         $pp = (int) $request->get('per_page', $default);
+
         return in_array($pp, $this->allowedPerPage(), true) ? $pp : $default;
     }
 
@@ -46,9 +47,10 @@ class UserController extends Controller
         return collect(UserPermission::$modules)
             ->mapWithKeys(function ($_, $key) use ($stored) {
                 $p = $stored->get($key);
+
                 return [$key => [
-                    'can_view'   => $p ? (bool) $p->can_view   : false,
-                    'can_write'  => $p ? (bool) $p->can_write  : false,
+                    'can_view' => $p ? (bool) $p->can_view : false,
+                    'can_write' => $p ? (bool) $p->can_write : false,
                     'can_delete' => $p ? (bool) $p->can_delete : false,
                 ]];
             })->toArray();
@@ -60,18 +62,18 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $perPage  = $this->sanitizePerPage($request);
-        $search   = trim((string) $request->get('search', ''));
-        $sortDir  = $this->sanitizeSortDir($request);
+        $perPage = $this->sanitizePerPage($request);
+        $search = trim((string) $request->get('search', ''));
+        $sortDir = $this->sanitizeSortDir($request);
 
         $clientToDb = [
-            'name'    => 'name',
-            'email'   => 'email',
-            'role'    => 'role',
+            'name' => 'name',
+            'email' => 'email',
+            'role' => 'role',
             'created' => 'created_at',
         ];
         $requestedSort = (string) $request->get('sort_by', 'name');
-        $sortColumn    = $clientToDb[$requestedSort] ?? 'name';
+        $sortColumn = $clientToDb[$requestedSort] ?? 'name';
 
         $query = User::query();
 
@@ -79,8 +81,8 @@ class UserController extends Controller
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(email) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(role) like ?', ["%{$term}%"]);
+                    ->orWhereRaw('LOWER(email) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(role) like ?', ["%{$term}%"]);
             });
         }
 
@@ -89,27 +91,27 @@ class UserController extends Controller
         $users = $query
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn($u) => [
-                'id'                  => $u->id,
-                'name'                => $u->name,
-                'email'               => $u->email,
-                'role'                => $u->role ?? 'staff',
-                'created'             => $u->created_at?->format('Y-m-d'),
-                'isMe'                => $u->id === Auth::id(),
-                'permissions'         => $this->getUserPermissions($u),
+            ->through(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'role' => $u->role ?? 'staff',
+                'created' => $u->created_at?->format('Y-m-d'),
+                'isMe' => $u->id === Auth::id(),
+                'permissions' => $this->getUserPermissions($u),
                 'assignedWarehouseIds' => $u->assignedWarehouses()->pluck('warehouses.id')->toArray(),
             ]);
 
         $allWarehouses = \App\Models\Warehouse::orderBy('name')
             ->get(['id', 'name', 'code', 'is_active'])
-            ->map(fn($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+            ->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
 
         return Inertia::render('Users/Index', [
-            'users'      => $users,
-            'roles'      => User::$roles,
-            'modules'    => UserPermission::$modules,
+            'users' => $users,
+            'roles' => User::$roles,
+            'modules' => UserPermission::$modules,
             'warehouses' => $allWarehouses,
-            'filters'    => array_merge(
+            'filters' => array_merge(
                 $request->only(['search', 'per_page']),
                 ['sort_by' => $requestedSort, 'sort_dir' => $sortDir]
             ),
@@ -123,9 +125,9 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
-            'role'     => ['required', Rule::in(User::$roles)],
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'role' => ['required', Rule::in(User::$roles)],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
@@ -137,16 +139,16 @@ class UserController extends Controller
 
         $data = $validator->validated();
         $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'role'     => $data['role'],
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'role' => $data['role'],
             'password' => Hash::make($data['password']),
         ]);
 
         AuditLogger::log('user.created', $user, null, [
-            'name'  => $user->name,
+            'name' => $user->name,
             'email' => $user->email,
-            'role'  => $user->role,
+            'role' => $user->role,
         ]);
 
         return $request->wantsJson()
@@ -161,9 +163,9 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $validator = Validator::make($request->all(), [
-            'name'  => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'  => ['required', Rule::in(User::$roles)],
+            'role' => ['required', Rule::in(User::$roles)],
         ]);
 
         if ($validator->fails()) {
@@ -172,12 +174,12 @@ class UserController extends Controller
                 : back()->withErrors($validator)->withInput();
         }
 
-        $data    = $validator->validated();
+        $data = $validator->validated();
         $oldRole = $user->role;
         $user->update([
-            'name'  => $data['name'],
+            'name' => $data['name'],
             'email' => $data['email'],
-            'role'  => $data['role'],
+            'role' => $data['role'],
         ]);
 
         if ($oldRole !== $data['role']) {
@@ -205,9 +207,9 @@ class UserController extends Controller
         }
 
         AuditLogger::log('user.deleted', $user, [
-            'name'  => $user->name,
+            'name' => $user->name,
             'email' => $user->email,
-            'role'  => $user->role,
+            'role' => $user->role,
         ]);
 
         $user->delete();
@@ -249,9 +251,9 @@ class UserController extends Controller
     public function updatePermissions(Request $request, User $user)
     {
         $validator = Validator::make($request->all(), [
-            'permissions'            => 'required|array',
-            'permissions.*.can_view'   => 'boolean',
-            'permissions.*.can_write'  => 'boolean',
+            'permissions' => 'required|array',
+            'permissions.*.can_view' => 'boolean',
+            'permissions.*.can_write' => 'boolean',
             'permissions.*.can_delete' => 'boolean',
         ]);
 
@@ -264,20 +266,27 @@ class UserController extends Controller
         $validModules = array_keys(UserPermission::$modules);
 
         foreach ($request->permissions as $module => $perms) {
-            if (!in_array($module, $validModules)) continue;
+            if (! in_array($module, $validModules)) {
+                continue;
+            }
 
-            $canView   = (bool) ($perms['can_view']   ?? false);
-            $canWrite  = (bool) ($perms['can_write']  ?? false);
+            $canView = (bool) ($perms['can_view'] ?? false);
+            $canWrite = (bool) ($perms['can_write'] ?? false);
             $canDelete = (bool) ($perms['can_delete'] ?? false);
 
             // If write or delete is granted, view must be granted too
-            if ($canWrite || $canDelete) $canView = true;
+            if ($canWrite || $canDelete) {
+                $canView = true;
+            }
 
             UserPermission::updateOrCreate(
                 ['user_id' => $user->id, 'module' => $module],
                 ['can_view' => $canView, 'can_write' => $canWrite, 'can_delete' => $canDelete]
             );
         }
+
+        // Invalidate cached permissions for this user
+        \Illuminate\Support\Facades\Cache::forget("user_perms_{$user->id}_{$user->role}");
 
         return $request->wantsJson()
             ? response()->json(['message' => 'Permissions updated'])
@@ -291,7 +300,7 @@ class UserController extends Controller
     public function updateWarehouses(Request $request, User $user)
     {
         $validator = Validator::make($request->all(), [
-            'warehouse_ids'   => 'nullable|array',
+            'warehouse_ids' => 'nullable|array',
             'warehouse_ids.*' => 'integer|exists:warehouses,id',
         ]);
 

@@ -476,8 +476,12 @@ class PurchaseOrderController extends Controller
                     $subtotal += ($item->harga_beli ?? 0) * $r['qty'];
                 }
 
+                $date = now()->format('Ymd');
+                $last = PurchaseOrder::whereDate('created_at', now())->count();
+                $autoPoNumber = 'PO-'.$date.'-'.str_pad($last + 1, 4, '0', STR_PAD_LEFT);
+
                 $po = PurchaseOrder::create([
-                    'po_number' => 'PO-'.strtoupper(uniqid()),
+                    'po_number' => $autoPoNumber,
                     'supplier_id' => $supplierId,
                     'warehouse_id' => $warehouseId,
                     'ordered_by' => Auth::id(),

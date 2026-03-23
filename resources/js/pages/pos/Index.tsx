@@ -62,7 +62,7 @@ interface PageProps {
 }
 
 const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS', card: 'Kartu',
+  cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
 };
 
 function formatRp(n: number) {
@@ -134,9 +134,12 @@ export default function PosIndex() {
     return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{s === 'completed' ? 'Selesai' : 'Void'}</span>;
   };
 
-  const payBadge = (m: string) => (
-    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">{METHOD_LABEL[m] ?? m}</span>
-  );
+  const payBadge = (m: string) => {
+    const cls = m === 'credit'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-violet-100 text-violet-700';
+    return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{METHOD_LABEL[m] ?? m}</span>;
+  };
 
   const meta: PaginationMeta = {
     current_page: sales.current_page, last_page: sales.last_page,
@@ -180,6 +183,7 @@ export default function PosIndex() {
             <option value="transfer">Transfer</option>
             <option value="qris">QRIS</option>
             <option value="card">Kartu</option>
+            <option value="credit">Kredit</option>
           </select>
           <select className="text-sm border border-border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             value={status} onChange={e => { setStatus(e.target.value); navigate({ status: e.target.value, page: 1 }); }}>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { formatRp, METHOD_LABEL } from '@/lib/formats';
 import { Head, usePage } from '@inertiajs/react';
 
 interface SaleItemRow {
@@ -44,13 +45,7 @@ interface PageProps {
   [key: string]: unknown;
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
-};
 
-function formatRp(n: number) {
-  return 'Rp ' + n.toLocaleString('id-ID');
-}
 
 function formatDate(iso: string | null) {
   if (!iso) return '-';
@@ -64,15 +59,16 @@ export default function PosPrint() {
 
   useEffect(() => {
     const root = document.querySelector('.nota-root') as HTMLElement | null;
+    let style: HTMLStyleElement | null = null;
     if (root) {
       const heightMm = Math.ceil(root.offsetHeight * 25.4 / 96) + 8;
-      const style = document.createElement('style');
+      style = document.createElement('style');
       style.id = 'dynamic-page-size';
       style.textContent = `@page { size: 80mm ${heightMm}mm; margin: 0; }`;
       document.head.appendChild(style);
     }
     const timeout = setTimeout(() => window.print(), 400);
-    return () => clearTimeout(timeout);
+    return () => { clearTimeout(timeout); style?.remove(); };
   }, []);
 
   return (

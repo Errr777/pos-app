@@ -45,7 +45,7 @@ export default function Categories() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [form, setForm] = useState({ id: 0, name: '', description: '' });
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState<typeof initialCategories[0] | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
 
   // Filtering and Sorting
@@ -56,10 +56,8 @@ export default function Categories() {
   );
 
   const sortedCategories = [...filteredCategories].sort((a, b) => {
-    let valA = a[sortBy];
-    let valB = b[sortBy];
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
+    const valA = String((a as Record<string, unknown>)[sortBy] ?? '').toLowerCase();
+    const valB = String((b as Record<string, unknown>)[sortBy] ?? '').toLowerCase();
     if (valA < valB) return sortDir === 'asc' ? -1 : 1;
     if (valA > valB) return sortDir === 'asc' ? 1 : -1;
     return 0;

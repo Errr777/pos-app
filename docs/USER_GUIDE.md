@@ -200,15 +200,28 @@ Menu: **Inventaris → Stock In**
 Digunakan untuk mencatat penerimaan barang di luar Purchase Order (misalnya: sumbangan, barang titipan, koreksi).
 
 1. Klik **Tambah Stock In**
-2. Pilih **Produk**, isi **Jumlah**, pilih **Gudang**
-3. Isi **Keterangan** (supplier/sumber)
-4. Klik **Simpan**
+2. Pilih **Gudang** tujuan
+3. Cari dan pilih **Produk** (cari berdasarkan nama atau kode) — foto produk ditampilkan sebagai preview
+4. Isi **Jumlah**
+5. Isi **Nama Supplier** — ketik untuk mencari supplier terdaftar, atau masukkan nama bebas jika tidak terdaftar
+6. Isi **Keterangan** *(opsional)*
+7. Klik **Simpan**
+
+> Form menggunakan layout 2 kolom. Klik **Detail** pada baris transaksi untuk melihat foto produk, QR code, dan informasi lengkap.
 
 ### 5.3 Catat Stock Out (Barang Keluar)
 
 Menu: **Inventaris → Stock Out**
 
 Untuk mencatat pengeluaran barang yang bukan dari transaksi kasir (misalnya: barang rusak, pemakaian internal, sampel).
+
+1. Klik **Tambah Stock Out**
+2. Pilih **Gudang** asal
+3. Cari dan pilih **Produk** (cari berdasarkan nama atau kode) — foto produk ditampilkan sebagai preview
+4. Isi **Jumlah**
+5. Isi **Nama Penerima** — ketik untuk mencari staff/pengguna terdaftar, atau masukkan nama bebas
+6. Isi **Keterangan** *(opsional)*
+7. Klik **Simpan**
 
 ### 5.4 Transfer Stok Antar Gudang
 
@@ -383,7 +396,17 @@ Untuk penjualan dengan sistem angsuran:
 3. Isi nominal **Uang Muka (DP)** dan **Jumlah Cicilan**
 4. Klik **Proses Transaksi**
 
-Rencana cicilan otomatis dibuat dan dapat dilihat di halaman **Pelanggan → detail pelanggan**.
+Rencana cicilan otomatis dibuat dan dapat dilihat di menu **Kredit Pelanggan**.
+
+### 9.9 Kredit Pelanggan
+
+Menu: **Kasir → Kredit Pelanggan**
+
+Menampilkan semua rencana cicilan aktif maupun selesai di semua outlet.
+
+- **Lihat detail rencana** — klik baris cicilan untuk melihat jadwal angsuran lengkap, jumlah yang sudah dibayar, dan sisa tagihan
+- **Bayar cicilan** — klik tombol **Bayar** pada rencana aktif, masukkan nominal pembayaran, konfirmasi
+- **Cetak Invoice** — tersedia di halaman detail pelanggan dan di detail rencana cicilan
 
 ### 9.7 Detail Transaksi
 
@@ -569,6 +592,7 @@ Menampilkan ringkasan penjualan dalam periode tertentu:
 - Total transaksi & total omzet
 - Total diskon yang diberikan
 - Daftar transaksi dengan filter outlet, metode bayar, dan tanggal
+- Tombol **Reset Filter** untuk kembali ke tampilan default
 - **Export ke Excel**
 
 ### 14.3 Laporan Arus Kas
@@ -579,7 +603,12 @@ Menampilkan aliran kas masuk dan keluar:
 - **Net** — saldo bersih per periode
 - Tampilkan by **Harian** atau **Bulanan**
 - Filter by outlet
+- Tombol **Reset Filter** untuk kembali ke tampilan default
 - **Export ke Excel**
+
+**Mode Harian:** Pilih tanggal awal dan tanggal akhir menggunakan date picker, lalu klik **Tampilkan**.
+
+**Mode Bulanan:** Pilih **Dari Bulan** dan **Sampai Bulan** menggunakan picker bulan/tahun. Data otomatis dimuat saat bulan dipilih tanpa perlu klik Tampilkan. Filter bulanan membatasi rentang berdasarkan bulan penuh (1 — akhir bulan).
 
 ### 14.4 Laporan Laba Rugi (P&L)
 
@@ -600,7 +629,9 @@ Mengklasifikasikan produk berdasarkan kontribusi terhadap total omzet:
 
 Berguna untuk menentukan prioritas restok dan promosi.
 - Filter by periode dan outlet
-- **Export ke Excel**
+- Klik kartu Kelas A/B/C untuk memfilter tabel hanya menampilkan kelas tersebut
+- Tombol **Reset Filter** untuk kembali ke tampilan default
+- **Export CSV**
 
 ### 14.6 Perbandingan Cabang
 
@@ -608,13 +639,15 @@ Membandingkan performa antar outlet/gudang dalam satu periode:
 - Total transaksi, omzet, laba per cabang
 - Rata-rata nilai transaksi per cabang
 - Produk terlaris per cabang
-- **Export ke Excel**
+- Tombol **Reset Filter** untuk kembali ke tampilan default
+- **Export ke Excel** dan **Export CSV**
 
-### 14.7 Peak Hours (Jam Tersibuk)
+### 14.7 Analisa Jam Ramai (Peak Hours)
 
 Menampilkan heatmap transaksi berdasarkan jam dan hari dalam seminggu:
 - Identifikasi jam paling ramai untuk alokasi kasir
-- Filter by outlet dan periode
+- Filter by outlet (Semua Outlet atau outlet tertentu) dan periode
+- Tombol **Reset** untuk kembali ke 30 hari terakhir, semua outlet
 - **Export ke Excel**
 
 ---
@@ -754,6 +787,11 @@ Klik **Simpan Pengaturan** setelah mengubah data.
 ---
 
 ## Tips & Catatan Penting
+
+### Date Picker
+- Semua filter tanggal menggunakan kalender dengan navigasi bulan dan tahun
+- Klik nama bulan atau tahun di header kalender untuk langsung memilih bulan/tahun tanpa perlu klik panah satu-per-satu
+- Laporan Arus Kas mode Bulanan menggunakan input bulan (`Dari Bulan` / `Sampai Bulan`) yang langsung menerapkan filter saat diubah
 
 ### Format Harga
 - Masukkan harga dalam Rupiah **tanpa titik atau koma desimal**

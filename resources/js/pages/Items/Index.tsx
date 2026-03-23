@@ -421,6 +421,7 @@ export default function Items() {
                     <input
                         type="checkbox"
                         className="rounded"
+                        title="Pilih semua di halaman ini"
                         checked={selectedIds.size === items.data.length && items.data.length > 0}
                         onChange={toggleAll}
                     />

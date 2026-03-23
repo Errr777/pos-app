@@ -327,7 +327,7 @@ export default function Stock_alerts() {
                 </p>
                 <p><strong>Kategori:</strong> {selectedItem.category}</p>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedItem.qrcode}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedItem.qrcode)}`}
                   alt="QR Code"
                   className="mx-auto mt-4 rounded-lg border border-white p-3"
                 />

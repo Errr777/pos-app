@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { formatRp, fmtDate } from '@/lib/formats';
 import { type BreadcrumbItem } from '@/types';
 import { router, usePage, useForm } from '@inertiajs/react';
 import { useState } from 'react';
@@ -32,7 +33,6 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
 
 const statusStyle: Record<string, { label: string; cls: string }> = {
     active:    { label: 'Aktif',        cls: 'bg-blue-100 text-blue-700' },
@@ -154,7 +154,7 @@ export default function CustomerShow() {
                         <div>
                             <div className="text-muted-foreground text-xs mb-0.5">Sisa Hutang</div>
                             <div className={`font-semibold ${totalOutstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {fmt(totalOutstanding)}
+                                {formatRp(totalOutstanding)}
                             </div>
                         </div>
                         <div>
@@ -200,10 +200,10 @@ export default function CustomerShow() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-right">
-                                        <div className="font-semibold">{fmt(plan.totalAmount)}</div>
+                                        <div className="font-semibold">{formatRp(plan.totalAmount)}</div>
                                         {plan.remainingAmount > 0 && (
                                             <div className="text-xs text-muted-foreground">
-                                                Sisa: {fmt(plan.remainingAmount)}
+                                                Sisa: {formatRp(plan.remainingAmount)}
                                             </div>
                                         )}
                                     </div>
@@ -238,12 +238,12 @@ export default function CustomerShow() {
                                                         Cicilan #{idx + 1} · Jatuh tempo{' '}
                                                         {new Date(p.dueDate).toLocaleDateString('id-ID')}
                                                     </div>
-                                                    <div className="font-semibold">{fmt(p.totalDue)}</div>
+                                                    <div className="font-semibold">{formatRp(p.totalDue)}</div>
                                                     {(p.interestAmount > 0 || p.lateFeeApplied > 0) && (
                                                         <div className="text-xs text-muted-foreground">
-                                                            Pokok: {fmt(p.amountDue)}
-                                                            {p.interestAmount > 0 && ` · Bunga: ${fmt(p.interestAmount)}`}
-                                                            {p.lateFeeApplied > 0 && ` · Denda: ${fmt(p.lateFeeApplied)}`}
+                                                            Pokok: {formatRp(p.amountDue)}
+                                                            {p.interestAmount > 0 && ` · Bunga: ${formatRp(p.interestAmount)}`}
+                                                            {p.lateFeeApplied > 0 && ` · Denda: ${formatRp(p.lateFeeApplied)}`}
                                                         </div>
                                                     )}
                                                     {p.paidAt && (

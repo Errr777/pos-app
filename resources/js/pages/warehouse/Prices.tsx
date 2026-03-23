@@ -309,8 +309,9 @@ export default function WarehousePrices({ warehouse, items, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
                                         className={`px-2 py-1 rounded text-xs ${link.active ? 'bg-indigo-600 text-white' : 'hover:bg-muted disabled:opacity-40'}`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
+                                    >
+                                        {link.label.replace(/&laquo;/g, '«').replace(/&raquo;/g, '»').replace(/<[^>]*>/g, '')}
+                                    </button>
                                 ))}
                             </div>
                         </div>

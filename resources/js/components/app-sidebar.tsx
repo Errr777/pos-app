@@ -89,8 +89,7 @@ const allNavItems: NavItem[] = [
         module: 'customers',
         items: [
             { title: 'Daftar Pelanggan', href: '/customers' },
-            { title: 'Bayar Cicilan',    href: '/pos/installments' },
-            { title: 'Riwayat Kredit',   href: '/pos/kredit' },
+            { title: 'Kredit Pelanggan', href: '/pos/kredit' },
         ],
     },
     {

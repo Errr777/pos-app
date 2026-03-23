@@ -151,31 +151,12 @@ export default function ReportStock() {
 
   const openDetail = (row: ReportRow) => { setSelected(row); setIsDetailOpen(true); };
 
-  const exportCSV = () => {
-    const header = ['Kode', 'Nama', 'Kategori', 'Stok Saat Ini', 'Stok Minimal', 'Total Masuk', 'Total Keluar'];
-    const lines = items.data.map(r => [
-      r.kode ?? '',
-      r.name,
-      r.category ?? '',
-      r.stock,
-      r.stock_min,
-      r.total_in,
-      r.total_out,
-    ]);
-    const csv = [header, ...lines]
-      .map(row => row.map((cell) => {
-        const s = String(cell);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      }).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `laporan-stok_${formatDateISO(new Date())}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportCsvUrl = () => {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    return route('report.stock.csv') + (params.toString() ? '?' + params.toString() : '');
   };
 
   const meta = items;
@@ -209,10 +190,12 @@ export default function ReportStock() {
             <Button variant="outline" onClick={clearDates}>Clear</Button>
           </div>
 
-          <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={items.data.length === 0}>
-            <Download size={16} />
-            CSV
-          </Button>
+          <a href={exportCsvUrl()}>
+            <Button variant="outline" className="gap-2" disabled={items.total === 0}>
+              <Download size={16} />
+              CSV
+            </Button>
+          </a>
           <a href={route('report.stock.excel')}>
             <Button variant="outline" className="gap-2 bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400">
               <Download size={16} />

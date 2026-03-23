@@ -41,6 +41,7 @@ interface PageProps {
     topProducts: TopProduct[];
     recentTransactions: RecentTransaction[];
     stockAlerts: StockAlerts;
+    storeSettings?: { store_name?: string; [key: string]: unknown } | null;
     warehouseContext?: string | null;
     branchStats: {
         id: number;

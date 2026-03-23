@@ -2,8 +2,9 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import {
-    Calendar, ClipboardList, Filter, Package, Plus, Search, Truck, X,
+    ClipboardList, Filter, Package, Plus, Search, Truck, X,
 } from 'lucide-react';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 import { useEffect, useRef, useState } from 'react';
 
 interface Warehouse { id: number; name: string; is_default: boolean; }
@@ -159,17 +160,11 @@ export default function DeliveryOrders({ orders, warehouses, filters }: Props) {
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-medium text-muted-foreground">Dari Tanggal</label>
-                            <input type="date" value={dateFrom}
-                                onChange={e => { setDateFrom(e.target.value); applyFilters({ date_from: e.target.value }); }}
-                                className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                            <DatePickerFilter value={dateFrom} onChange={v => { setDateFrom(v); applyFilters({ date_from: v }); }} placeholder="Dari tanggal" />
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-medium text-muted-foreground">Sampai Tanggal</label>
-                            <input type="date" value={dateTo}
-                                onChange={e => { setDateTo(e.target.value); applyFilters({ date_to: e.target.value }); }}
-                                className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                            <DatePickerFilter value={dateTo} onChange={v => { setDateTo(v); applyFilters({ date_to: v }); }} placeholder="Sampai tanggal" />
                         </div>
                     </div>
                 )}
@@ -253,8 +248,9 @@ export default function DeliveryOrders({ orders, warehouses, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
                                         className={`px-2 py-1 rounded text-xs ${link.active ? 'bg-indigo-600 text-white' : 'hover:bg-muted disabled:opacity-40'}`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
+                                    >
+                                        {link.label.replace(/&laquo;/g, '«').replace(/&raquo;/g, '»').replace(/<[^>]*>/g, '')}
+                                    </button>
                                 ))}
                             </div>
                         </div>

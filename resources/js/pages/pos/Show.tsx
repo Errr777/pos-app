@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { formatRp, fmtDate, METHOD_LABEL } from '@/lib/formats';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Ban, Printer } from 'lucide-react';
@@ -57,13 +58,6 @@ interface PageProps {
   [key: string]: unknown;
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
-};
-
-function formatRp(n: number) {
-  return 'Rp ' + n.toLocaleString('id-ID');
-}
 function formatDate(iso: string | null) {
   if (!iso) return '-';
   return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -87,18 +81,16 @@ export default function PosShow() {
             <ArrowLeft size={15} className="mr-1" /> Kembali
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.open(
-              route('pos.print', { saleHeader: sale.id }),
-              'nota',
-              'width=480,height=700,toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes'
-            )}>
+            <Button variant="outline" size="sm" onClick={() => {
+              const w = window.open(route('pos.print', { saleHeader: sale.id }), 'nota', 'width=480,height=700,toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes');
+              if (!w) alert('Popup diblokir oleh browser. Izinkan popup untuk halaman ini agar bisa mencetak nota.');
+            }}>
               <Printer size={15} className="mr-1" /> Cetak
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.open(
-              route('pos.invoice', { saleHeader: sale.id }),
-              'invoice',
-              'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes'
-            )}>
+            <Button variant="outline" size="sm" onClick={() => {
+              const w = window.open(route('pos.invoice', { saleHeader: sale.id }), 'invoice', 'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes');
+              if (!w) alert('Popup diblokir oleh browser. Izinkan popup untuk halaman ini agar bisa membuka invoice.');
+            }}>
               <Printer size={15} className="mr-1" /> Invoice
             </Button>
             {sale.status === 'completed' && (

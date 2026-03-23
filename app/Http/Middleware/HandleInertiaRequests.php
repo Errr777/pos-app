@@ -27,9 +27,9 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'name'  => config('app.name'),
+            'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
-            'auth'  => ['user' => $request->user()],
+            'auth' => ['user' => $request->user()],
             'ziggy' => fn (): array => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
@@ -38,9 +38,11 @@ class HandleInertiaRequests extends Middleware
 
             'permissions' => function () use ($request) {
                 $user = $request->user();
-                if (!$user) return [];
+                if (! $user) {
+                    return [];
+                }
 
-                // Admin bypasses everything
+                // Admin bypasses everything — no DB queries needed
                 if ($user->role === 'admin') {
                     return collect(UserPermission::$modules)
                         ->mapWithKeys(fn ($_, $key) => [
@@ -48,53 +50,62 @@ class HandleInertiaRequests extends Middleware
                         ])->toArray();
                 }
 
-                // Start with role-level defaults
-                $rolePerms = RolePermission::join('roles', 'roles.id', '=', 'role_permissions.role_id')
-                    ->where('roles.name', $user->role)
-                    ->get(['role_permissions.module', 'role_permissions.can_view', 'role_permissions.can_write', 'role_permissions.can_delete'])
-                    ->keyBy('module');
+                // Cache per user+role — cleared when permissions are updated
+                return \Illuminate\Support\Facades\Cache::remember(
+                    "user_perms_{$user->id}_{$user->role}",
+                    300, // 5 minutes
+                    function () use ($user) {
+                        $rolePerms = RolePermission::join('roles', 'roles.id', '=', 'role_permissions.role_id')
+                            ->where('roles.name', $user->role)
+                            ->get(['role_permissions.module', 'role_permissions.can_view', 'role_permissions.can_write', 'role_permissions.can_delete'])
+                            ->keyBy('module');
 
-                // User-specific overrides
-                $userPerms = UserPermission::where('user_id', $user->id)
-                    ->get()
-                    ->keyBy('module');
+                        $userPerms = UserPermission::where('user_id', $user->id)
+                            ->get()
+                            ->keyBy('module');
 
-                return collect(UserPermission::$modules)
-                    ->mapWithKeys(function ($_, $key) use ($rolePerms, $userPerms) {
-                        // User permission overrides role permission if present
-                        if ($userPerms->has($key)) {
-                            $p = $userPerms->get($key);
-                        } else {
-                            $p = $rolePerms->get($key);
-                        }
-                        return [$key => [
-                            'can_view'   => $p ? (bool) $p->can_view   : false,
-                            'can_write'  => $p ? (bool) $p->can_write  : false,
-                            'can_delete' => $p ? (bool) $p->can_delete : false,
-                        ]];
-                    })->toArray();
+                        return collect(UserPermission::$modules)
+                            ->mapWithKeys(function ($_, $key) use ($rolePerms, $userPerms) {
+                                $p = $userPerms->has($key) ? $userPerms->get($key) : $rolePerms->get($key);
+
+                                return [$key => [
+                                    'can_view' => $p ? (bool) $p->can_view : false,
+                                    'can_write' => $p ? (bool) $p->can_write : false,
+                                    'can_delete' => $p ? (bool) $p->can_delete : false,
+                                ]];
+                            })->toArray();
+                    }
+                );
             },
 
             'allowedWarehouseIds' => function () use ($request) {
                 $user = $request->user();
-                if (!$user) return [];
+                if (! $user) {
+                    return [];
+                }
+
                 return $user->allowedWarehouseIds(); // empty = all allowed
             },
 
             'flash' => [
                 'success' => $request->session()->get('success'),
-                'error'   => $request->session()->get('error'),
+                'error' => $request->session()->get('error'),
             ],
 
             'storeSettings' => fn () => AppSetting::allAsArray(),
 
             'notifications' => function () use ($request) {
                 $user = $request->user();
-                if (!$user) return ['lowStockCount' => 0, 'pendingPoCount' => 0];
-                return [
-                    'lowStockCount' => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
-                    'pendingPoCount' => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
-                ];
+                if (! $user) {
+                    return ['lowStockCount' => 0, 'pendingPoCount' => 0];
+                }
+
+                return \Illuminate\Support\Facades\Cache::remember('notifications_counts', 120, function () {
+                    return [
+                        'lowStockCount' => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
+                        'pendingPoCount' => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
+                    ];
+                });
             },
         ];
     }

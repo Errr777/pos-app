@@ -6,7 +6,7 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
     Legend, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, ArrowRightLeft, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRightLeft, Download, X } from 'lucide-react';
 import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -91,6 +91,36 @@ export default function ReportCashflow() {
     const [warehouseId, setWarehouseId] = useState(filters.warehouse_id ?? '');
     const [groupBy,     setGroupBy]     = useState(filters.group_by     ?? 'daily');
 
+    function lastDayOf(yearMonth: string): string {
+        const [y, m] = yearMonth.split('-').map(Number);
+        return new Date(y, m, 0).getDate().toString().padStart(2, '0');
+    }
+
+    const monthFrom = dateFrom ? dateFrom.slice(0, 7) : (() => {
+        const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+    })();
+    const monthTo = dateTo ? dateTo.slice(0, 7) : monthFrom;
+
+    function onMonthFromChange(ym: string) {
+        if (!ym) return;
+        const from = `${ym}-01`;
+        // if new from > current to-month, snap to-month forward
+        const toYm  = ym > monthTo ? ym : monthTo;
+        const to    = `${toYm}-${lastDayOf(toYm)}`;
+        setDateFrom(from); setDateTo(to);
+        applyFilters({ date_from: from, date_to: to, group_by: 'monthly' });
+    }
+
+    function onMonthToChange(ym: string) {
+        if (!ym) return;
+        // if new to < current from-month, snap from-month back
+        const fromYm = ym < monthFrom ? ym : monthFrom;
+        const from   = `${fromYm}-01`;
+        const to     = `${ym}-${lastDayOf(ym)}`;
+        setDateFrom(from); setDateTo(to);
+        applyFilters({ date_from: from, date_to: to, group_by: 'monthly' });
+    }
+
     function exportCSV() {
         const date = new Date().toISOString().slice(0, 10);
         const filename = `laporan-kas_${date}.csv`;
@@ -114,12 +144,31 @@ export default function ReportCashflow() {
         URL.revokeObjectURL(url);
     }
 
-    function applyFilters() {
+    function applyFilters(overrides: Record<string, string> = {}) {
         router.get('/report/cashflow', {
             date_from:    dateFrom,
             date_to:      dateTo,
             warehouse_id: warehouseId,
             group_by:     groupBy,
+            ...overrides,
+        }, { preserveState: true });
+    }
+
+    function clearFilters() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const defaultFrom = `${y}-${m}-01`;
+        const defaultTo   = groupBy === 'monthly' ? `${y}-${m}-${lastDayOf(`${y}-${m}`)}` : `${y}-${m}-${d}`;
+        setDateFrom(defaultFrom);
+        setDateTo(defaultTo);
+        setWarehouseId('');
+        router.get('/report/cashflow', {
+            date_from: defaultFrom,
+            date_to:   defaultTo,
+            warehouse_id: '',
+            group_by: groupBy,
         }, { preserveState: true });
     }
 
@@ -137,14 +186,31 @@ export default function ReportCashflow() {
 
                 {/* ── Filters ── */}
                 <div className="flex flex-wrap gap-3 items-end">
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-muted-foreground">Dari Tanggal</label>
-                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-muted-foreground">Sampai Tanggal</label>
-                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} />
-                    </div>
+                    {groupBy === 'monthly' ? (
+                        <>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-medium text-muted-foreground">Dari Bulan</label>
+                                <input type="month" value={monthFrom} onChange={e => onMonthFromChange(e.target.value)}
+                                    className="border rounded-lg px-3 py-2 bg-background text-sm h-9" />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-medium text-muted-foreground">Sampai Bulan</label>
+                                <input type="month" value={monthTo} min={monthFrom} onChange={e => onMonthToChange(e.target.value)}
+                                    className="border rounded-lg px-3 py-2 bg-background text-sm h-9" />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-medium text-muted-foreground">Dari Tanggal</label>
+                                <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-medium text-muted-foreground">Sampai Tanggal</label>
+                                <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} />
+                            </div>
+                        </>
+                    )}
                     {warehouses.length > 1 && (
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-medium text-muted-foreground">Outlet</label>
@@ -160,16 +226,34 @@ export default function ReportCashflow() {
                         <div className="flex border rounded-lg overflow-hidden h-9">
                             {(['daily', 'monthly'] as const).map(g => (
                                 <button key={g}
-                                    onClick={() => setGroupBy(g)}
+                                    onClick={() => {
+                                        setGroupBy(g);
+                                        if (g === 'monthly') {
+                                            // snap both dates to full month boundaries
+                                            const from = `${monthFrom}-01`;
+                                            const to   = `${monthTo}-${lastDayOf(monthTo)}`;
+                                            setDateFrom(from); setDateTo(to);
+                                            applyFilters({ group_by: g, date_from: from, date_to: to });
+                                        } else {
+                                            applyFilters({ group_by: g });
+                                        }
+                                    }}
                                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${groupBy === g ? 'bg-primary text-primary-foreground' : 'bg-background text-foreground hover:bg-accent'}`}>
                                     {g === 'daily' ? 'Harian' : 'Bulanan'}
                                 </button>
                             ))}
                         </div>
                     </div>
-                    <button onClick={applyFilters}
-                        className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                        Tampilkan
+                    {groupBy === 'daily' && (
+                        <button onClick={() => applyFilters()}
+                            className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                            Tampilkan
+                        </button>
+                    )}
+                    <button onClick={clearFilters}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+                        <X className="h-4 w-4" />
+                        Reset Filter
                     </button>
                     <button
                         onClick={exportCSV}

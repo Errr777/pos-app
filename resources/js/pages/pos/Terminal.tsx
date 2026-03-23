@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { List as VirtualList } from 'react-window';
+import { formatRp, METHOD_LABEL } from '@/lib/formats';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -83,9 +85,6 @@ interface PageProps {
 }
 
 const PAYMENT_METHODS = ['cash', 'transfer', 'qris', 'card', 'credit'];
-const METHOD_LABEL: Record<string, string> = {
-  cash: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS', card: 'Kartu', credit: 'Kredit',
-};
 
 function generateSchedule(
   grandTotal: number, dp: number, count: number,
@@ -123,8 +122,51 @@ function generateSchedule(
   return rows;
 }
 
-function formatRp(n: number) {
-  return 'Rp ' + n.toLocaleString('id-ID');
+
+// ─── Virtualized compact-list row ────────────────────────────────────────────
+const COMPACT_ROW_H = 48;
+
+type CompactRowData = { items: ItemOption[]; onAdd: (item: ItemOption) => void };
+
+function CompactListRow({
+  ariaAttributes,
+  index,
+  style,
+  items,
+  onAdd,
+}: {
+  ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' };
+  index: number;
+  style: React.CSSProperties;
+} & CompactRowData) {
+  const item = items[index];
+  if (!item) return null;
+  return (
+    <button
+      {...ariaAttributes}
+      style={style}
+      onClick={() => onAdd(item)}
+      disabled={item.stock <= 0 || item.price <= 0}
+      className={`text-left px-3 py-2 flex items-center justify-between transition hover:bg-primary/5 w-full border-b ${
+        item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        {item.imageUrl
+          ? <img src={item.imageUrl} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+          : <div className="w-8 h-8 rounded bg-muted shrink-0" />
+        }
+        <div className="flex flex-col min-w-0">
+          <span className="text-sm font-medium leading-tight truncate">{item.name}</span>
+          <span className="text-xs text-muted-foreground">{item.code}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 shrink-0 ml-3">
+        <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>Stok: {item.stock}</span>
+        <span className="text-sm font-bold text-primary">{formatRp(item.price)}</span>
+      </div>
+    </button>
+  );
 }
 
 export default function PosTerminal() {
@@ -468,45 +510,32 @@ export default function PosTerminal() {
                 <List size={15} />
               </button>
             </div>
-            <a href={route('pos.installments')}
+            <a href={route('installments.history')}
               className="px-3 py-1.5 text-xs rounded-lg border bg-background hover:bg-muted transition-colors font-medium whitespace-nowrap">
-              Bayar Cicilan
+              Kredit Pelanggan
             </a>
           </div>
 
-          {/* Item grid / compact list */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {density === 'compact' ? (
-              <div className="flex flex-col divide-y">
-                {filteredItems.map(item => (
-                  <button key={item.id}
-                    onClick={() => addToCart(item)}
-                    disabled={item.stock <= 0 || item.price <= 0}
-                    className={`text-left px-3 py-2 flex items-center justify-between transition hover:bg-primary/5 ${
-                      item.stock <= 0 || item.price <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {item.imageUrl
-                        ? <img src={item.imageUrl} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
-                        : <div className="w-8 h-8 rounded bg-muted shrink-0" />
-                      }
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-medium leading-tight truncate">{item.name}</span>
-                        <span className="text-xs text-muted-foreground">{item.code}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0 ml-3">
-                      <span className={`text-xs ${item.stock <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>Stok: {item.stock}</span>
-                      <span className="text-sm font-bold text-primary">{formatRp(item.price)}</span>
-                    </div>
-                  </button>
-                ))}
-                {filteredItems.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">Tidak ada item ditemukan</div>
-                )}
-              </div>
-            ) : (
+          {/* Item compact list (virtualized) */}
+          {density === 'compact' && (
+            <div className="flex-1 overflow-hidden">
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">Tidak ada item ditemukan</div>
+              ) : (
+                <VirtualList
+                  rowComponent={CompactListRow}
+                  rowCount={filteredItems.length}
+                  rowHeight={COMPACT_ROW_H}
+                  rowProps={{ items: filteredItems, onAdd: addToCart }}
+                  style={{ height: '100%' }}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Item grid */}
+          {density !== 'compact' && (
+            <div className="flex-1 overflow-y-auto p-3">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2">
                 {filteredItems.map(item => (
                   <button key={item.id}
@@ -548,8 +577,8 @@ export default function PosTerminal() {
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── Right: Cart & Payment ─────────────────────────── */}

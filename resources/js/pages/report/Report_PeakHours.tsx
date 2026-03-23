@@ -2,7 +2,8 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
+import { DatePickerFilter } from '@/components/DatePickerInput';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -48,8 +49,21 @@ export default function ReportPeakHours() {
     const [warehouse, setWarehouse]   = useState(filters?.warehouse_id ?? '');
     const [tooltip, setTooltip]       = useState<Cell | null>(null);
 
-    const navigate = () => {
-        router.get('/report/peak-hours', { date_from: dateFrom, date_to: dateTo, warehouse_id: warehouse }, { preserveState: true, replace: true });
+    const navigate = (overrides: Record<string, string> = {}) => {
+        router.get('/report/peak-hours', {
+            date_from: dateFrom, date_to: dateTo, warehouse_id: warehouse, ...overrides,
+        }, { preserveState: true, replace: true });
+    };
+
+    const resetFilters = () => {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const from = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate() - 29 < 1 ? 1 : now.getDate())}`;
+        const d29  = new Date(now); d29.setDate(d29.getDate() - 29);
+        const df   = `${d29.getFullYear()}-${pad(d29.getMonth()+1)}-${pad(d29.getDate())}`;
+        const dt   = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+        setDateFrom(df); setDateTo(dt); setWarehouse('');
+        router.get('/report/peak-hours', { date_from: df, date_to: dt, warehouse_id: '' }, { preserveState: true, replace: true });
     };
 
     const exportCSV = () => {
@@ -99,22 +113,27 @@ export default function ReportPeakHours() {
                 <div className="flex flex-wrap gap-3 items-end">
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dari</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                        <DatePickerFilter value={dateFrom} onChange={v => setDateFrom(v)} placeholder="Dari tanggal" />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Sampai</label>
-                        <input type="date" className="border rounded-lg px-3 py-2 text-sm bg-background" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                        <DatePickerFilter value={dateTo} onChange={v => setDateTo(v)} placeholder="Sampai tanggal" />
                     </div>
                     {warehouses.length > 1 && (
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Outlet</label>
-                            <select className="border rounded-lg px-3 py-2 text-sm bg-background" value={warehouse} onChange={e => setWarehouse(e.target.value)}>
+                            <select className="border rounded-lg px-3 py-2 text-sm bg-background" value={warehouse}
+                                onChange={e => { setWarehouse(e.target.value); navigate({ warehouse_id: e.target.value }); }}>
                                 <option value="">Semua Outlet</option>
                                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
                         </div>
                     )}
-                    <button onClick={navigate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <button onClick={() => navigate()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Terapkan</button>
+                    <button onClick={resetFilters} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+                        <X className="h-4 w-4" />
+                        Reset
+                    </button>
                     <button
                         onClick={exportCSV}
                         disabled={cells.length === 0}

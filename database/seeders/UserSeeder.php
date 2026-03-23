@@ -6,102 +6,96 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+/**
+ * Seeds 11 realistic users across 4 outlets.
+ *
+ * Demo password for ALL users: 12345678
+ *
+ * Org structure
+ * ─────────────────────────────────────────────────────────────
+ * admin           Administrator          → all outlets (no restriction)
+ * manajer         Budi Santoso           → all outlets (no restriction)
+ * staff           Rina Wulandari         → Toko Pusat (WH-001)
+ * staff           Ahmad Fauzi            → Outlet Semarang (WH-002)
+ * staff           Dewi Anggraeni         → Outlet Bandung (WH-003)
+ * staff           Wahyu Tri Pamungkas    → Outlet Surabaya (WH-004)
+ * kasir           Dika Pratama           → Toko Pusat (WH-001)
+ * kasir           Sari Dewi              → Toko Pusat (WH-001)
+ * kasir           Fauzan Ramadhan        → Outlet Semarang (WH-002)
+ * kasir           Nita Rahayu            → Outlet Bandung (WH-003)
+ * kasir           Rizal Efendi           → Outlet Surabaya (WH-004)
+ * ─────────────────────────────────────────────────────────────
+ */
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
         $now = now();
-        $password = Hash::make('12345678');
+        $pwd = Hash::make('12345678');
 
+        // ── User definitions ────────────────────────────────────────────────
+        // [name, email, role]
         $users = [
-            // Admin — full access
-            [
-                'name'              => 'Administrator',
-                'email'             => 'admin@pos.com',
-                'role'              => 'admin',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
-            // Staff 1
-            [
-                'name'              => 'Budi Santoso',
-                'email'             => 'budi.santoso@pos.com',
-                'role'              => 'staff',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
-            // Staff 2
-            [
-                'name'              => 'Rina Wulandari',
-                'email'             => 'rina.wulandari@pos.com',
-                'role'              => 'staff',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
-            // Kasir 1
-            [
-                'name'              => 'Dika Pratama',
-                'email'             => 'dika.pratama@pos.com',
-                'role'              => 'kasir',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
-            // Kasir 2
-            [
-                'name'              => 'Sari Dewi',
-                'email'             => 'sari.dewi@pos.com',
-                'role'              => 'kasir',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
-            // Kasir 3
-            [
-                'name'              => 'Fauzan Ramadhan',
-                'email'             => 'fauzan.ramadhan@pos.com',
-                'role'              => 'kasir',
-                'password'          => $password,
-                'email_verified_at' => $now,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ],
+            ['Administrator',        'admin@pos.com',            'admin'],
+            ['Budi Santoso',         'budi.santoso@pos.com',     'manajer'],   // Manager Operasional
+            ['Rina Wulandari',       'rina.wulandari@pos.com',   'staff'],     // Staff Gudang Pusat
+            ['Ahmad Fauzi',          'ahmad.fauzi@pos.com',      'staff'],     // Kepala Toko Semarang
+            ['Dewi Anggraeni',       'dewi.anggraeni@pos.com',   'staff'],     // Kepala Toko Bandung
+            ['Wahyu Tri Pamungkas',  'wahyu.tri@pos.com',        'staff'],     // Kepala Toko Surabaya
+            ['Dika Pratama',         'dika.pratama@pos.com',     'kasir'],     // Kasir Pusat (shift 1)
+            ['Sari Dewi',            'sari.dewi@pos.com',        'kasir'],     // Kasir Pusat (shift 2)
+            ['Fauzan Ramadhan',      'fauzan.ramadhan@pos.com',  'kasir'],     // Kasir Semarang
+            ['Nita Rahayu',          'nita.rahayu@pos.com',      'kasir'],     // Kasir Bandung
+            ['Rizal Efendi',         'rizal.efendi@pos.com',     'kasir'],     // Kasir Surabaya
         ];
 
-        foreach ($users as $user) {
-            DB::table('users')->insert($user);
+        foreach ($users as [$name, $email, $role]) {
+            DB::table('users')->insert([
+                'name'              => $name,
+                'email'             => $email,
+                'role'              => $role,
+                'password'          => $pwd,
+                'email_verified_at' => $now,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ]);
         }
 
-        // Assign kasir to specific warehouses
-        $whIds    = DB::table('warehouses')->orderBy('id')->pluck('id')->toArray();
-        $kasirIds = DB::table('users')->where('role', 'kasir')->pluck('id')->toArray();
+        // ── Warehouse assignments ────────────────────────────────────────────
+        // Fetch IDs in creation order (WH-001 → WH-004)
+        $whIds = DB::table('warehouses')->orderBy('id')->pluck('id', 'code');
 
-        // Kasir 1 → Toko Pusat + Outlet Semarang
-        // Kasir 2 → Outlet Bandung
-        // Kasir 3 → Outlet Surabaya
+        $wh001 = $whIds['WH-001'] ?? null;
+        $wh002 = $whIds['WH-002'] ?? null;
+        $wh003 = $whIds['WH-003'] ?? null;
+        $wh004 = $whIds['WH-004'] ?? null;
+
+        // [email => [warehouse_ids]]
+        // Admin and manajer have NO entries → access all warehouses
         $assignments = [
-            0 => [0, 1],
-            1 => [2],
-            2 => [3],
+            'rina.wulandari@pos.com'  => [$wh001],
+            'ahmad.fauzi@pos.com'     => [$wh002],
+            'dewi.anggraeni@pos.com'  => [$wh003],
+            'wahyu.tri@pos.com'       => [$wh004],
+            'dika.pratama@pos.com'    => [$wh001],
+            'sari.dewi@pos.com'       => [$wh001],
+            'fauzan.ramadhan@pos.com' => [$wh002],
+            'nita.rahayu@pos.com'     => [$wh003],
+            'rizal.efendi@pos.com'    => [$wh004],
         ];
 
-        foreach ($kasirIds as $ki => $kasirId) {
-            $whIndexes = $assignments[$ki] ?? [0];
-            foreach ($whIndexes as $wi) {
-                if (isset($whIds[$wi])) {
-                    DB::table('user_warehouses')->insert([
-                        'user_id'      => $kasirId,
-                        'warehouse_id' => $whIds[$wi],
-                    ]);
-                }
+        $userIds = DB::table('users')->pluck('id', 'email');
+
+        foreach ($assignments as $email => $warehouseIds) {
+            $userId = $userIds[$email] ?? null;
+            if (! $userId) {
+                continue;
+            }
+            foreach (array_filter($warehouseIds) as $whId) {
+                DB::table('user_warehouses')->insert([
+                    'user_id'      => $userId,
+                    'warehouse_id' => $whId,
+                ]);
             }
         }
     }

@@ -7,41 +7,68 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+/**
+ * Generates realistic historical POS data from Jan 2023 → Mar 2026.
+ *
+ * Volume per month:
+ *   Sales      : 50–100 transactions (seasonal multiplier applied)
+ *   POs        : 3–6 (only for completed months)
+ *   Expenses   : 5–8 per warehouse, differentiated by outlet size / city
+ *   Stock In   : 3–6 / month
+ *   Stock Out  : 1–3 / month
+ *
+ * Seasonal multiplier (realistic Indonesian retail):
+ *   Mar (pre-Lebaran) 1.50 · Apr (Lebaran) 1.30 · Dec (Christmas/NYE) 1.60
+ *   Jan (post-holiday) 0.75 · Feb 0.80
+ */
 class HistoricalDataSeeder extends Seeder
 {
-    private int $saleCounter   = 1;
-    private int $poCounter     = 1;
-    private int $stkCounter    = 1;
-    private int $opnameCounter = 1;
+    private int $saleCounter    = 1;
+    private int $poCounter      = 1;
+    private int $stkCounter     = 1;
+    private int $opnameCounter  = 1;
+    private int $transferCounter = 1;
+    private int $adjCounter     = 1;
 
-    // Seasonal revenue multiplier per month
+    /** Monthly seasonal multiplier (realistic Indonesian retail cycle) */
     private array $seasonal = [
-        1 => 0.80, 2 => 0.85, 3 => 1.40, 4 => 1.20,
-        5 => 0.90, 6 => 0.90, 7 => 1.10, 8 => 1.00,
-        9 => 0.90, 10 => 0.95, 11 => 1.10, 12 => 1.50,
+        1  => 0.75,   // Jan — post-holiday slump
+        2  => 0.80,   // Feb — slow
+        3  => 1.50,   // Mar — pre-Lebaran shopping peak
+        4  => 1.30,   // Apr — Lebaran / Idul Fitri
+        5  => 0.90,   // May — normalise
+        6  => 0.90,   // Jun
+        7  => 1.10,   // Jul — school season
+        8  => 1.05,   // Aug — Independence Day / back-to-school
+        9  => 0.90,   // Sep
+        10 => 0.95,   // Oct
+        11 => 1.15,   // Nov — 11.11 promo
+        12 => 1.60,   // Dec — Christmas / NYE peak
     ];
 
     public function run(): void
     {
-        // Load reference data
-        $warehouses  = DB::table('warehouses')->orderBy('id')->get();
-        $mainWh      = $warehouses->where('is_default', true)->first();
-        $items       = DB::table('items')->where('type', 'barang')->get();
-        $customers   = DB::table('customers')->pluck('id')->toArray();
-        $suppliers   = DB::table('suppliers')->pluck('id')->toArray();
-        $admin       = DB::table('users')->where('role', 'admin')->first();
-        $kasirIds    = DB::table('users')->where('role', 'kasir')->pluck('id')->toArray();
-        $whIds       = $warehouses->pluck('id')->toArray();
+        // ── Load reference data ──────────────────────────────────────────────
+        $warehouses = DB::table('warehouses')->orderBy('id')->get();
+        $mainWh     = $warehouses->firstWhere('is_default', true);
+        $items      = DB::table('items')->where('type', 'barang')->get();
+        $customers  = DB::table('customers')->pluck('id')->toArray();
+        $suppliers  = DB::table('suppliers')->pluck('id')->toArray();
+        $admin      = DB::table('users')->where('role', 'admin')->first();
+        $whIds      = $warehouses->pluck('id')->toArray();
 
+        // All kasir IDs (fallback pool)
+        $kasirIds = DB::table('users')->where('role', 'kasir')->pluck('id')->toArray();
         if (empty($kasirIds)) {
             $kasirIds = [$admin->id];
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // LOOP: Jan 2024 → Mar 2026
-        // ─────────────────────────────────────────────────────────────────
+        // Build kasir-per-warehouse map from user_warehouses assignments
+        $kasirByWarehouse = $this->buildKasirMap($kasirIds, $whIds);
+
+        // ── Monthly loop: Jan 2023 → Mar 2026 ───────────────────────────────
         $months = [];
-        for ($y = 2024; $y <= 2026; $y++) {
+        for ($y = 2023; $y <= 2026; $y++) {
             $maxM = ($y === 2026) ? 3 : 12;
             for ($m = 1; $m <= $maxM; $m++) {
                 $months[] = [$y, $m];
@@ -53,9 +80,9 @@ class HistoricalDataSeeder extends Seeder
             $daysInMonth    = cal_days_in_month(CAL_GREGORIAN, $month, $year);
             $multiplier     = $this->seasonal[$month] ?? 1.0;
 
-            // ── PURCHASE ORDERS (received, for past months only) ──────────
+            // ── PURCHASE ORDERS (received, skip current month) ─────────────
             if (! $isCurrentMonth) {
-                $numPOs = rand(2, 4);
+                $numPOs = rand(3, 6);
                 for ($p = 0; $p < $numPOs; $p++) {
                     $this->createPO(
                         $year, $month, $daysInMonth,
@@ -65,22 +92,25 @@ class HistoricalDataSeeder extends Seeder
                 }
             }
 
-            // ── SALES ─────────────────────────────────────────────────────
-            $numSales = max(6, (int) round(12 * $multiplier));
+            // ── SALES ──────────────────────────────────────────────────────
+            // Minimum 50 / month; scales up in peak seasons
+            $numSales = (int) max(50, round(65 * $multiplier));
             for ($s = 0; $s < $numSales; $s++) {
                 $this->createSale(
                     $year, $month, $daysInMonth,
-                    $items, $customers, $whIds, $kasirIds
+                    $items, $customers,
+                    $whIds, $mainWh->id,
+                    $kasirIds, $kasirByWarehouse
                 );
             }
 
-            // ── EXPENSES (per warehouse) ───────────────────────────────────
+            // ── EXPENSES (per warehouse, sized to outlet) ──────────────────
             foreach ($warehouses as $wh) {
-                $this->createMonthlyExpenses($year, $month, $wh->id, $admin->id);
+                $this->createMonthlyExpenses($year, $month, $wh, $admin->id);
             }
 
-            // ── STOCK IN (2-4 per month, mixed sources) ────────────────────
-            $numIn = rand(2, 4);
+            // ── STOCK IN (3–6 per month) ───────────────────────────────────
+            $numIn = rand(3, 6);
             for ($i = 0; $i < $numIn; $i++) {
                 $this->createStockMovement(
                     'stock_in', $year, $month, $daysInMonth,
@@ -88,8 +118,8 @@ class HistoricalDataSeeder extends Seeder
                 );
             }
 
-            // ── STOCK OUT (1-2 per month, breakage/sampling) ───────────────
-            $numOut = rand(1, 2);
+            // ── STOCK OUT (1–3 per month, breakage / sampling) ────────────
+            $numOut = rand(1, 3);
             for ($i = 0; $i < $numOut; $i++) {
                 $this->createStockMovement(
                     'stock_out', $year, $month, $daysInMonth,
@@ -98,18 +128,17 @@ class HistoricalDataSeeder extends Seeder
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // PENDING PURCHASE ORDERS (triggers badge notification)
-        // ─────────────────────────────────────────────────────────────────
-        $pendingStatuses = ['draft', 'ordered', 'partial'];
-        foreach ($pendingStatuses as $status) {
+        // ── PENDING PURCHASE ORDERS (current month — shows badge) ───────────
+        foreach (['draft', 'ordered', 'partial'] as $status) {
             $this->createPO(2026, 3, 31, $items, $suppliers, $whIds, $admin->id, $status);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // STOCK TRANSFERS (quarterly)
-        // ─────────────────────────────────────────────────────────────────
+        // ── STOCK TRANSFERS (quarterly 2023–2026) ────────────────────────────
         $transferDates = [
+            Carbon::create(2023, 3, 20),
+            Carbon::create(2023, 6, 15),
+            Carbon::create(2023, 9, 8),
+            Carbon::create(2023, 12, 6),
             Carbon::create(2024, 3, 15),
             Carbon::create(2024, 6, 20),
             Carbon::create(2024, 9, 10),
@@ -121,124 +150,155 @@ class HistoricalDataSeeder extends Seeder
             Carbon::create(2026, 2, 20),
         ];
 
-        $txnCounter = 1;
+        $fromWhId = $mainWh->id;
         foreach ($transferDates as $date) {
-            $item = $items->random();
-            $fromWhId = $mainWh->id;
-            $toWhId   = $whIds[array_rand(array_filter($whIds, fn($id) => $id !== $fromWhId))];
-            $qty      = rand(5, 20);
+            $item    = $items->random();
+            $others  = array_values(array_filter($whIds, fn($id) => $id !== $fromWhId));
+            $toWhId  = $others[array_rand($others)];
+            $qty     = rand(5, 25);
 
             DB::table('stock_transfers')->insert([
-                'txn_id'           => 'TRF-' . str_pad($txnCounter++, 6, '0', STR_PAD_LEFT),
-                'from_warehouse_id'=> $fromWhId,
-                'to_warehouse_id'  => $toWhId,
-                'item_id'          => $item->id,
-                'quantity'         => $qty,
-                'occurred_at'      => $date,
-                'reference'        => null,
-                'actor'            => $admin->name ?? 'Admin',
-                'note'             => 'Restock cabang',
-                'status'           => 'completed',
-                'created_at'       => $date,
-                'updated_at'       => $date,
+                'txn_id'            => 'TRF-' . str_pad($this->transferCounter++, 6, '0', STR_PAD_LEFT),
+                'from_warehouse_id' => $fromWhId,
+                'to_warehouse_id'   => $toWhId,
+                'item_id'           => $item->id,
+                'quantity'          => $qty,
+                'occurred_at'       => $date,
+                'reference'         => null,
+                'actor'             => $admin->name ?? 'Admin',
+                'note'              => 'Restock cabang',
+                'status'            => 'completed',
+                'created_at'        => $date,
+                'updated_at'        => $date,
             ]);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // STOCK ADJUSTMENTS (every 2 months)
-        // ─────────────────────────────────────────────────────────────────
-        $adjDates = [
-            Carbon::create(2024, 2, 28),
-            Carbon::create(2024, 4, 30),
-            Carbon::create(2024, 6, 30),
-            Carbon::create(2024, 8, 31),
-            Carbon::create(2024, 10, 31),
-            Carbon::create(2024, 12, 31),
-            Carbon::create(2025, 2, 28),
-            Carbon::create(2025, 4, 30),
-            Carbon::create(2025, 6, 30),
-            Carbon::create(2025, 8, 31),
-            Carbon::create(2025, 10, 31),
-            Carbon::create(2025, 12, 31),
-        ];
+        // ── STOCK ADJUSTMENTS (every 2 months, 2023–2025) ───────────────────
+        $adjDates = [];
+        for ($y = 2023; $y <= 2025; $y++) {
+            for ($m = 2; $m <= 12; $m += 2) {
+                $lastDay = cal_days_in_month(CAL_GREGORIAN, $m, $y);
+                $adjDates[] = Carbon::create($y, $m, $lastDay);
+            }
+        }
 
-        $adjCounter = 1;
-        $adjReasons = ['Koreksi opname', 'Barang rusak', 'Expired', 'Barang hilang', 'Kelebihan stok'];
+        $adjReasons = ['Koreksi opname', 'Barang rusak', 'Expired', 'Barang hilang', 'Kelebihan stok', 'Selisih hitung'];
         foreach ($adjDates as $date) {
-            $item     = $items->random();
-            $whId     = $whIds[array_rand($whIds)];
-            $oldQty   = rand(20, 100);
-            $diff     = rand(-10, 10);
-            $newQty   = max(0, $oldQty + $diff);
+            $item   = $items->random();
+            $whId   = $whIds[array_rand($whIds)];
+            $oldQty = rand(20, 100);
+            $diff   = rand(-12, 8);
+            $newQty = max(0, $oldQty + $diff);
 
             DB::table('stock_adjustments')->insert([
-                'txn_id'      => 'ADJ-' . str_pad($adjCounter++, 6, '0', STR_PAD_LEFT),
-                'warehouse_id'=> $whId,
-                'item_id'     => $item->id,
-                'old_quantity'=> $oldQty,
-                'new_quantity'=> $newQty,
-                'difference'  => $newQty - $oldQty,
-                'reason'      => $adjReasons[array_rand($adjReasons)],
-                'actor'       => $admin->name ?? 'Admin',
-                'occurred_at' => $date,
-                'created_at'  => $date,
-                'updated_at'  => $date,
+                'txn_id'       => 'ADJ-' . str_pad($this->adjCounter++, 6, '0', STR_PAD_LEFT),
+                'warehouse_id' => $whId,
+                'item_id'      => $item->id,
+                'old_quantity' => $oldQty,
+                'new_quantity' => $newQty,
+                'difference'   => $newQty - $oldQty,
+                'reason'       => $adjReasons[array_rand($adjReasons)],
+                'actor'        => $admin->name ?? 'Admin',
+                'occurred_at'  => $date,
+                'created_at'   => $date,
+                'updated_at'   => $date,
             ]);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // STOCK OPNAME (quarterly, per warehouse)
-        // ─────────────────────────────────────────────────────────────────
+        // ── STOCK OPNAME (quarterly per warehouse 2023–2026) ─────────────────
         $opnameDates = [
-            // 2024 quarters
-            [2024, 1, 31, 'Q1 2024', 'submitted'],
-            [2024, 4, 30, 'Q2 2024', 'submitted'],
-            [2024, 7, 31, 'Q3 2024', 'submitted'],
+            // 2023
+            [2023,  1, 31, 'Q1 2023', 'submitted'],
+            [2023,  4, 30, 'Q2 2023', 'submitted'],
+            [2023,  7, 31, 'Q3 2023', 'submitted'],
+            [2023, 10, 31, 'Q4 2023', 'submitted'],
+            // 2024
+            [2024,  1, 31, 'Q1 2024', 'submitted'],
+            [2024,  4, 30, 'Q2 2024', 'submitted'],
+            [2024,  7, 31, 'Q3 2024', 'submitted'],
             [2024, 10, 31, 'Q4 2024', 'submitted'],
-            // 2025 quarters
-            [2025, 1, 31, 'Q1 2025', 'submitted'],
-            [2025, 4, 30, 'Q2 2025', 'submitted'],
-            [2025, 7, 31, 'Q3 2025', 'submitted'],
+            // 2025
+            [2025,  1, 31, 'Q1 2025', 'submitted'],
+            [2025,  4, 30, 'Q2 2025', 'submitted'],
+            [2025,  7, 31, 'Q3 2025', 'submitted'],
             [2025, 10, 31, 'Q4 2025', 'submitted'],
-            // 2026 Q1 — draft (in progress)
-            [2026, 3, 19, 'Q1 2026', 'draft'],
+            // 2026 Q1 — in progress (draft)
+            [2026,  3, 19, 'Q1 2026', 'draft'],
         ];
 
         foreach ($opnameDates as [$y, $m, $d, $label, $opStatus]) {
             foreach ($warehouses as $wh) {
-                $this->createOpname(
-                    $y, $m, $d, $label, $opStatus,
-                    $wh, $items, $admin
-                );
+                $this->createOpname($y, $m, $d, $label, $opStatus, $wh, $items, $admin);
             }
         }
 
+        // ── Summary ──────────────────────────────────────────────────────────
         $this->command->info('HistoricalDataSeeder done.');
-        $this->command->info("  Sales:    {$this->saleCounter} records");
-        $this->command->info("  POs:      {$this->poCounter} records");
-        $this->command->info("  StockIn/Out: {$this->stkCounter} records");
-        $this->command->info("  Opnames:  {$this->opnameCounter} records");
+        $this->command->info("  Sales    : {$this->saleCounter}");
+        $this->command->info("  POs      : {$this->poCounter}");
+        $this->command->info("  StockMov : {$this->stkCounter}");
+        $this->command->info("  Transfers: {$this->transferCounter}");
+        $this->command->info("  Adj      : {$this->adjCounter}");
+        $this->command->info("  Opnames  : {$this->opnameCounter}");
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // HELPERS
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Build a warehouse_id → [kasir_ids] map from user_warehouses assignments.
+     * Falls back to all kasir IDs for warehouses with no assignment.
+     */
+    private function buildKasirMap(array $kasirIds, array $whIds): array
+    {
+        $map = [];
+        foreach ($kasirIds as $kasirId) {
+            $assigned = DB::table('user_warehouses')
+                ->where('user_id', $kasirId)
+                ->pluck('warehouse_id')
+                ->toArray();
+            foreach ($assigned as $wId) {
+                $map[$wId][] = $kasirId;
+            }
+        }
+        // Ensure every warehouse has at least one kasir
+        foreach ($whIds as $wId) {
+            if (empty($map[$wId])) {
+                $map[$wId] = $kasirIds;
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * Weighted warehouse pick — main outlet gets ~40% of all sales.
+     */
+    private function pickWarehouseId(array $whIds, int $mainWhId): int
+    {
+        if (rand(1, 10) <= 4) {
+            return $mainWhId;
+        }
+        $others = array_values(array_filter($whIds, fn($id) => $id !== $mainWhId));
+        return $others[array_rand($others)];
+    }
+
+    // ── CREATE PO ────────────────────────────────────────────────────────────
     private function createPO(
         int $year, int $month, int $daysInMonth,
         $items, array $suppliers, array $whIds, int $adminId,
         string $status
     ): void {
-        $day      = rand(1, min(15, $daysInMonth));
-        $ordDate  = Carbon::create($year, $month, $day);
-        $suppId   = $suppliers[array_rand($suppliers)];
-        $whId     = $whIds[array_rand($whIds)];
-        $poItems  = $items->random(rand(2, 5));
+        $day     = rand(1, min(15, $daysInMonth));
+        $ordDate = Carbon::create($year, $month, $day);
+        $suppId  = $suppliers[array_rand($suppliers)];
+        $whId    = $whIds[array_rand($whIds)];
+        $poItems = $items->random(rand(2, 6));
 
         $subtotal = 0;
         $lineData = [];
         foreach ($poItems as $item) {
-            $qty       = rand(20, 100);
+            $qty       = rand(20, 120);
             $price     = $item->harga_beli;
             $lineTotal = $qty * $price;
             $subtotal += $lineTotal;
@@ -246,33 +306,36 @@ class HistoricalDataSeeder extends Seeder
                 'item_id'            => $item->id,
                 'item_name_snapshot' => $item->nama,
                 'ordered_qty'        => $qty,
-                'received_qty'       => in_array($status, ['received', 'partial']) ? ($status === 'partial' ? (int) round($qty * 0.5) : $qty) : 0,
-                'unit_price'         => $price,
-                'line_total'         => $lineTotal,
+                'received_qty'       => match ($status) {
+                    'received' => $qty,
+                    'partial'  => (int) round($qty * 0.5),
+                    default    => 0,
+                },
+                'unit_price'  => $price,
+                'line_total'  => $lineTotal,
             ];
         }
 
-        $receivedAt = null;
-        if ($status === 'received' || $status === 'partial') {
-            $receivedAt = $ordDate->copy()->addDays(rand(5, 14));
-        }
+        $receivedAt = in_array($status, ['received', 'partial'])
+            ? $ordDate->copy()->addDays(rand(5, 14))
+            : null;
 
         $poId = DB::table('purchase_orders')->insertGetId([
-            'po_number'   => sprintf('PO/%04d/%02d/%04d', $year, $month, $this->poCounter++),
-            'supplier_id' => $suppId,
-            'warehouse_id'=> $whId,
-            'ordered_by'  => $adminId,
-            'received_by' => in_array($status, ['received', 'partial']) ? $adminId : null,
-            'status'      => $status,
-            'ordered_at'  => $ordDate,
-            'expected_at' => $ordDate->copy()->addDays(7)->toDateString(),
-            'received_at' => $receivedAt,
-            'subtotal'    => $subtotal,
-            'tax_amount'  => 0,
-            'grand_total' => $subtotal,
-            'note'        => null,
-            'created_at'  => $ordDate,
-            'updated_at'  => $ordDate,
+            'po_number'    => sprintf('PO/%04d/%02d/%04d', $year, $month, $this->poCounter++),
+            'supplier_id'  => $suppId,
+            'warehouse_id' => $whId,
+            'ordered_by'   => $adminId,
+            'received_by'  => $receivedAt ? $adminId : null,
+            'status'       => $status,
+            'ordered_at'   => $ordDate,
+            'expected_at'  => $ordDate->copy()->addDays(7)->toDateString(),
+            'received_at'  => $receivedAt,
+            'subtotal'     => $subtotal,
+            'tax_amount'   => 0,
+            'grand_total'  => $subtotal,
+            'note'         => null,
+            'created_at'   => $ordDate,
+            'updated_at'   => $ordDate,
         ]);
 
         foreach ($lineData as $line) {
@@ -284,61 +347,81 @@ class HistoricalDataSeeder extends Seeder
         }
     }
 
+    // ── CREATE SALE ──────────────────────────────────────────────────────────
     private function createSale(
         int $year, int $month, int $daysInMonth,
-        $items, array $customerIds, array $whIds, array $kasirIds
+        $items, array $customerIds, array $whIds, int $mainWhId,
+        array $kasirIds, array $kasirByWarehouse
     ): void {
-        $day        = rand(1, $daysInMonth);
-        $saleDate   = Carbon::create($year, $month, $day, rand(8, 21), rand(0, 59));
-        $whId       = $whIds[array_rand($whIds)];
-        $cashierId  = $kasirIds[array_rand($kasirIds)];
-        $customerId = rand(0, 2) === 0 ? $customerIds[array_rand($customerIds)] : null;
+        $day      = rand(1, $daysInMonth);
+        $hour     = rand(8, 21);
+        $minute   = rand(0, 59);
+        $saleDate = Carbon::create($year, $month, $day, $hour, $minute);
 
-        $saleItemsRaw = $items->random(rand(2, 4));
-        $subtotal     = 0;
-        $lineData     = [];
+        // Main outlet gets ~40% of volume; others share the rest
+        $whId      = $this->pickWarehouseId($whIds, $mainWhId);
+        $cashierId = ($kasirByWarehouse[$whId] ?? $kasirIds)[
+            array_rand($kasirByWarehouse[$whId] ?? $kasirIds)
+        ];
 
-        foreach ($saleItemsRaw as $item) {
+        // 30% chance of a registered customer; rest walk-in
+        $customerId = rand(1, 10) <= 3 ? $customerIds[array_rand($customerIds)] : null;
+
+        // 70% normal (2–3 items), 30% larger purchase (4–6 items)
+        $numItems    = rand(1, 10) <= 7 ? rand(2, 3) : rand(4, 6);
+        $saleItems   = $items->random(min($numItems, $items->count()));
+        $subtotal    = 0;
+        $lineData    = [];
+
+        foreach ($saleItems as $item) {
             $qty       = rand(1, 5);
             $price     = $item->harga_jual;
             $lineTotal = $qty * $price;
             $subtotal += $lineTotal;
             $lineData[] = [
-                'item_id'             => $item->id,
-                'item_name_snapshot'  => $item->nama,
-                'item_code_snapshot'  => $item->kode_item,
-                'unit_price'          => $price,
-                'quantity'            => $qty,
-                'discount_amount'     => 0,
-                'line_total'          => $lineTotal,
+                'item_id'            => $item->id,
+                'item_name_snapshot' => $item->nama,
+                'item_code_snapshot' => $item->kode_item,
+                'unit_price'         => $price,
+                'quantity'           => $qty,
+                'discount_amount'    => 0,
+                'line_total'         => $lineTotal,
             ];
         }
 
-        $discount = rand(0, 4) === 0 ? (int) round(rand(5, 25) * 1000) : 0;
+        // ~15% chance of a small discount
+        $discount   = rand(1, 100) <= 15 ? (int) round(rand(5, 30) * 1000) : 0;
         $grandTotal = max(0, $subtotal - $discount);
-        $payMethods = ['cash', 'cash', 'cash', 'qris', 'transfer', 'card'];
-        $payMethod  = $payMethods[array_rand($payMethods)];
-        $payAmount  = $payMethod === 'cash'
+
+        // Payment mix: cash 55%, qris 25%, transfer 20%
+        $methodRoll = rand(1, 100);
+        $payMethod  = match (true) {
+            $methodRoll <= 55 => 'cash',
+            $methodRoll <= 80 => 'qris',
+            default           => 'transfer',
+        };
+
+        $payAmount = $payMethod === 'cash'
             ? (int) (ceil($grandTotal / 10000) * 10000)
             : $grandTotal;
 
         $saleId = DB::table('sale_headers')->insertGetId([
-            'sale_number'    => sprintf('INV/%04d/%02d/%05d', $year, $month, $this->saleCounter++),
-            'warehouse_id'   => $whId,
-            'customer_id'    => $customerId,
-            'cashier_id'     => $cashierId,
-            'occurred_at'    => $saleDate,
-            'subtotal'       => $subtotal,
-            'discount_amount'=> $discount,
-            'tax_amount'     => 0,
-            'grand_total'    => $grandTotal,
-            'payment_method' => $payMethod,
-            'payment_amount' => $payAmount,
-            'change_amount'  => max(0, $payAmount - $grandTotal),
-            'status'         => 'completed',
-            'note'           => null,
-            'created_at'     => $saleDate,
-            'updated_at'     => $saleDate,
+            'sale_number'     => sprintf('TRX/%04d/%02d/%05d', $year, $month, $this->saleCounter++),
+            'warehouse_id'    => $whId,
+            'customer_id'     => $customerId,
+            'cashier_id'      => $cashierId,
+            'occurred_at'     => $saleDate,
+            'subtotal'        => $subtotal,
+            'discount_amount' => $discount,
+            'tax_amount'      => 0,
+            'grand_total'     => $grandTotal,
+            'payment_method'  => $payMethod,
+            'payment_amount'  => $payAmount,
+            'change_amount'   => max(0, $payAmount - $grandTotal),
+            'status'          => 'completed',
+            'note'            => null,
+            'created_at'      => $saleDate,
+            'updated_at'      => $saleDate,
         ]);
 
         foreach ($lineData as $line) {
@@ -350,6 +433,7 @@ class HistoricalDataSeeder extends Seeder
         }
     }
 
+    // ── CREATE STOCK MOVEMENT ─────────────────────────────────────────────────
     private function createStockMovement(
         string $type,
         int $year, int $month, int $daysInMonth,
@@ -359,22 +443,23 @@ class HistoricalDataSeeder extends Seeder
         $date = Carbon::create($year, $month, $day, rand(8, 17), rand(0, 59));
         $item = $items->random();
         $whId = $whIds[array_rand($whIds)];
-        $qty  = rand(5, 50);
+        $qty  = rand(5, 60);
 
-        $sources = ['Manual', 'Supplier', 'Purchase Order', 'Retur Barang'];
-        $inParties  = ['CV Maju Jaya', 'PT Sentosa', 'UD Berkah', 'CV Prima', 'Supplier Lokal'];
-        $outReasons = ['Barang rusak', 'Sample promosi', 'Barang hilang', 'Kadaluarsa', 'Koreksi stok'];
-        $categories = ['Pembelian', 'Penerimaan', 'Koreksi', 'Retur', 'Sample'];
+        $inParties  = [
+            'CV Maju Jaya', 'PT Sentosa Makmur', 'UD Berkah Pangan',
+            'CV Prima Sejahtera', 'Supplier Lokal', 'PT Nusa Indah',
+        ];
+        $outReasons = [
+            'Barang rusak', 'Sample promosi', 'Barang hilang',
+            'Kadaluarsa', 'Koreksi stok', 'Pemakaian internal',
+        ];
+        $sources    = ['Manual', 'Supplier', 'Purchase Order', 'Retur Barang'];
 
-        $source   = $type === 'stock_in' ? $sources[array_rand($sources)] : 'Manual';
-        $party    = $type === 'stock_in' ? $inParties[array_rand($inParties)] : null;
-        $note     = $type === 'stock_out' ? $outReasons[array_rand($outReasons)] : null;
-        $category = $categories[array_rand($categories)];
-        $ref      = $type === 'stock_in'
-            ? sprintf('STK-IN/%04d/%02d/%04d', $year, $month, $this->stkCounter)
-            : sprintf('STK-OUT/%04d/%02d/%04d', $year, $month, $this->stkCounter);
+        $party = $type === 'stock_in' ? $inParties[array_rand($inParties)] : null;
+        $note  = $type === 'stock_out' ? $outReasons[array_rand($outReasons)] : null;
+        $prefix = $type === 'stock_in' ? 'STK-IN' : 'STK-OUT';
+        $ref   = sprintf('%s/%04d/%02d/%04d', $prefix, $year, $month, $this->stkCounter);
 
-        // Estimate balance (non-authoritative — for display only)
         $warehouseBalance = rand(10, 200);
         $globalBalance    = $warehouseBalance * count($whIds);
 
@@ -388,10 +473,10 @@ class HistoricalDataSeeder extends Seeder
             'status'       => 'completed',
             'type'         => $type,
             'actor'        => $admin->name ?? 'Admin',
-            'source'       => $source,
+            'source'       => $sources[array_rand($sources)],
             'party'        => $party,
             'reference'    => $ref,
-            'category'     => $category,
+            'category'     => $type === 'stock_in' ? 'Penerimaan' : 'Pengeluaran',
             'note'         => $note,
             'metadata'     => json_encode([
                 'balance_after'        => $warehouseBalance,
@@ -404,11 +489,104 @@ class HistoricalDataSeeder extends Seeder
         $this->stkCounter++;
     }
 
+    // ── CREATE MONTHLY EXPENSES ───────────────────────────────────────────────
+    /**
+     * Realistic expense breakdown per outlet.
+     *
+     * Toko Pusat (Jakarta, 5 staff):
+     *   Salary 22–28 juta · Rent 15–18 juta · Electricity 2–3.5 juta
+     *   Internet 500–900 rb · BPJS 2–3 juta
+     *
+     * Branch outlets (2–3 staff):
+     *   Salary 10–14 juta · Rent 5–9 juta (varies by city)
+     *   Electricity 800 rb–1.5 juta · Internet 250–450 rb · BPJS 700 rb–1.2 juta
+     */
+    private function createMonthlyExpenses(int $year, int $month, object $wh, int $adminId): void
+    {
+        $isMain  = (bool) $wh->is_default;
+        $city    = $wh->city ?? '';
+        $now     = now();
+        $days    = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+
+        // Salary — scales with headcount per outlet
+        $salary = $isMain
+            ? rand(22, 28) * 1_000_000
+            : rand(10, 14) * 1_000_000;
+
+        // Rent — city-sensitive
+        $rent = match ($city) {
+            'Jakarta'  => rand(15, 18) * 1_000_000,
+            'Surabaya' => rand(7, 10)  * 1_000_000,
+            'Bandung'  => rand(6, 9)   * 1_000_000,
+            'Semarang' => rand(5, 8)   * 1_000_000,
+            default    => rand(5, 8)   * 1_000_000,
+        };
+
+        // Fixed utilities
+        $electricity = $isMain ? rand(2000, 3500) * 1_000 : rand(800, 1500) * 1_000;
+        $internet    = $isMain ? rand(500, 900)   * 1_000 : rand(250, 450)  * 1_000;
+        $bpjs        = $isMain ? rand(2000, 3000) * 1_000 : rand(700, 1200) * 1_000;
+
+        $d1  = Carbon::create($year, $month, 1)->toDateString();
+        $d3  = Carbon::create($year, $month, 3)->toDateString();
+        $d5  = Carbon::create($year, $month, 5)->toDateString();
+        $d10 = Carbon::create($year, $month, 10)->toDateString();
+
+        $fixed = [
+            [$d1,  'Gaji Karyawan',        $salary,      "Gaji karyawan bulan {$month}/{$year}"],
+            [$d5,  'Sewa Tempat',           $rent,        "Sewa tempat bulan {$month}/{$year}"],
+            [$d3,  'BPJS Ketenagakerjaan',  $bpjs,        "Iuran BPJS bulan {$month}/{$year}"],
+            [$d10, 'Listrik & Air',         $electricity, 'Tagihan listrik dan air'],
+            [$d10, 'Internet & Telepon',    $internet,    'Tagihan internet dan telepon'],
+        ];
+
+        foreach ($fixed as [$date, $cat, $amount, $desc]) {
+            DB::table('expenses')->insert([
+                'occurred_at'  => $date,
+                'category'     => $cat,
+                'amount'       => $amount,
+                'description'  => $desc,
+                'warehouse_id' => $wh->id,
+                'created_by'   => $adminId,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
+        }
+
+        // Variable expenses (1–3 per month, more for main outlet)
+        $varOptions = [
+            ['Perlengkapan Toko',      rand(200,  800) * 1_000, 'Pembelian perlengkapan dan alat tulis'],
+            ['Transportasi',           rand(100,  500) * 1_000, 'Ongkos pengiriman dan transportasi'],
+            ['Pemeliharaan Peralatan', rand(150,  700) * 1_000, 'Service AC, komputer, mesin kasir'],
+            ['Pemasaran & Promosi',    rand(200, 1500) * 1_000, 'Iklan, brosur, media sosial'],
+            ['Kebersihan',             rand(100,  400) * 1_000, 'Jasa kebersihan dan produk kebersihan'],
+            ['Konsumsi Rapat',         rand(50,   300) * 1_000, null],
+            ['Lain-lain',              rand(50,   400) * 1_000, null],
+        ];
+        shuffle($varOptions);
+        $numVar = rand(1, $isMain ? 3 : 2);
+        for ($v = 0; $v < $numVar; $v++) {
+            [$cat, $amount, $desc] = $varOptions[$v];
+            $varDate = Carbon::create($year, $month, rand(1, $days))->toDateString();
+            DB::table('expenses')->insert([
+                'occurred_at'  => $varDate,
+                'category'     => $cat,
+                'amount'       => $amount,
+                'description'  => $desc,
+                'warehouse_id' => $wh->id,
+                'created_by'   => $adminId,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
+        }
+    }
+
+    // ── CREATE STOCK OPNAME ───────────────────────────────────────────────────
     private function createOpname(
         int $year, int $month, int $day, string $label, string $status,
         object $wh, $items, object $admin
     ): void {
-        $date = Carbon::create($year, $month, $day);
+        $date      = Carbon::create($year, $month, $day);
         $refNumber = sprintf('OPN/%04d/%s/%02d-%d', $year, $label, $this->opnameCounter, $wh->id);
 
         $opnameId = DB::table('stock_opnames')->insertGetId([
@@ -417,24 +595,25 @@ class HistoricalDataSeeder extends Seeder
             'status'       => $status,
             'date'         => $date->toDateString(),
             'created_by'   => $admin->name ?? 'Admin',
-            'submitted_at' => $status === 'submitted' ? $date->copy()->addHours(rand(2, 6)) : null,
-            'note'         => $status === 'draft' ? 'Sedang dalam proses penghitungan' : "Stock opname {$label}",
-            'created_at'   => $date,
-            'updated_at'   => $date,
+            'submitted_at' => $status === 'submitted'
+                ? $date->copy()->addHours(rand(2, 6))
+                : null,
+            'note' => $status === 'draft'
+                ? 'Sedang dalam proses penghitungan'
+                : "Stock opname {$label}",
+            'created_at' => $date,
+            'updated_at' => $date,
         ]);
 
-        // Pick 10-20 random items for this opname
         $opnameItems = $items->random(min(rand(10, 20), $items->count()));
-        $insertRows  = [];
+        $rows        = [];
 
         foreach ($opnameItems as $item) {
             $systemQty = rand(5, 120);
-            $variance  = $status === 'draft'
-                ? null                          // not counted yet
-                : rand(-5, 5);                  // small physical variance
+            $variance  = $status === 'draft' ? null : rand(-6, 6);
             $actualQty = $variance !== null ? max(0, $systemQty + $variance) : null;
 
-            $insertRows[] = [
+            $rows[] = [
                 'opname_id'          => $opnameId,
                 'item_id'            => $item->id,
                 'item_name_snapshot' => $item->nama,
@@ -448,65 +627,7 @@ class HistoricalDataSeeder extends Seeder
             ];
         }
 
-        DB::table('stock_opname_items')->insert($insertRows);
+        DB::table('stock_opname_items')->insert($rows);
         $this->opnameCounter++;
-    }
-
-    private function createMonthlyExpenses(int $year, int $month, int $whId, int $adminId): void
-    {
-        $date1 = Carbon::create($year, $month, 1)->toDateString();
-        $date5 = Carbon::create($year, $month, 5)->toDateString();
-        $dateMid = Carbon::create($year, $month, rand(10, 20))->toDateString();
-
-        $now = now();
-        DB::table('expenses')->insert([
-            [
-                'occurred_at' => $date1,
-                'category'    => 'Gaji Karyawan',
-                'amount'      => rand(8, 12) * 1000000,
-                'description' => "Gaji karyawan bulan {$month}/{$year}",
-                'warehouse_id'=> $whId,
-                'created_by'  => $adminId,
-                'created_at'  => $now,
-                'updated_at'  => $now,
-            ],
-            [
-                'occurred_at' => $date5,
-                'category'    => 'Sewa Tempat',
-                'amount'      => 5000000,
-                'description' => "Sewa tempat bulan {$month}/{$year}",
-                'warehouse_id'=> $whId,
-                'created_by'  => $adminId,
-                'created_at'  => $now,
-                'updated_at'  => $now,
-            ],
-            [
-                'occurred_at' => $dateMid,
-                'category'    => 'Utilitas',
-                'amount'      => rand(800, 1500) * 1000,
-                'description' => 'Listrik, air, internet',
-                'warehouse_id'=> $whId,
-                'created_by'  => $adminId,
-                'created_at'  => $now,
-                'updated_at'  => $now,
-            ],
-        ]);
-
-        // 1-2 variable expenses
-        $varCategories = ['Transportasi', 'Pemasaran', 'Perlengkapan', 'Pemeliharaan', 'Lain-lain'];
-        $numVar = rand(1, 2);
-        for ($v = 0; $v < $numVar; $v++) {
-            $varDate = Carbon::create($year, $month, rand(1, cal_days_in_month(CAL_GREGORIAN, $month, $year)))->toDateString();
-            DB::table('expenses')->insert([
-                'occurred_at' => $varDate,
-                'category'    => $varCategories[array_rand($varCategories)],
-                'amount'      => rand(100, 800) * 1000,
-                'description' => null,
-                'warehouse_id'=> $whId,
-                'created_by'  => $adminId,
-                'created_at'  => $now,
-                'updated_at'  => $now,
-            ]);
-        }
     }
 }

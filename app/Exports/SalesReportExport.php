@@ -14,18 +14,35 @@ class SalesReportExport implements FromCollection, WithHeadings, WithTitle, With
 {
     public function __construct(
         private string $dateFrom,
-        private string $dateTo
+        private string $dateTo,
+        private string $warehouseId = '',
+        private string $method = '',
+        private array $allowedIds = [],
     ) {}
 
     public function collection()
     {
-        return SaleHeader::with('cashier', 'customer')
+        $q = SaleHeader::with('cashier', 'customer')
             ->where('status', 'completed')
             ->whereBetween('occurred_at', [
                 $this->dateFrom . ' 00:00:00',
                 $this->dateTo . ' 23:59:59',
-            ])
-            ->orderBy('occurred_at')
+            ]);
+
+        if (! empty($this->allowedIds)) {
+            $q->whereIn('warehouse_id', $this->allowedIds);
+        }
+        if ($this->warehouseId !== '') {
+            $wId = (int) $this->warehouseId;
+            if (empty($this->allowedIds) || in_array($wId, $this->allowedIds)) {
+                $q->where('warehouse_id', $wId);
+            }
+        }
+        if ($this->method !== '') {
+            $q->where('payment_method', $this->method);
+        }
+
+        return $q->orderBy('occurred_at')
             ->get()
             ->map(fn($s) => [
                 $s->sale_number,

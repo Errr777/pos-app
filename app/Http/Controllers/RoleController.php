@@ -15,16 +15,17 @@ class RoleController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            $user   = $request->user();
+            $user = $request->user();
             $method = $request->method();
             $action = match (true) {
                 in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
-                $method === 'DELETE'                        => 'can_delete',
-                default                                     => 'can_view',
+                $method === 'DELETE' => 'can_delete',
+                default => 'can_view',
             };
-            if (!$user->hasPermission('users', $action)) {
+            if (! $user->hasPermission('users', $action)) {
                 abort(403);
             }
+
             return $next($request);
         });
     }
@@ -37,24 +38,25 @@ class RoleController extends Controller
             $permissions = collect(UserPermission::$modules)
                 ->mapWithKeys(function ($_, $key) use ($permsKeyed) {
                     $p = $permsKeyed->get($key);
+
                     return [$key => [
-                        'can_view'   => $p ? (bool) $p->can_view   : false,
-                        'can_write'  => $p ? (bool) $p->can_write  : false,
+                        'can_view' => $p ? (bool) $p->can_view : false,
+                        'can_write' => $p ? (bool) $p->can_write : false,
                         'can_delete' => $p ? (bool) $p->can_delete : false,
                     ]];
                 })->toArray();
 
             return [
-                'id'          => $role->id,
-                'name'        => $role->name,
-                'label'       => $role->label,
-                'is_system'   => $role->is_system,
+                'id' => $role->id,
+                'name' => $role->name,
+                'label' => $role->label,
+                'is_system' => $role->is_system,
                 'permissions' => $permissions,
             ];
         });
 
         return Inertia::render('Users/Roles', [
-            'roles'   => $roles,
+            'roles' => $roles,
             'modules' => UserPermission::$modules,
         ]);
     }
@@ -62,7 +64,7 @@ class RoleController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name'  => 'required|string|max:50|unique:roles,name|regex:/^[a-z_]+$/',
+            'name' => 'required|string|max:50|unique:roles,name|regex:/^[a-z_]+$/',
             'label' => 'required|string|max:100',
         ]);
 
@@ -71,8 +73,8 @@ class RoleController extends Controller
         }
 
         Role::create([
-            'name'      => $validator->validated()['name'],
-            'label'     => $validator->validated()['label'],
+            'name' => $validator->validated()['name'],
+            'label' => $validator->validated()['label'],
             'is_system' => false,
         ]);
 
@@ -116,9 +118,9 @@ class RoleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'permissions'              => 'required|array',
-            'permissions.*.can_view'   => 'boolean',
-            'permissions.*.can_write'  => 'boolean',
+            'permissions' => 'required|array',
+            'permissions.*.can_view' => 'boolean',
+            'permissions.*.can_write' => 'boolean',
             'permissions.*.can_delete' => 'boolean',
         ]);
 
@@ -129,13 +131,17 @@ class RoleController extends Controller
         $validModules = array_keys(UserPermission::$modules);
 
         foreach ($request->permissions as $module => $perms) {
-            if (!in_array($module, $validModules)) continue;
+            if (! in_array($module, $validModules)) {
+                continue;
+            }
 
-            $canView   = (bool) ($perms['can_view']   ?? false);
-            $canWrite  = (bool) ($perms['can_write']  ?? false);
+            $canView = (bool) ($perms['can_view'] ?? false);
+            $canWrite = (bool) ($perms['can_write'] ?? false);
             $canDelete = (bool) ($perms['can_delete'] ?? false);
 
-            if ($canWrite || $canDelete) $canView = true;
+            if ($canWrite || $canDelete) {
+                $canView = true;
+            }
 
             RolePermission::updateOrCreate(
                 ['role_id' => $role->id, 'module' => $module],
@@ -143,10 +149,15 @@ class RoleController extends Controller
             );
         }
 
+        // Invalidate cached permissions for all users of this role
+        \App\Models\User::where('role', $role->name)->pluck('id')->each(
+            fn ($uid) => \Illuminate\Support\Facades\Cache::forget("user_perms_{$uid}_{$role->name}")
+        );
+
         $modulesChanged = array_keys($request->permissions ?? []);
 
         AuditLogger::log('role.permissions_changed', $role, null, [
-            'role_name'       => $role->name,
+            'role_name' => $role->name,
             'modules_changed' => $modulesChanged,
         ]);
 

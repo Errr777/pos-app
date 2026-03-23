@@ -26,6 +26,9 @@ function formatDisplay(value: string): string {
     return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+const START_MONTH = new Date(2020, 0);
+const END_MONTH   = new Date(new Date().getFullYear() + 5, 11);
+
 export function DatePickerInput({
     value,
     onChange,
@@ -60,8 +63,8 @@ export function DatePickerInput({
                     selected={selected}
                     defaultMonth={defaultMonth}
                     captionLayout="dropdown"
-                    fromYear={2020}
-                    toYear={new Date().getFullYear() + 5}
+                    startMonth={START_MONTH}
+                    endMonth={END_MONTH}
                     onSelect={(date) => {
                         if (date) {
                             onChange(toISO(date));
@@ -107,8 +110,8 @@ export function DatePickerFilter({
                     selected={selected}
                     defaultMonth={defaultMonth}
                     captionLayout="dropdown"
-                    fromYear={2020}
-                    toYear={new Date().getFullYear() + 5}
+                    startMonth={START_MONTH}
+                    endMonth={END_MONTH}
                     onSelect={(date) => {
                         if (date) {
                             onChange(toISO(date));
