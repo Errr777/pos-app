@@ -41,37 +41,7 @@ class InstallmentController extends Controller
      */
     public function plans(Customer $customer)
     {
-        $plans = InstallmentPlan::where('customer_id', $customer->id)
-            ->with(['payments', 'saleHeader:id,sale_number,occurred_at,grand_total'])
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(fn ($plan) => [
-                'id' => $plan->id,
-                'saleNumber' => $plan->saleHeader?->sale_number,
-                'occurredAt' => $plan->saleHeader?->occurred_at?->toISOString(),
-                'grandTotal' => $plan->saleHeader?->grand_total,
-                'totalAmount' => $plan->total_amount,
-                'paidAmount' => $plan->paid_amount,
-                'remainingAmount' => $plan->remainingAmount(),
-                'installmentCount' => $plan->installment_count,
-                'interestRate' => (float) $plan->interest_rate,
-                'lateFeeAmount' => $plan->late_fee_amount,
-                'status' => $plan->status,
-                'note' => $plan->note,
-                'payments' => $plan->payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'dueDate' => $p->due_date->toDateString(),
-                    'amountDue' => $p->amount_due,
-                    'interestAmount' => $p->interest_amount,
-                    'lateFeeApplied' => $p->late_fee_applied,
-                    'totalDue' => $p->totalDue(),
-                    'amountPaid' => $p->amount_paid,
-                    'paidAt' => $p->paid_at?->toISOString(),
-                    'status' => $p->status,
-                    'paymentMethod' => $p->payment_method,
-                    'note' => $p->note,
-                ]),
-            ]);
+        $plans = \App\Helpers\InstallmentPlanMapper::forCustomer($customer);
 
         return response()->json($plans);
     }
@@ -85,25 +55,45 @@ class InstallmentController extends Controller
         $plans = InstallmentPlan::where('customer_id', $customer->id)
             ->whereIn('status', ['active', 'overdue'])
             ->with([
-                'payments' => fn ($q) => $q->whereIn('status', ['pending', 'overdue', 'partial'])->orderBy('due_date'),
+                'payments',
                 'saleHeader:id,sale_number',
             ])
             ->get()
-            ->map(fn ($plan) => [
-                'id' => $plan->id,
-                'saleNumber' => $plan->saleHeader?->sale_number,
-                'remainingAmount' => $plan->remainingAmount(),
-                'status' => $plan->status,
-                'payments' => $plan->payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'dueDate' => $p->due_date->toDateString(),
-                    'amountDue' => $p->amount_due,
-                    'interestAmount' => $p->interest_amount,
-                    'lateFeeApplied' => $p->late_fee_applied,
-                    'totalDue' => $p->totalDue(),
-                    'status' => $p->status,
-                ]),
-            ]);
+            ->map(function ($plan) {
+                $allPmts    = $plan->payments;
+                $totalCount = $allPmts->count();
+                $sequence   = $allPmts->pluck('id')->flip(); // id → 0-based index
+
+                $remainingAmount    = $plan->remainingAmount();
+                $allScheduledPaid  = $allPmts->every(fn ($p) => $p->status === 'paid');
+
+                return [
+                    'id'              => $plan->id,
+                    'saleNumber'      => $plan->saleHeader?->sale_number,
+                    'totalAmount'     => $plan->total_amount,
+                    'paidAmount'      => $plan->paid_amount,
+                    'remainingAmount' => $remainingAmount,
+                    'status'          => $plan->status,
+                    'totalPayments'   => $totalCount,
+                    'canPayExtra'     => $allScheduledPaid && $remainingAmount > 0,
+                    'payments'        => $allPmts->map(fn ($p) => [
+                        'id'             => $p->id,
+                        'dueDate'        => $p->due_date->toDateString(),
+                        'amountDue'      => $p->amount_due,
+                        'interestAmount' => $p->interest_amount,
+                        'lateFeeApplied' => $p->late_fee_applied,
+                        'totalDue'       => $p->totalDue(),
+                        'alreadyPaid'    => $p->amount_paid,
+                        'remainingDue'   => $p->remainingDue(),
+                        'isPaid'         => $p->status === 'paid',
+                        'status'         => $p->status,
+                        'paymentNumber'  => $sequence->get($p->id) + 1,
+                        'remainingAfter' => $totalCount - $sequence->get($p->id) - 1,
+                        'paymentMethod'  => $p->payment_method,
+                        'paidAt'         => $p->paid_at?->toISOString(),
+                    ])->values(),
+                ];
+            });
 
         return response()->json([
             'plans' => $plans,
@@ -121,18 +111,251 @@ class InstallmentController extends Controller
             ->orderBy('name')
             ->withCount(['installmentPlans as overdue_count' => fn ($q) => $q->where('status', 'overdue')])
             ->withCount(['installmentPlans as active_count' => fn ($q) => $q->whereIn('status', ['active', 'overdue'])])
+            ->withSum(['installmentPlans as remaining_total' => fn ($q) => $q->whereIn('status', ['active', 'overdue'])], \DB::raw('GREATEST(CAST(total_amount AS SIGNED) - CAST(paid_amount AS SIGNED), 0)'))
+            ->addSelect(\DB::raw(
+                "(SELECT COUNT(*) FROM installment_payments
+                  INNER JOIN installment_plans ON installment_payments.installment_plan_id = installment_plans.id
+                  WHERE installment_plans.customer_id = customers.id
+                    AND installment_plans.status IN ('active','overdue')) as total_payment_count"
+            ))
+            ->addSelect(\DB::raw(
+                "(SELECT COUNT(*) FROM installment_payments
+                  INNER JOIN installment_plans ON installment_payments.installment_plan_id = installment_plans.id
+                  WHERE installment_plans.customer_id = customers.id
+                    AND installment_plans.status IN ('active','overdue')
+                    AND installment_payments.status = 'paid') as paid_payment_count"
+            ))
+            ->get();
+
+        // Collect sale numbers per customer in one query (avoids N+1)
+        $saleNumbersByCustomer = InstallmentPlan::whereIn('customer_id', $customers->pluck('id'))
+            ->whereIn('status', ['active', 'overdue'])
+            ->with('saleHeader:id,sale_number')
             ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'code' => $c->code,
-                'isBlocked' => $c->overdue_count > 0,
-                'hasCredit' => $c->active_count > 0,
-            ]);
+            ->groupBy('customer_id')
+            ->map(fn ($plans) => $plans->pluck('saleHeader.sale_number')->filter()->values()->all());
+
+        $mapped = $customers->map(fn ($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'code' => $c->code,
+            'isBlocked' => $c->overdue_count > 0,
+            'hasCredit' => $c->active_count > 0,
+            'remainingTotal' => (int) ($c->remaining_total ?? 0),
+            'activePlans' => (int) $c->active_count,
+            'totalPayments' => (int) ($c->total_payment_count ?? 0),
+            'paidPayments' => (int) ($c->paid_payment_count ?? 0),
+            'saleNumbers' => $saleNumbersByCustomer->get($c->id, []),
+        ]);
 
         return Inertia::render('pos/InstallmentPayment', [
-            'customers' => $customers,
+            'customers' => $mapped,
         ]);
+    }
+
+    /**
+     * GET /pos/kredit
+     * Paginated history of all installment plans (all statuses).
+     */
+    public function historyPage(Request $request)
+    {
+        $status  = $request->get('status', 'all'); // all|active|overdue|completed
+        $search  = trim((string) $request->get('search', ''));
+        $perPage = in_array((int) $request->get('per_page', 20), [20, 50, 100])
+            ? (int) $request->get('per_page', 20) : 20;
+
+        $allowedSort = [
+            'created'   => 'installment_plans.created_at',
+            'remaining' => 'remaining_amount',
+            'customer'  => 'customers.name',
+        ];
+        $sortKey = $request->get('sort_by', 'created');
+        $sortCol = $allowedSort[$sortKey] ?? 'installment_plans.created_at';
+        $sortDir = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = InstallmentPlan::query()
+            ->select(
+                'installment_plans.*',
+                DB::raw('GREATEST(CAST(installment_plans.total_amount AS SIGNED) - CAST(installment_plans.paid_amount AS SIGNED), 0) as remaining_amount')
+            )
+            ->join('customers', 'customers.id', '=', 'installment_plans.customer_id')
+            ->with([
+                'customer:id,name,code',
+                'saleHeader:id,sale_number,occurred_at',
+                'payments',
+            ]);
+
+        if ($status !== 'all') {
+            $query->where('installment_plans.status', $status);
+        }
+
+        if ($search !== '') {
+            $term = strtolower($search);
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(customers.name) like ?', ["%{$term}%"])
+                  ->orWhereRaw('LOWER(customers.code) like ?', ["%{$term}%"])
+                  ->orWhereHas('saleHeader', fn ($sq) =>
+                      $sq->whereRaw('LOWER(sale_number) like ?', ["%{$term}%"])
+                  );
+            });
+        }
+
+        if ($sortKey === 'customer') {
+            $query->orderBy('customers.name', $sortDir);
+        } else {
+            $query->orderBy($sortCol, $sortDir);
+        }
+
+        $plans = $query->paginate($perPage)->withQueryString()
+            ->through(function ($plan) {
+                $payments  = $plan->payments;
+                $paidCount = $payments->where('status', 'paid')->count();
+
+                return [
+                    'id'               => $plan->id,
+                    'customerId'       => $plan->customer?->id,
+                    'customerName'     => $plan->customer?->name,
+                    'customerCode'     => $plan->customer?->code,
+                    'saleNumber'       => $plan->saleHeader?->sale_number,
+                    'occurredAt'       => $plan->saleHeader?->occurred_at?->toISOString(),
+                    'totalAmount'      => $plan->total_amount,
+                    'paidAmount'       => $plan->paid_amount,
+                    'remainingAmount'  => (int) $plan->remaining_amount,
+                    'installmentCount' => $plan->installment_count,
+                    'paidCount'        => $paidCount,
+                    'interestRate'     => (float) $plan->interest_rate,
+                    'status'           => $plan->status,
+                    'note'             => $plan->note,
+                    'createdAt'        => $plan->created_at?->toISOString(),
+                    'payments'         => $payments->map(fn ($p) => [
+                        'id'             => $p->id,
+                        'dueDate'        => $p->due_date->toDateString(),
+                        'amountDue'      => $p->amount_due,
+                        'interestAmount' => $p->interest_amount,
+                        'lateFeeApplied' => $p->late_fee_applied,
+                        'totalDue'       => $p->totalDue(),
+                        'amountPaid'     => $p->amount_paid,
+                        'paidAt'         => $p->paid_at?->toISOString(),
+                        'status'         => $p->status,
+                        'paymentMethod'  => $p->payment_method,
+                        'note'           => $p->note,
+                    ])->values(),
+                ];
+            });
+
+        return Inertia::render('pos/CreditHistory', [
+            'plans'   => $plans,
+            'filters' => $request->only(['search', 'status', 'per_page', 'sort_by', 'sort_dir']),
+        ]);
+    }
+
+    /**
+     * POST /pos/installments/{plan}/add-installment
+     * Extend a plan with a new installment row when the last one is still unpaid.
+     */
+    public function addInstallment(Request $request, InstallmentPlan $plan)
+    {
+        $remaining = $plan->remainingAmount();
+
+        if ($remaining <= 0) {
+            return response()->json(['error' => 'Tidak ada sisa pembayaran.'], 422);
+        }
+
+        // Must still have unpaid scheduled payments (otherwise use pay-extra)
+        if (! $plan->payments()->whereNotIn('status', ['paid'])->exists()) {
+            return response()->json(['error' => 'Gunakan pembayaran sisa untuk melunasi.'], 422);
+        }
+
+        $request->validate([
+            'due_date'   => 'required|date|after:today',
+            'amount_due' => "required|integer|min:1|max:{$remaining}",
+            'note'       => 'nullable|string|max:500',
+        ]);
+
+        DB::transaction(function () use ($plan, $request) {
+            InstallmentPayment::create([
+                'installment_plan_id' => $plan->id,
+                'due_date'            => $request->due_date,
+                'amount_due'          => (int) $request->amount_due,
+                'interest_amount'     => 0,
+                'late_fee_applied'    => 0,
+                'amount_paid'         => 0,
+                'status'              => 'pending',
+                'payment_method'      => null,
+                'recorded_by'         => Auth::id(),
+                'note'                => $request->note,
+            ]);
+
+            $plan->increment('installment_count');
+
+            AuditLogger::log('installment.extended', $plan->customer, [
+                'plan_id'    => $plan->id,
+                'due_date'   => $request->due_date,
+                'amount_due' => $request->amount_due,
+            ], null);
+        });
+
+        return response()->json(['message' => 'Cicilan berikutnya berhasil ditambahkan.']);
+    }
+
+    /**
+     * POST /pos/installments/{plan}/pay-extra
+     * Ad-hoc payment for remaining balance after all scheduled installments are paid.
+     */
+    public function payExtra(Request $request, InstallmentPlan $plan)
+    {
+        $remaining = $plan->remainingAmount();
+
+        if ($remaining <= 0) {
+            return response()->json(['error' => 'Tidak ada sisa pembayaran.'], 422);
+        }
+
+        if ($plan->payments()->whereNotIn('status', ['paid'])->exists()) {
+            return response()->json(['error' => 'Masih ada cicilan terjadwal yang belum lunas.'], 422);
+        }
+
+        $request->validate([
+            'amount_paid'    => "required|integer|min:1|max:{$remaining}",
+            'payment_method' => 'required|in:cash,transfer,qris,card',
+            'note'           => 'nullable|string|max:500',
+        ]);
+
+        $amountPaid = (int) $request->amount_paid;
+
+        DB::transaction(function () use ($plan, $amountPaid, $remaining, $request) {
+            $note = trim(($request->note ?? '') . ' [Di luar jadwal cicilan]');
+
+            $payment = $plan->payments()->create([
+                'due_date'         => now()->toDateString(),
+                'amount_due'       => $remaining,
+                'interest_amount'  => 0,
+                'late_fee_applied' => 0,
+                'amount_paid'      => $amountPaid,
+                'paid_at'          => $amountPaid >= $remaining ? now() : null,
+                'status'           => $amountPaid >= $remaining ? 'paid' : 'partial',
+                'payment_method'   => $request->payment_method,
+                'recorded_by'      => Auth::id(),
+                'note'             => $note,
+            ]);
+
+            $plan->paid_amount = min($plan->paid_amount + $amountPaid, $plan->total_amount);
+            $allDone = ! $plan->payments()->whereNotIn('status', ['paid'])->exists();
+            $plan->status = $allDone ? 'completed' : 'active';
+            $plan->save();
+
+            AuditLogger::log('installment.extra_paid', $plan->customer, [
+                'plan_id'        => $plan->id,
+                'payment_id'     => $payment->id,
+                'amount'         => $amountPaid,
+                'payment_method' => $request->payment_method,
+            ], null);
+        });
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Pembayaran tambahan berhasil dicatat.']);
+        }
+
+        return back()->with('success', 'Pembayaran tambahan berhasil dicatat.');
     }
 
     public function invoice(InstallmentPlan $plan)
@@ -214,31 +437,82 @@ class InstallmentController extends Controller
             return back()->withErrors(['general' => 'Cicilan ini sudah dibayar.']);
         }
 
+        // Apply late fee to compute correct remaining before validation
+        $lateFee = (int) ($request->late_fee ?? 0);
+        $remainingDue = max(0, $payment->totalDue() + $lateFee - $payment->amount_paid);
+
         $request->validate([
-            'amount_paid' => 'required|integer|min:1',
+            'amount_paid' => "required|integer|min:1|max:{$remainingDue}",
             'payment_method' => 'required|in:cash,transfer,qris,card',
             'note' => 'nullable|string|max:500',
+            'late_fee' => 'nullable|integer|min:0',
         ]);
 
         $amountPaid = (int) $request->amount_paid;
-        $totalDue = $payment->totalDue();
+        $shortfall  = $remainingDue - $amountPaid; // > 0 means underpayment
 
-        DB::transaction(function () use ($payment, $plan, $amountPaid, $totalDue, $request) {
-            $newStatus = $amountPaid >= $totalDue ? 'paid' : 'partial';
+        // Guard: ensure payment won't push paid_amount above total obligation
+        $totalObligation = max($plan->total_amount, (int) $plan->payments()->sum(DB::raw('amount_due + interest_amount + late_fee_applied')));
+        if ($plan->paid_amount + $amountPaid > $totalObligation) {
+            $error = 'Pembayaran melebihi total hutang. Maksimum yang bisa dibayar: ' . number_format($totalObligation - $plan->paid_amount, 0, ',', '.');
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $error, 'max_allowed' => $totalObligation - $plan->paid_amount], 422);
+            }
+            return back()->withErrors(['amount_paid' => $error]);
+        }
 
+        DB::transaction(function () use ($payment, $plan, $amountPaid, $shortfall, $lateFee, $request) {
+            // Is this the last unpaid installment in the schedule?
+            $isLastUnpaid = ! $plan->payments()
+                ->where('id', '!=', $payment->id)
+                ->whereNotIn('status', ['paid'])
+                ->exists();
+
+            // Always mark as paid regardless of amount.
             $payment->update([
-                'amount_paid' => $amountPaid,
-                'paid_at' => $newStatus === 'paid' ? now() : null,
-                'status' => $newStatus,
-                'payment_method' => $request->payment_method,
-                'recorded_by' => Auth::id(),
-                'note' => $request->note,
+                'late_fee_applied' => $payment->late_fee_applied + $lateFee,
+                'amount_paid'      => $payment->amount_paid + $amountPaid,
+                'paid_at'          => now(),
+                'status'           => 'paid',
+                'payment_method'   => $request->payment_method,
+                'recorded_by'      => Auth::id(),
+                'note'             => $request->note,
             ]);
 
-            $plan->paid_amount = min($plan->paid_amount + $amountPaid, $plan->total_amount);
+            if ($shortfall > 0) {
+                if ($isLastUnpaid) {
+                    // Last installment: create a new row for the shortfall (+1 month)
+                    $lastDueDate = \Carbon\Carbon::parse(
+                        $plan->payments()->max('due_date')
+                    );
 
-            $allDone = $plan->remainingAmount() <= 0
-                || ! $plan->payments()->whereNotIn('status', ['paid'])->exists();
+                    $plan->payments()->create([
+                        'due_date'         => $lastDueDate->addMonth()->toDateString(),
+                        'amount_due'       => $shortfall,
+                        'interest_amount'  => 0,
+                        'late_fee_applied' => 0,
+                        'amount_paid'      => 0,
+                        'status'           => 'pending',
+                        'payment_method'   => null,
+                        'recorded_by'      => Auth::id(),
+                        'note'             => 'Sisa pembayaran yang belum dilunasi',
+                    ]);
+
+                    $plan->increment('installment_count');
+                } else {
+                    // Middle installment: carry shortfall into the next unpaid row
+                    // so displayed amounts stay consistent with plan.remainingAmount().
+                    $plan->payments()
+                        ->where('id', '!=', $payment->id)
+                        ->whereNotIn('status', ['paid'])
+                        ->orderBy('due_date')
+                        ->first()
+                        ?->increment('amount_due', $shortfall);
+                }
+            }
+
+            $plan->paid_amount = $plan->paid_amount + $amountPaid;
+            $allDone = ! $plan->payments()->whereNotIn('status', ['paid'])->exists();
 
             $plan->status = $allDone ? 'completed'
                 : ($plan->payments()->where('status', 'overdue')->exists() ? 'overdue' : 'active');
@@ -246,9 +520,10 @@ class InstallmentController extends Controller
             $plan->save();
 
             AuditLogger::log('installment.paid', $plan->customer, [
-                'plan_id' => $plan->id,
-                'payment_id' => $payment->id,
-                'amount' => $amountPaid,
+                'plan_id'        => $plan->id,
+                'payment_id'     => $payment->id,
+                'amount'         => $amountPaid,
+                'shortfall'      => $shortfall,
                 'payment_method' => $request->payment_method,
             ], null);
         });
@@ -271,6 +546,7 @@ class InstallmentController extends Controller
             'amount_paid' => 'required|integer|min:1',
             'payment_method' => 'required|in:cash,transfer,qris,card',
             'note' => 'nullable|string|max:500',
+            'late_fee' => 'nullable|integer|min:0',
         ]);
 
         $payment = InstallmentPayment::with('plan')->findOrFail($request->installment_payment_id);

@@ -15,7 +15,6 @@ import {
   Users,
   ShoppingCart,
   FileText,
-  RotateCcw,
   Tag,
   Receipt,
   Settings2,
@@ -83,23 +82,29 @@ const allNavItems: NavItem[] = [
     },
     {
         title: 'Pelanggan',
-        href: '/customers',
+        href: '#',
         icon: Users,
         iconColor: 'text-pink-400',
-        single: true,
+        single: false,
         module: 'customers',
+        items: [
+            { title: 'Daftar Pelanggan', href: '/customers' },
+            { title: 'Bayar Cicilan',    href: '/pos/installments' },
+            { title: 'Riwayat Kredit',   href: '/pos/kredit' },
+        ],
     },
     {
-        title: 'Kasir',
+        title: 'Transaksi',
         href: '#',
         icon: ShoppingCart,
         iconColor: 'text-violet-400',
         single: false,
         module: 'pos',
         items: [
-            { title: 'Terminal POS',        href: '/pos/terminal' },
+            { title: 'Terminal POS',       href: '/pos/terminal' },
             { title: 'Riwayat Penjualan',  href: '/pos' },
-            { title: 'Transaksi Pending',   href: '/pos/pending' },
+            { title: 'Retur',              href: '/returns', module: 'returns' },
+            { title: 'Transaksi Pending',  href: '/pos/pending' },
         ],
     },
     {
@@ -112,14 +117,6 @@ const allNavItems: NavItem[] = [
             { title: 'Semua PO', href: '/purchase-orders' },
             { title: 'Saran Reorder', href: '/purchase-orders/suggestions' },
         ],
-    },
-    {
-        title: 'Retur',
-        href: '/returns',
-        icon: RotateCcw,
-        iconColor: 'text-rose-400',
-        single: true,
-        module: 'returns',
     },
     {
         title: 'Promo',
@@ -201,7 +198,11 @@ export function AppSidebar() {
             })
             .map((item) => ({
                 ...item,
-                items: item.items?.filter((sub) => !sub.adminOnly || isAdmin),
+                items: item.items?.filter((sub) => {
+                    if (sub.adminOnly && !isAdmin) return false;
+                    if (sub.module && !(permissions[sub.module as keyof Permissions]?.can_view ?? false)) return false;
+                    return true;
+                }),
             })),
         ...(isAdmin ? adminNavItems : []),
     ];

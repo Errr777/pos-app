@@ -42,7 +42,7 @@ Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.
     Route::post('/', [OnboardingController::class, 'store'])->name('store');
 });
 
-Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
+Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Items
@@ -146,18 +146,21 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     // Installments
     Route::get('customers/{customer}/installments', [InstallmentController::class, 'plans'])->name('installments.plans');
     Route::get('pos/installments/customer/{customer}', [InstallmentController::class, 'customerPlans'])->name('installments.customer_plans');
-    Route::post('pos/installments/pay', [InstallmentController::class, 'payFromTerminal'])->name('installments.pay_terminal');
-    Route::post('installments/{plan}/payments/{payment}/pay', [InstallmentController::class, 'pay'])->name('installments.pay');
+    Route::post('pos/installments/pay', [InstallmentController::class, 'payFromTerminal'])->middleware('throttle:30,1')->name('installments.pay_terminal');
+    Route::post('pos/installments/{plan}/pay-extra', [InstallmentController::class, 'payExtra'])->middleware('throttle:30,1')->name('installments.pay_extra');
+    Route::post('pos/installments/{plan}/add-installment', [InstallmentController::class, 'addInstallment'])->middleware('throttle:30,1')->name('installments.add_installment');
+    Route::post('installments/{plan}/payments/{payment}/pay', [InstallmentController::class, 'pay'])->middleware('throttle:30,1')->name('installments.pay');
 
     // POS / Kasir (terminal must be before /{saleHeader} to avoid conflict)
     Route::get('pos/installments/{plan}/invoice', [InstallmentController::class, 'invoice'])->name('installments.invoice');
     Route::get('pos/installments', [InstallmentController::class, 'terminalPage'])->name('pos.installments');
+    Route::get('pos/kredit', [InstallmentController::class, 'historyPage'])->name('installments.history');
     Route::get('pos/terminal', [PosController::class, 'terminal'])->name('pos.terminal');
     Route::get('pos/items', [PosController::class, 'items'])->name('pos.items');
     Route::get('pos/pending', fn () => Inertia::render('pos/PendingSync'))->name('pos.pending');
     Route::get('pos/promo/validate', [PosController::class, 'validatePromo'])->name('pos.promo.validate');
     Route::get('pos', [PosController::class, 'index'])->name('pos.index');
-    Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+    Route::post('pos', [PosController::class, 'store'])->middleware('throttle:30,1')->name('pos.store');
     Route::get('pos/{saleHeader}', [PosController::class, 'show'])->name('pos.show');
     Route::get('pos/{saleHeader}/print', [PosController::class, 'print'])->name('pos.print');
     Route::get('pos/{saleHeader}/invoice', [PosController::class, 'invoice'])->name('pos.invoice');
@@ -204,7 +207,7 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::post('purchase-orders/suggestions/create', [PurchaseOrderController::class, 'createFromSuggestions'])->name('po.suggestions.create');
     Route::get('purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('po.show');
     Route::post('purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('po.status');
-    Route::post('purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('po.receive');
+    Route::post('purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->middleware('throttle:30,1')->name('po.receive');
     Route::get('purchase-orders/{purchaseOrder}/invoice', [PurchaseOrderController::class, 'invoice'])->name('po.invoice');
     Route::delete('purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
 
