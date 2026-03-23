@@ -52,8 +52,13 @@ class InstallmentController extends Controller
      */
     public function customerPlans(Customer $customer)
     {
+        // Include completed plans that still have outstanding balance (paid_amount < total_amount)
         $plans = InstallmentPlan::where('customer_id', $customer->id)
-            ->whereIn('status', ['active', 'overdue'])
+            ->where(function ($q) {
+                $q->whereIn('status', ['active', 'overdue'])
+                  ->orWhere(fn ($q2) => $q2->where('status', 'completed')
+                      ->whereColumn('paid_amount', '<', 'total_amount'));
+            })
             ->with([
                 'payments',
                 'saleHeader:id,sale_number',
@@ -115,26 +120,36 @@ class InstallmentController extends Controller
         $customers = Customer::where('is_active', true)
             ->orderBy('name')
             ->withCount(['installmentPlans as overdue_count' => fn ($q) => $q->where('status', 'overdue')])
-            ->withCount(['installmentPlans as active_count' => fn ($q) => $q->whereIn('status', ['active', 'overdue'])])
-            ->withSum(['installmentPlans as remaining_total' => fn ($q) => $q->whereIn('status', ['active', 'overdue'])], \DB::raw('GREATEST(CAST(total_amount AS SIGNED) - CAST(paid_amount AS SIGNED), 0)'))
+            ->withCount(['installmentPlans as active_count' => fn ($q) => $q->where(fn ($q2) =>
+                $q2->whereIn('status', ['active', 'overdue'])
+                   ->orWhere(fn ($q3) => $q3->where('status', 'completed')->whereColumn('paid_amount', '<', 'total_amount'))
+            )])
+            ->withSum(['installmentPlans as remaining_total' => fn ($q) => $q->where(fn ($q2) =>
+                $q2->whereIn('status', ['active', 'overdue'])
+                   ->orWhere(fn ($q3) => $q3->where('status', 'completed')->whereColumn('paid_amount', '<', 'total_amount'))
+            )], \DB::raw('GREATEST(CAST(total_amount AS SIGNED) - CAST(paid_amount AS SIGNED), 0)'))
             ->addSelect(\DB::raw(
                 "(SELECT COUNT(*) FROM installment_payments
                   INNER JOIN installment_plans ON installment_payments.installment_plan_id = installment_plans.id
                   WHERE installment_plans.customer_id = customers.id
-                    AND installment_plans.status IN ('active','overdue')) as total_payment_count"
+                    AND (installment_plans.status IN ('active','overdue')
+                         OR (installment_plans.status = 'completed' AND installment_plans.paid_amount < installment_plans.total_amount))
+                 ) as total_payment_count"
             ))
             ->addSelect(\DB::raw(
                 "(SELECT COUNT(*) FROM installment_payments
                   INNER JOIN installment_plans ON installment_payments.installment_plan_id = installment_plans.id
                   WHERE installment_plans.customer_id = customers.id
-                    AND installment_plans.status IN ('active','overdue')
+                    AND (installment_plans.status IN ('active','overdue')
+                         OR (installment_plans.status = 'completed' AND installment_plans.paid_amount < installment_plans.total_amount))
                     AND installment_payments.status = 'paid') as paid_payment_count"
             ))
             ->get();
 
         // Collect sale numbers per customer in one query (avoids N+1)
         $saleNumbersByCustomer = InstallmentPlan::whereIn('customer_id', $customers->pluck('id'))
-            ->whereIn('status', ['active', 'overdue'])
+            ->where(fn ($q) => $q->whereIn('status', ['active', 'overdue'])
+                ->orWhere(fn ($q2) => $q2->where('status', 'completed')->whereColumn('paid_amount', '<', 'total_amount')))
             ->with('saleHeader:id,sale_number')
             ->get()
             ->groupBy('customer_id')
