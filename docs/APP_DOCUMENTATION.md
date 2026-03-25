@@ -12,7 +12,7 @@ Aplikasi POS (Point of Sale) berbasis web untuk manajemen penjualan, inventaris,
 |---|---|
 | Backend | PHP 8.2+, Laravel 12, Inertia.js v2 |
 | Frontend | React 19, TypeScript, Tailwind CSS v4, Radix UI / shadcn-ui |
-| Database | MariaDB (`DB_CONNECTION=mariadb`) |
+| Database | SQLite (file: `database/database.sqlite`) |
 | Build Tool | Vite 6 + `laravel-vite-plugin` |
 | Charts | Recharts |
 | Icons | Lucide React |
@@ -30,7 +30,11 @@ pos-app/
 │   │   └── Middleware/         # HandleInertiaRequests (shared props)
 │   ├── Models/                 # Eloquent models
 │   ├── Helpers/
-│   │   └── InvoiceNumber.php     # Race-safe invoice number generator
+│   │   ├── HashId.php            # Static encode/decode wrapper (hashids/hashids)
+│   │   ├── InvoiceNumber.php     # Race-safe invoice number generator
+│   │   └── helpers.php           # Global hid() / dhid() functions (autoloaded)
+│   ├── Traits/
+│   │   └── HasHashId.php         # Route model binding trait (hash-aware)
 │   ├── Support/
 │   │   └── BackupEncryption.php  # AES-256-CBC encrypt/decrypt helper
 │   └── Console/Commands/
@@ -330,7 +334,7 @@ Halaman Kredit Pelanggan menggunakan dua modal terpisah:
 Browser → routes/web.php → Controller → Inertia::render('PageName', $props)
        ↓
 HandleInertiaRequests::share()   ← dipanggil setiap request
-  - auth.user
+  - auth.user (id di-encode dengan hid() — bukan raw integer)
   - permissions (per module)
   - notifications { lowStockCount, pendingPoCount }
        ↓
@@ -543,6 +547,42 @@ Server-side (report/stock):
 - **Table:** `suppliers`
 - **Fields:** `name`, `code`, `contact_person`, `phone`, `email`, `address`, `city`, `notes`, `is_active`
 - **Digunakan di:** dropdown combobox field Supplier pada form Stock In
+
+---
+
+## Hash ID Obfuscation
+
+Semua integer primary key database **di-encode sebagai hash string** sebelum dikirim ke frontend. Ini mencegah enumerasi ID dan penyebaran informasi internal (misal: total transaksi terlihat dari nomor ID).
+
+### Cara Kerja
+
+| Arah | PHP | TypeScript |
+|---|---|---|
+| Kirim ID ke frontend | `'id' => hid($model->id)` | terima sebagai `string` |
+| Terima FK dari form | `$id = dhid($request->field)` | kirim string kembali tanpa ubah |
+| Route model binding | otomatis via `HasHashId` trait | `route('x.show', model.id)` — tidak berubah |
+
+- **`hid(int|null $id): string`** — encode integer ke hash string 8+ karakter. `hid(null)` atau `hid(0)` mengembalikan `''`.
+- **`dhid(string|null $hash): int`** — decode hash ke integer. `dhid('')` atau `dhid(null)` mengembalikan `0` (aman: `findOrFail(0)` → 404).
+- **`App\Helpers\HashId`** — singleton wrapper `hashids/hashids`, membaca salt dari `config('app.hash_id_salt')`.
+- **`App\Traits\HasHashId`** — diterapkan ke semua 21 route-bound model. Override `getRouteKey()` (encode) dan `resolveRouteBinding()` (decode) sehingga Laravel routing bekerja otomatis.
+
+### Konfigurasi
+
+Variabel environment yang diperlukan:
+```
+HASH_ID_SALT=your-random-salt-here
+```
+
+⚠️ **Jangan pernah mengganti `HASH_ID_SALT` setelah production deploy** — semua URL yang sudah dibagikan akan rusak, dan pending offline transactions akan gagal sync.
+
+### Frontend
+
+Semua interface TypeScript menggunakan `id: string` (bukan `number`) untuk semua entity ID. State form yang sebelumnya `0` untuk "kosong" sekarang menggunakan `''` (string kosong).
+
+### Offline POS (IndexedDB)
+
+`resources/js/lib/db.ts` menggunakan Dexie versi 2. Saat pertama deploy setelah fitur ini aktif, Dexie otomatis clear tabel `cart` dan `pendingTransactions` (skema lama menyimpan integer ID yang tidak kompatibel).
 
 ---
 

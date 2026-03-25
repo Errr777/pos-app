@@ -70,6 +70,7 @@ DB_DATABASE=pos_db
 DB_USERNAME=pos_user
 DB_PASSWORD=password_aman_123
 DB_ROOT_PASSWORD=root_password_aman_456
+HASH_ID_SALT=your-random-32-char-string   # Jangan pernah diubah setelah deploy pertama
 ```
 
 ### Tahap 5: Deploy
@@ -110,7 +111,15 @@ rsync -avz --exclude='node_modules/' --exclude='vendor/' --exclude='.env' \
 ```bash
 cd /var/www/pos-app
 cp .env.production .env
-nano .env   # isi APP_URL, DB_PASSWORD, APP_KEY
+nano .env   # isi APP_URL, DB_PASSWORD, APP_KEY, HASH_ID_SALT
+```
+
+Variabel wajib yang harus diisi:
+```
+APP_KEY=base64:xxxx
+APP_URL=https://your-domain.com
+DB_PASSWORD=password_aman
+HASH_ID_SALT=your-random-32-char-string   # Jangan pernah diubah setelah deploy pertama
 ```
 
 Generate APP_KEY (jalankan di Mac dulu):
