@@ -14,18 +14,32 @@ class SaleItem extends Model
         'item_code_snapshot',
         'variant_name_snapshot',
         'unit_price',
+        'cost_price_snapshot',
         'quantity',
         'discount_amount',
         'line_total',
     ];
 
     protected $casts = [
-        'unit_price'      => 'integer',
-        'quantity'        => 'integer',
+        'unit_price' => 'integer',
+        'cost_price_snapshot' => 'integer',
+        'quantity' => 'integer',
         'discount_amount' => 'integer',
-        'line_total'      => 'integer',
+        'line_total' => 'integer',
     ];
 
-    public function saleHeader() { return $this->belongsTo(SaleHeader::class); }
-    public function item()       { return $this->belongsTo(Item::class); }
+    public function saleHeader()
+    {
+        return $this->belongsTo(SaleHeader::class);
+    }
+
+    public function item()
+    {
+        return $this->belongsTo(Item::class);
+    }
+
+    public function variant()
+    {
+        return $this->belongsTo(ItemVariant::class, 'variant_id');
+    }
 }

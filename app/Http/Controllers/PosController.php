@@ -425,6 +425,7 @@ class PosController extends Controller
                         'variant_name_snapshot' => $ld['variantName'] ?? null,
                         'unit_price' => $ld['price'],
                         'quantity' => $ld['qty'],
+                        'cost_price_snapshot' => $ld['item']->harga_beli,
                         'discount_amount' => $ld['lineDisc'],
                         'line_total' => $ld['lineTotal'],
                     ]);

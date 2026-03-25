@@ -20,14 +20,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface TransferRow {
-  id: number;
+  id: string;
   txnId: string;
   date: string;
-  itemId: number;
+  itemId: string;
   itemName: string;
-  fromId: number;
+  fromId: string;
   fromName: string;
-  toId: number;
+  toId: string;
   toName: string;
   quantity: number;
   reference?: string | null;
@@ -37,14 +37,14 @@ interface TransferRow {
 }
 
 interface WarehouseOption {
-  id: number;
+  id: string;
   code: string;
   name: string;
   is_default: boolean;
 }
 
 interface ItemOption {
-  id: number;
+  id: string;
   name: string;
   category: string | null;
   stock: number;
@@ -70,7 +70,7 @@ interface Filters {
 }
 
 interface JasaOption {
-  id: number;
+  id: string;
   name: string;
   code: string;
   category: string | null;
@@ -78,14 +78,14 @@ interface JasaOption {
 }
 
 interface JasaCartItem {
-  item_id: number;
+  item_id: string;
   name: string;
   code: string;
   global_price: number;
   outlet_price: number;
 }
 
-interface OutletOption { id: number; name: string; code: string; }
+interface OutletOption { id: string; name: string; code: string; }
 
 interface PageProps {
   transfers: PaginatedTransfers;
@@ -191,8 +191,8 @@ export default function Stock_Transfer() {
     setJasaSearch('');
     setJasaDropOpen(false);
   }
-  function removeJasa(id: number) { setJasaCart(prev => prev.filter(c => c.item_id !== id)); }
-  function setJasaPrice(id: number, val: number) {
+  function removeJasa(id: string) { setJasaCart(prev => prev.filter(c => c.item_id !== id)); }
+  function setJasaPrice(id: string, val: number) {
     setJasaCart(prev => prev.map(c => c.item_id === id ? { ...c, outlet_price: Math.max(0, val) } : c));
   }
 

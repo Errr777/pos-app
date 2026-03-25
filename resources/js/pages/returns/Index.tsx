@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -67,6 +67,7 @@ interface PageProps {
 }
 
 interface CartLine { itemId: number; name: string; qty: number; unitPrice: number; condition: string; }
+interface SaleLookupResult { id: number; saleNumber: string; occurredAt: string; customer: string; grandTotal: number; items: { item_id: number; name: string; quantity: number; unit_price: number }[]; }
 
 const TYPE_CONFIG: Record<string, { label: string; cls: string }> = {
     customer_return: { label: 'Retur Pelanggan', cls: 'bg-blue-100 text-blue-700' },
@@ -105,11 +106,45 @@ export default function ReturnsIndex() {
     const [showCreate, setShowCreate] = useState(false);
     const [form, setForm] = useState({
         type: 'customer_return', warehouse_id: '', customer_id: '',
-        supplier_id: '', occurred_at: '', reason: '', note: '',
+        supplier_id: '', sale_header_id: '', occurred_at: '', reason: '', note: '',
     });
     const [lines, setLines]           = useState<CartLine[]>([]);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
+
+    // Sale lookup state
+    const [saleQuery, setSaleQuery]         = useState('');
+    const [saleResults, setSaleResults]     = useState<SaleLookupResult[]>([]);
+    const [saleLinked, setSaleLinked]       = useState<SaleLookupResult | null>(null);
+    const [saleSearching, setSaleSearching] = useState(false);
+    const saleSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const searchSales = useCallback((q: string) => {
+        if (q.length < 3) { setSaleResults([]); return; }
+        setSaleSearching(true);
+        fetch(`/returns/sale-lookup?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then((data: SaleLookupResult[]) => { setSaleResults(data); setSaleSearching(false); })
+            .catch(() => setSaleSearching(false));
+    }, []);
+
+    const linkSale = (sale: SaleLookupResult) => {
+        setSaleLinked(sale);
+        setSaleQuery('');
+        setSaleResults([]);
+        setForm(f => ({ ...f, sale_header_id: String(sale.id) }));
+        // Auto-fill lines from sale items
+        setLines(sale.items.map(si => ({
+            itemId: si.item_id, name: si.name, qty: si.quantity,
+            unitPrice: si.unit_price, condition: 'good',
+        })));
+    };
+
+    const unlinkSale = () => {
+        setSaleLinked(null);
+        setForm(f => ({ ...f, sale_header_id: '' }));
+        setLines([]);
+    };
 
     const [voidTarget, setVoidTarget] = useState<ReturnRow | null>(null);
     const [voiding, setVoiding]       = useState(false);
@@ -160,9 +195,14 @@ export default function ReturnsIndex() {
     const lineTotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
 
     const resetCreate = () => {
+        if (saleSearchTimer.current) {
+            clearTimeout(saleSearchTimer.current);
+            saleSearchTimer.current = null;
+        }
         setLines([]);
-        setForm({ type: 'customer_return', warehouse_id: '', customer_id: '', supplier_id: '', occurred_at: '', reason: '', note: '' });
+        setForm({ type: 'customer_return', warehouse_id: '', customer_id: '', supplier_id: '', sale_header_id: '', occurred_at: '', reason: '', note: '' });
         setFormErrors({});
+        setSaleLinked(null); setSaleQuery(''); setSaleResults([]);
     };
 
     const handleCreate = (e: React.FormEvent) => {
@@ -170,13 +210,14 @@ export default function ReturnsIndex() {
         setSubmitting(true);
         setFormErrors({});
         router.post(route('returns.store'), {
-            type:         form.type,
-            warehouse_id: form.warehouse_id,
-            customer_id:  form.type === 'customer_return' ? (form.customer_id || null) : null,
-            supplier_id:  form.type === 'supplier_return' ? (form.supplier_id || null) : null,
-            occurred_at:  form.occurred_at,
-            reason:       form.reason || null,
-            note:         form.note || null,
+            type:            form.type,
+            warehouse_id:    form.warehouse_id,
+            sale_header_id:  form.sale_header_id || null,
+            customer_id:     form.type === 'customer_return' ? (form.customer_id || null) : null,
+            supplier_id:     form.type === 'supplier_return' ? (form.supplier_id || null) : null,
+            occurred_at:     form.occurred_at,
+            reason:          form.reason || null,
+            note:            form.note || null,
             items: lines.map(l => ({ item_id: l.itemId, quantity: l.qty, unit_price: l.unitPrice, condition: l.condition })),
         }, {
             onSuccess: () => { setShowCreate(false); resetCreate(); setSubmitting(false); },
@@ -333,11 +374,55 @@ export default function ReturnsIndex() {
                         <DialogDescription>Catat pengembalian barang dari pelanggan atau ke supplier</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreate} className="space-y-4 mt-2">
+
+                        {/* Sale lookup (customer return only) */}
+                        {form.type === 'customer_return' && (
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Cari Transaksi Asal <span className="text-xs text-muted-foreground">(opsional)</span></label>
+                                {saleLinked ? (
+                                    <div className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200">
+                                        <div>
+                                            <span className="font-mono font-medium">{saleLinked.saleNumber}</span>
+                                            <span className="text-muted-foreground ml-2">{saleLinked.occurredAt} · {saleLinked.customer}</span>
+                                        </div>
+                                        <button type="button" onClick={unlinkSale} className="text-xs text-red-500 hover:underline">Hapus</button>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={saleQuery}
+                                            onChange={e => {
+                                                setSaleQuery(e.target.value);
+                                                if (saleSearchTimer.current) clearTimeout(saleSearchTimer.current);
+                                                saleSearchTimer.current = setTimeout(() => searchSales(e.target.value), 350);
+                                            }}
+                                            placeholder="Ketik no. transaksi atau nama pelanggan…"
+                                            className="w-full border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                        />
+                                        {saleSearching && <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">mencari…</span>}
+                                        {saleResults.length > 0 && (
+                                            <div className="absolute z-20 mt-1 w-full bg-background border rounded shadow-lg max-h-48 overflow-y-auto">
+                                                {saleResults.map(s => (
+                                                    <button key={s.id} type="button"
+                                                        onClick={() => linkSale(s)}
+                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-0">
+                                                        <span className="font-mono">{s.saleNumber}</span>
+                                                        <span className="text-muted-foreground ml-2">{s.occurredAt} · {s.customer}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Tipe Retur <span className="text-red-500">*</span></label>
                                 <select className={inputCls('type')} value={form.type}
-                                    onChange={e => setForm(f => ({ ...f, type: e.target.value, customer_id: '', supplier_id: '' }))}>
+                                    onChange={e => setForm(f => ({ ...f, type: e.target.value, customer_id: '', supplier_id: '', sale_header_id: '' }))}>
                                     <option value="customer_return">Retur dari Pelanggan</option>
                                     <option value="supplier_return">Retur ke Supplier</option>
                                 </select>

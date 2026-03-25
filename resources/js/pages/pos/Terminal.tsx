@@ -54,7 +54,7 @@ interface Promotion {
 }
 
 interface CustomerOption {
-  id: number;
+  id: string;
   name: string;
   code: string | null;
   isBlocked?: boolean;
@@ -186,14 +186,34 @@ export default function PosTerminal() {
 
   // Persistent cart (IndexedDB-backed)
   const {
-    items: cart,       setItems: setCart,
-    customerId,        setCustomerId,
-    payMethod,         setPayMethod,
-    discount,          setDiscount,
-    note,              setNote,
-    setWarehouseId:    setCartWarehouseId,
+    items: cart,           setItems: setCart,
+    customerId: savedCustomerId, setCustomerId,
+    payMethod,             setPayMethod,
+    discount,              setDiscount,
+    note,                  setNote,
+    setWarehouseId:        setCartWarehouseId,
     clearCart,
+    isRestored,
   } = useOfflineCart();
+
+  // selectedCustomer: controls the <select> display value (string hashid)
+  // checkoutCustomerId: the actual hash string to send at checkout
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [checkoutCustomerId, setCheckoutCustomerId] = useState<string | null>(null);
+  const customerTouched = useRef(false);
+
+  // Seed from IndexedDB restore only if user hasn't already picked a customer
+  useEffect(() => {
+    if (!isRestored || customerTouched.current) return;
+    if (savedCustomerId != null && savedCustomerId !== '') {
+      setSelectedCustomer(savedCustomerId);
+      setCheckoutCustomerId(savedCustomerId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRestored]);
+
+  // customerId alias — used for UI (credit panel blocked check, button disabled)
+  const customerId = checkoutCustomerId;
 
   // Keep cart's warehouseId in sync with local selection
   useEffect(() => {
@@ -394,12 +414,13 @@ export default function PosTerminal() {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    console.log('[Checkout] checkoutCustomerId=', checkoutCustomerId, 'selectedCustomer=', selectedCustomer);
     setSubmitting(true);
 
     const isCreditSale = payMethod === 'credit';
     const basePayload = {
       warehouse_id:    warehouseId!,
-      customer_id:     customerId,
+      customer_id:     checkoutCustomerId,
       occurred_at:     date + ' ' + new Date().toTimeString().slice(0, 8),
       payment_method:  payMethod,
       payment_amount:  isCreditSale ? dpAmount : (paid || grandTotal),
@@ -416,9 +437,14 @@ export default function PosTerminal() {
       })),
     };
 
+    // Recompute schedule at submit time to avoid stale-state mismatch with backend grandTotal.
+    const liveSchedule = isCreditSale
+      ? generateSchedule(grandTotal, dpAmount, installmentCount, intervalMonths, creditInterestRate)
+      : [];
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = isCreditSale
-      ? { ...basePayload, credit_schedule: creditSchedule, credit_interest_rate: creditInterestRate, credit_late_fee: creditLateFee }
+      ? { ...basePayload, credit_schedule: liveSchedule, credit_interest_rate: creditInterestRate, credit_late_fee: creditLateFee }
       : basePayload;
 
     // ── OFFLINE PATH ─────────────────────────────────────────
@@ -456,6 +482,9 @@ export default function PosTerminal() {
 
   const resetCart = () => {
     clearCart();
+    customerTouched.current = false;
+    setSelectedCustomer('');
+    setCheckoutCustomerId(null);
     setPayAmount('');
     setReceiptModal(null);
     setAppliedPromo(null);
@@ -582,7 +611,7 @@ export default function PosTerminal() {
         </div>
 
         {/* ── Right: Cart & Payment ─────────────────────────── */}
-        <div className="w-96 flex flex-col bg-background">
+        <div className="w-72 flex flex-col border-r overflow-hidden bg-background">
           {/* Cart header */}
           <div className="p-3 border-b flex items-center justify-between">
             <div className="flex items-center gap-2 font-semibold">
@@ -635,16 +664,34 @@ export default function PosTerminal() {
               </div>
             ))}
           </div>
+        </div>
 
-          {/* Payment panel */}
-          <div className="border-t p-3 space-y-3">
+        {/* ── Payment ─────────────────────────────────── */}
+        <div className="w-80 flex flex-col overflow-hidden bg-background">
+          <div className="p-3 border-b font-semibold text-sm flex items-center gap-2 shrink-0">
+            <ReceiptText size={16} />
+            Pembayaran
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {/* Customer */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Pelanggan (opsional)</label>
-              <select className="w-full text-sm border border-border rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
-                value={customerId ?? ''} onChange={e => setCustomerId(e.target.value ? parseInt(e.target.value) : null)}>
+              <label htmlFor="customer-select" className="text-xs text-muted-foreground mb-1 block">Pelanggan (opsional)</label>
+              <select
+                id="customer-select"
+                name="customer_id"
+                className="w-full text-sm border border-border rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                value={selectedCustomer}
+                onChange={e => {
+                  customerTouched.current = true;
+                  const v = e.target.value;
+                  const id = v !== '' ? v : null;
+                  console.log('[Customer select] v=', v, 'id=', id);
+                  setSelectedCustomer(v);
+                  setCheckoutCustomerId(id);
+                  setCustomerId(id);
+                }}>
                 <option value="">Walk-in / Umum</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>)}
+                {customers.map(c => <option key={c.id} value={String(c.id)}>{c.name}{c.code ? ` (${c.code})` : ''}</option>)}
               </select>
             </div>
 
@@ -709,21 +756,6 @@ export default function PosTerminal() {
               const selectedCust = customers.find(c => c.id === customerId);
               return (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3 text-xs">
-                  {!customerId && (
-                    <div className="space-y-1">
-                      <p className="text-red-500 font-medium">Pilih pelanggan untuk menggunakan kredit:</p>
-                      <select
-                        className="w-full border border-red-300 rounded px-2 py-1.5 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                        value=""
-                        onChange={e => setCustomerId(e.target.value ? parseInt(e.target.value) : null)}
-                      >
-                        <option value="">— Pilih pelanggan —</option>
-                        {customers.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                   {selectedCust?.isBlocked && (
                     <p className="text-red-600 font-medium">⚠ Pelanggan ini memiliki cicilan jatuh tempo. Kredit diblokir.</p>
                   )}
@@ -823,7 +855,7 @@ export default function PosTerminal() {
               disabled={
                 cart.length === 0 || submitting || cart.some(c => c.unitPrice <= 0) ||
                 (payMethod === 'credit'
-                  ? (!customerId || customers.find(c => c.id === customerId)?.isBlocked || creditSchedule.length < 2)
+                  ? (!selectedCustomer || customers.find(c => c.id === customerId)?.isBlocked || creditSchedule.length < 2)
                   : (!isOnline ? false : paid < grandTotal))
               }
               onClick={handleCheckout}

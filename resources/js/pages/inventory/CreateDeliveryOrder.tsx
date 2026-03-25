@@ -6,15 +6,15 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-interface WarehouseOption { id: number; name: string; code: string; is_default: boolean; }
+interface WarehouseOption { id: string; name: string; code: string; is_default: boolean; }
 interface ItemOption {
-    id: number; name: string; code: string; category: string | null;
+    id: string; name: string; code: string; category: string | null;
     global_price: number; main_stock: number;
 }
-interface UserOption { id: number; name: string; role: string; }
+interface UserOption { id: string; name: string; role: string; }
 
 interface PrefillData {
-    to_warehouse_id: number;
+    to_warehouse_id: string;
     item: ItemOption;
     quantity: number;
     reference?: string | null;
@@ -22,16 +22,16 @@ interface PrefillData {
 }
 
 interface Props {
-    mainWarehouse: { id: number; name: string; code: string } | null;
+    mainWarehouse: { id: string; name: string; code: string } | null;
     warehouses: WarehouseOption[];
     items: ItemOption[];
     users: UserOption[];
     prefill?: PrefillData | null;
-    pendingByOutlet?: Record<number, { id: number; doNumber: string }[]>;
+    pendingByOutlet?: Record<string, { id: string; doNumber: string }[]>;
 }
 
 interface CartItem {
-    item_id: number;
+    item_id: string;
     name: string;
     code: string;
     quantity: number;
@@ -103,18 +103,18 @@ export default function CreateDeliveryOrder({ mainWarehouse, warehouses, items, 
         setItemDropOpen(false);
     }
 
-    function removeItem(id: number) {
+    function removeItem(id: string) {
         setCartItems(cartItems.filter(c => c.item_id !== id));
     }
 
-    function setQty(id: number, val: number) {
+    function setQty(id: string, val: number) {
         const item = cartItems.find(c => c.item_id === id);
         if (!item) return;
         const qty = Math.max(1, Math.min(val, item.main_stock));
         setCartItems(cartItems.map(c => c.item_id === id ? { ...c, quantity: qty } : c));
     }
 
-    function setPrice(id: number, val: number) {
+    function setPrice(id: string, val: number) {
         setCartItems(cartItems.map(c => c.item_id === id ? { ...c, unit_price: Math.max(0, val) } : c));
     }
 
@@ -193,13 +193,13 @@ export default function CreateDeliveryOrder({ mainWarehouse, warehouses, items, 
                                     <p className="text-xs text-red-500 mt-1">{formErrors.to_warehouse_id}</p>
                                 )}
                                 {/* Pending SJ banner for selected outlet */}
-                                {toWarehouseId && pendingByOutlet[parseInt(toWarehouseId)]?.length > 0 && (
+                                {toWarehouseId && pendingByOutlet[toWarehouseId]?.length > 0 && (
                                     <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3 space-y-1.5">
                                         <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                                             <AlertCircle className="w-3.5 h-3.5" />
                                             Sudah ada Surat Jalan pending ke outlet ini
                                         </p>
-                                        {pendingByOutlet[parseInt(toWarehouseId)].map(pending => (
+                                        {pendingByOutlet[toWarehouseId].map(pending => (
                                             <a
                                                 key={pending.id}
                                                 href={`/inventory/delivery-orders/${pending.id}`}

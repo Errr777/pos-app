@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
 use App\Models\Customer;
+use App\Models\Expense;
 use App\Models\Item;
 use App\Models\ReturnHeader;
 use App\Models\ReturnItem;
+use App\Models\SaleHeader;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Models\WarehouseItem;
@@ -24,42 +26,46 @@ class ReturnController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            $user   = $request->user();
+            $user = $request->user();
             $method = $request->method();
             $action = match (true) {
                 in_array($method, ['POST', 'PUT', 'PATCH']) => 'can_write',
-                $method === 'DELETE'                        => 'can_delete',
-                default                                     => 'can_view',
+                $method === 'DELETE' => 'can_delete',
+                default => 'can_view',
             };
-            if (!$user->hasPermission('returns', $action)) {
+            if (! $user->hasPermission('returns', $action)) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Forbidden'], 403);
+                }
                 abort(403);
             }
+
             return $next($request);
         });
     }
 
     public function index(Request $request)
     {
-        $perPage  = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
+        $perPage = in_array((int) $request->get('per_page', 20), [10, 20, 50, 100])
             ? (int) $request->get('per_page', 20) : 20;
-        $search   = trim((string) $request->get('search', ''));
-        $type     = $request->get('type', '');
-        $status   = $request->get('status', '');
+        $search = trim((string) $request->get('search', ''));
+        $type = $request->get('type', '');
+        $status = $request->get('status', '');
         $dateFrom = $request->get('date_from');
-        $dateTo   = $request->get('date_to');
-        $sortDir  = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $dateTo = $request->get('date_to');
+        $sortDir = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $allowedSort = [
-            'date'         => 'return_headers.occurred_at',
+            'date' => 'return_headers.occurred_at',
             'returnNumber' => 'return_headers.return_number',
-            'totalAmount'  => 'return_headers.total_amount',
-            'type'         => 'return_headers.type',
-            'status'       => 'return_headers.status',
+            'totalAmount' => 'return_headers.total_amount',
+            'type' => 'return_headers.type',
+            'status' => 'return_headers.status',
         ];
-        $sortKey    = $request->get('sort_by', 'date');
+        $sortKey = $request->get('sort_by', 'date');
         $sortColumn = $allowedSort[$sortKey] ?? 'return_headers.occurred_at';
 
-        $query = ReturnHeader::with(['customer', 'supplier', 'warehouse', 'processedBy', 'returnItems'])
+        $query = ReturnHeader::with(['customer', 'supplier', 'warehouse', 'processedBy'])->withCount('returnItems')
             ->leftJoin('customers', 'return_headers.customer_id', '=', 'customers.id')
             ->leftJoin('suppliers', 'return_headers.supplier_id', '=', 'suppliers.id')
             ->select('return_headers.*');
@@ -68,34 +74,42 @@ class ReturnController extends Controller
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(return_headers.return_number) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(customers.name) like ?', ["%{$term}%"])
-                  ->orWhereRaw('LOWER(suppliers.name) like ?', ["%{$term}%"]);
+                    ->orWhereRaw('LOWER(customers.name) like ?', ["%{$term}%"])
+                    ->orWhereRaw('LOWER(suppliers.name) like ?', ["%{$term}%"]);
             });
         }
 
-        if ($type)     $query->where('return_headers.type', $type);
-        if ($status)   $query->where('return_headers.status', $status);
-        if ($dateFrom) $query->where('return_headers.occurred_at', '>=', $dateFrom . ' 00:00:00');
-        if ($dateTo)   $query->where('return_headers.occurred_at', '<=', $dateTo   . ' 23:59:59');
+        if ($type) {
+            $query->where('return_headers.type', $type);
+        }
+        if ($status) {
+            $query->where('return_headers.status', $status);
+        }
+        if ($dateFrom) {
+            $query->where('return_headers.occurred_at', '>=', $dateFrom.' 00:00:00');
+        }
+        if ($dateTo) {
+            $query->where('return_headers.occurred_at', '<=', $dateTo.' 23:59:59');
+        }
 
         $this->applyWarehouseFilter($query, 'return_headers.warehouse_id');
 
         $query->orderBy($sortColumn, $sortDir);
 
         $returns = $query->paginate($perPage)->withQueryString()->through(fn ($r) => [
-            'id'           => $r->id,
+            'id' => $r->id,
             'returnNumber' => $r->return_number,
-            'type'         => $r->type,
-            'partyName'    => $r->type === 'customer_return'
+            'type' => $r->type,
+            'partyName' => $r->type === 'customer_return'
                 ? ($r->customer?->name ?? 'Walk-in')
                 : ($r->supplier?->name ?? '-'),
-            'warehouseName'=> $r->warehouse?->name ?? '-',
-            'processedBy'  => $r->processedBy?->name ?? '-',
-            'occurredAt'   => $r->occurred_at?->toISOString(),
-            'status'       => $r->status,
-            'totalAmount'  => $r->total_amount,
-            'reason'       => $r->reason,
-            'itemCount'    => $r->returnItems->count(),
+            'warehouseName' => $r->warehouse?->name ?? '-',
+            'processedBy' => $r->processedBy?->name ?? '-',
+            'occurredAt' => $r->occurred_at?->toISOString(),
+            'status' => $r->status,
+            'totalAmount' => $r->total_amount,
+            'reason' => $r->reason,
+            'itemCount' => $r->return_items_count,
         ]);
 
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('name');
@@ -109,60 +123,98 @@ class ReturnController extends Controller
             ->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
 
         $items = Item::orderBy('nama')->get()->map(fn ($i) => [
-            'id'    => $i->id,
-            'name'  => $i->nama,
-            'code'  => $i->kode_item,
+            'id' => $i->id,
+            'name' => $i->nama,
+            'code' => $i->kode_item,
             'price' => $i->harga_jual,
         ]);
 
         return Inertia::render('returns/Index', [
-            'returns'    => $returns,
+            'returns' => $returns,
             'warehouses' => $warehouses,
-            'customers'  => $customers,
-            'suppliers'  => $suppliers,
-            'items'      => $items,
-            'filters'    => array_merge(
+            'customers' => $customers,
+            'suppliers' => $suppliers,
+            'items' => $items,
+            'filters' => array_merge(
                 $request->only(['search', 'type', 'status', 'date_from', 'date_to', 'per_page']),
                 ['sort_by' => $sortKey, 'sort_dir' => $sortDir]
             ),
         ]);
     }
 
+    public function saleLookup(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        if (strlen($q) < 3) {
+            return response()->json([]);
+        }
+
+        $sales = SaleHeader::with(['customer', 'saleItems.item'])
+            ->where('status', 'completed')
+            ->where(function ($query) use ($q) {
+                $query->where('sale_number', 'like', "%{$q}%")
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$q}%"));
+            })
+            ->orderByDesc('occurred_at')
+            ->limit(10)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'saleNumber' => $s->sale_number,
+                'occurredAt' => $s->occurred_at?->format('d M Y'),
+                'customer' => $s->customer?->name ?? 'Walk-in',
+                'grandTotal' => $s->grand_total,
+                'items' => $s->saleItems->map(fn ($si) => [
+                    'item_id' => $si->item_id,
+                    'name' => $si->item_name_snapshot,
+                    'quantity' => $si->quantity,
+                    'unit_price' => $si->unit_price,
+                ]),
+            ]);
+
+        return response()->json($sales);
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'type'                => 'required|in:customer_return,supplier_return',
-            'warehouse_id'        => 'required|integer|exists:warehouses,id',
-            'customer_id'         => 'nullable|integer|exists:customers,id',
-            'supplier_id'         => 'nullable|integer|exists:suppliers,id',
-            'occurred_at'         => 'required|date',
-            'reason'              => 'nullable|string|max:255',
-            'note'                => 'nullable|string|max:1000',
-            'items'               => 'required|array|min:1',
-            'items.*.item_id'     => 'required|integer|exists:items,id',
-            'items.*.quantity'    => 'required|integer|min:1',
-            'items.*.unit_price'  => 'required|integer|min:0',
-            'items.*.condition'   => 'nullable|in:good,damaged,defective',
+            'type' => 'required|in:customer_return,supplier_return',
+            'warehouse_id' => 'required|integer|exists:warehouses,id',
+            'sale_header_id' => 'nullable|integer|exists:sale_headers,id',
+            'customer_id' => 'nullable|integer|exists:customers,id',
+            'supplier_id' => 'nullable|integer|exists:suppliers,id',
+            'occurred_at' => 'required|date',
+            'reason' => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:1000',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|integer|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|integer|min:0',
+            'items.*.condition' => 'nullable|in:good,damaged,defective',
         ]);
 
         if ($validator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
             return back()->withErrors($validator)->withInput();
         }
 
-        $data        = $validator->validated();
+        $data = $validator->validated();
         $warehouseId = (int) $data['warehouse_id'];
-        $isCustomer  = $data['type'] === 'customer_return';
-        $cartItems   = $data['items'];
-        $result      = null;
+        $isCustomer = $data['type'] === 'customer_return';
+        $cartItems = $data['items'];
+        $result = null;
 
         DB::transaction(function () use ($data, $warehouseId, $isCustomer, $cartItems, &$result) {
             $totalAmount = 0;
-            $lineData    = [];
+            $lineData = [];
 
             foreach ($cartItems as $ci) {
-                $itemId    = (int) $ci['item_id'];
-                $qty       = (int) $ci['quantity'];
-                $price     = (int) $ci['unit_price'];
+                $itemId = (int) $ci['item_id'];
+                $qty = (int) $ci['quantity'];
+                $price = (int) $ci['unit_price'];
                 $lineTotal = $price * $qty;
 
                 $item = Item::lockForUpdate()->findOrFail($itemId);
@@ -172,7 +224,7 @@ class ReturnController extends Controller
                     ->lockForUpdate()->first();
 
                 // Supplier return: check sufficient stock to send back
-                if (!$isCustomer) {
+                if (! $isCustomer) {
                     $currentStock = $wi ? $wi->stok : 0;
                     if ($currentStock < $qty) {
                         throw new \RuntimeException("Stok {$item->nama} tidak cukup untuk diretur. Tersedia: {$currentStock}");
@@ -180,43 +232,44 @@ class ReturnController extends Controller
                 }
 
                 $lineData[] = [
-                    'item'      => $item,
-                    'wi'        => $wi,
-                    'qty'       => $qty,
-                    'price'     => $price,
+                    'item' => $item,
+                    'wi' => $wi,
+                    'qty' => $qty,
+                    'price' => $price,
                     'lineTotal' => $lineTotal,
                     'condition' => $ci['condition'] ?? 'good',
                 ];
                 $totalAmount += $lineTotal;
             }
 
-            $date         = now()->format('Ymd');
-            $last         = ReturnHeader::whereDate('occurred_at', now())->count();
-            $returnNumber = 'RET-' . $date . '-' . str_pad($last + 1, 4, '0', STR_PAD_LEFT);
+            $date = now()->format('Ymd');
+            $last = ReturnHeader::whereDate('occurred_at', now())->count();
+            $returnNumber = 'RET-'.$date.'-'.str_pad($last + 1, 4, '0', STR_PAD_LEFT);
 
             $header = ReturnHeader::create([
                 'return_number' => $returnNumber,
-                'type'          => $data['type'],
-                'customer_id'   => $data['customer_id'] ?? null,
-                'supplier_id'   => $data['supplier_id'] ?? null,
-                'warehouse_id'  => $warehouseId,
-                'processed_by'  => Auth::id(),
-                'occurred_at'   => $data['occurred_at'],
-                'status'        => 'completed',
-                'total_amount'  => $totalAmount,
-                'reason'        => $data['reason'] ?? null,
-                'note'          => $data['note'] ?? null,
+                'type' => $data['type'],
+                'sale_header_id' => $data['sale_header_id'] ?? null,
+                'customer_id' => $data['customer_id'] ?? null,
+                'supplier_id' => $data['supplier_id'] ?? null,
+                'warehouse_id' => $warehouseId,
+                'processed_by' => Auth::id(),
+                'occurred_at' => $data['occurred_at'],
+                'status' => 'completed',
+                'total_amount' => $totalAmount,
+                'reason' => $data['reason'] ?? null,
+                'note' => $data['note'] ?? null,
             ]);
 
             foreach ($lineData as $ld) {
                 ReturnItem::create([
-                    'return_header_id'   => $header->id,
-                    'item_id'            => $ld['item']->id,
+                    'return_header_id' => $header->id,
+                    'item_id' => $ld['item']->id,
                     'item_name_snapshot' => $ld['item']->nama,
-                    'quantity'           => $ld['qty'],
-                    'unit_price'         => $ld['price'],
-                    'line_total'         => $ld['lineTotal'],
-                    'condition'          => $ld['condition'],
+                    'quantity' => $ld['qty'],
+                    'unit_price' => $ld['price'],
+                    'line_total' => $ld['lineTotal'],
+                    'condition' => $ld['condition'],
                 ]);
 
                 if ($isCustomer) {
@@ -227,8 +280,8 @@ class ReturnController extends Controller
                     } else {
                         WarehouseItem::create([
                             'warehouse_id' => $warehouseId,
-                            'item_id'      => $ld['item']->id,
-                            'stok'         => $ld['qty'],
+                            'item_id' => $ld['item']->id,
+                            'stok' => $ld['qty'],
                             'stok_minimal' => 0,
                         ]);
                     }
@@ -243,6 +296,18 @@ class ReturnController extends Controller
                 $ld['item']->save();
             }
 
+            // R3: record refund as expense transaction for customer returns
+            if ($isCustomer && $totalAmount > 0) {
+                Expense::create([
+                    'occurred_at' => $data['occurred_at'],
+                    'category' => 'Retur Pelanggan',
+                    'amount' => $totalAmount,
+                    'warehouse_id' => $warehouseId,
+                    'description' => "Refund retur {$returnNumber}".($data['customer_id'] ? '' : ' (walk-in)'),
+                    'created_by' => Auth::id(),
+                ]);
+            }
+
             $result = ['returnNumber' => $returnNumber, 'returnId' => $header->id];
         });
 
@@ -254,8 +319,8 @@ class ReturnController extends Controller
         if ($header) {
             AuditLogger::log('return.created', $header, null, [
                 'return_number' => $result['returnNumber'],
-                'type'          => $header->type,
-                'total_amount'  => $header->total_amount,
+                'type' => $header->type,
+                'total_amount' => $header->total_amount,
             ]);
         }
 
@@ -269,23 +334,23 @@ class ReturnController extends Controller
 
         return Inertia::render('returns/Show', [
             'returnData' => [
-                'id'            => $returnHeader->id,
-                'returnNumber'  => $returnHeader->return_number,
-                'type'          => $returnHeader->type,
-                'customerName'  => $returnHeader->customer?->name,
-                'supplierName'  => $returnHeader->supplier?->name,
+                'id' => $returnHeader->id,
+                'returnNumber' => $returnHeader->return_number,
+                'type' => $returnHeader->type,
+                'customerName' => $returnHeader->customer?->name,
+                'supplierName' => $returnHeader->supplier?->name,
                 'warehouseName' => $returnHeader->warehouse?->name ?? '-',
-                'processedBy'   => $returnHeader->processedBy?->name ?? '-',
-                'occurredAt'    => $returnHeader->occurred_at?->toISOString(),
-                'status'        => $returnHeader->status,
-                'totalAmount'   => $returnHeader->total_amount,
-                'reason'        => $returnHeader->reason,
-                'note'          => $returnHeader->note,
-                'items'         => $returnHeader->returnItems->map(fn ($ri) => [
-                    'id'        => $ri->id,
-                    'itemId'    => $ri->item_id,
-                    'itemName'  => $ri->item_name_snapshot,
-                    'quantity'  => $ri->quantity,
+                'processedBy' => $returnHeader->processedBy?->name ?? '-',
+                'occurredAt' => $returnHeader->occurred_at?->toISOString(),
+                'status' => $returnHeader->status,
+                'totalAmount' => $returnHeader->total_amount,
+                'reason' => $returnHeader->reason,
+                'note' => $returnHeader->note,
+                'items' => $returnHeader->returnItems->map(fn ($ri) => [
+                    'id' => $ri->id,
+                    'itemId' => $ri->item_id,
+                    'itemName' => $ri->item_name_snapshot,
+                    'quantity' => $ri->quantity,
                     'unitPrice' => $ri->unit_price,
                     'lineTotal' => $ri->line_total,
                     'condition' => $ri->condition,
@@ -297,6 +362,10 @@ class ReturnController extends Controller
     public function void(ReturnHeader $returnHeader)
     {
         if ($returnHeader->status === 'void') {
+            if (request()->wantsJson()) {
+                return response()->json(['message' => 'Retur ini sudah di-void.'], 422);
+            }
+
             return back()->withErrors(['status' => 'Retur ini sudah di-void.']);
         }
 
@@ -305,10 +374,14 @@ class ReturnController extends Controller
 
         DB::transaction(function () use ($returnHeader, $isCustomer) {
             foreach ($returnHeader->returnItems as $ri) {
-                if (!$ri->item_id) continue;
+                if (! $ri->item_id) {
+                    continue;
+                }
 
                 $item = Item::lockForUpdate()->find($ri->item_id);
-                if (!$item) continue;
+                if (! $item) {
+                    continue;
+                }
 
                 $wi = WarehouseItem::where('warehouse_id', $returnHeader->warehouse_id)
                     ->where('item_id', $ri->item_id)
@@ -328,8 +401,8 @@ class ReturnController extends Controller
                     } else {
                         WarehouseItem::create([
                             'warehouse_id' => $returnHeader->warehouse_id,
-                            'item_id'      => $ri->item_id,
-                            'stok'         => $ri->quantity,
+                            'item_id' => $ri->item_id,
+                            'stok' => $ri->quantity,
                             'stok_minimal' => 0,
                         ]);
                     }
@@ -341,6 +414,16 @@ class ReturnController extends Controller
 
             $returnHeader->status = 'void';
             $returnHeader->save();
+
+            // Reverse the refund expense created when the return was processed
+            if ($isCustomer) {
+                Expense::where('category', 'Retur Pelanggan')
+                    ->where('warehouse_id', $returnHeader->warehouse_id)
+                    ->where('occurred_at', $returnHeader->occurred_at->toDateString())
+                    ->where('amount', $returnHeader->total_amount)
+                    ->where('description', 'like', "%{$returnHeader->return_number}%")
+                    ->delete();
+            }
         });
 
         AuditLogger::log('return.voided', $returnHeader, ['status' => 'completed'], ['status' => 'void']);

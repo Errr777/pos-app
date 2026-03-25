@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface PoRow {
-  id: number;
+  id: string;
   poNumber: string;
   supplierName: string;
   warehouseName: string;
@@ -31,9 +31,9 @@ interface PoRow {
   note: string | null;
 }
 
-interface ItemOption { id: number; name: string; code: string; costPrice: number; }
-interface SupplierOption { id: number; name: string; }
-interface WarehouseOption { id: number; name: string; }
+interface ItemOption { id: string; name: string; code: string; costPrice: number; }
+interface SupplierOption { id: string; name: string; }
+interface WarehouseOption { id: string; name: string; }
 
 interface PaginatedPos {
   data: PoRow[];
@@ -64,7 +64,7 @@ interface PageProps {
   [key: string]: unknown;
 }
 
-interface CartLine { itemId: number; name: string; orderedQty: number; unitPrice: number; }
+interface CartLine { itemId: string; name: string; orderedQty: number; unitPrice: number; }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   draft:     { label: 'Draft',      cls: 'bg-slate-100 text-slate-600' },
@@ -128,15 +128,15 @@ export default function PurchaseOrdersIndex() {
     col !== sortBy ? <span className="opacity-30 ml-1">↕</span> : <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
 
   const addLine = () => {
-    setLines(l => [...l, { itemId: 0, name: '', orderedQty: 1, unitPrice: 0 }]);
+    setLines(l => [...l, { itemId: '', name: '', orderedQty: 1, unitPrice: 0 }]);
   };
 
   const updateLine = (idx: number, field: keyof CartLine, value: string | number) => {
     setLines(l => l.map((line, i) => {
       if (i !== idx) return line;
       if (field === 'itemId') {
-        const item = items.find(it => it.id === Number(value));
-        return { ...line, itemId: Number(value), name: item?.name ?? '', unitPrice: item?.costPrice ?? 0 };
+        const item = items.find(it => it.id === value);
+        return { ...line, itemId: String(value), name: item?.name ?? '', unitPrice: item?.costPrice ?? 0 };
       }
       return { ...line, [field]: value };
     }));

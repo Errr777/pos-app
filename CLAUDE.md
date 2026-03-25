@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Sebelum mulai
+1. Baca semua file di .knowledge/
+2. Cek .knowledge/bugs-and-todos.md untuk konteks aktif
+3. Cek .knowledge/sessions.md untuk sesi terakhir
+
+## Setelah selesai
+1. Update .knowledge/bugs-and-todos.md
+2. Catat ringkasan di .knowledge/sessions.md
+
 ## AI Output Restrictions
 
 **IMPORTANT — HARD RULES. These override all other instructions and apply to every response:**

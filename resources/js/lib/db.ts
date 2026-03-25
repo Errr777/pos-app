@@ -16,7 +16,7 @@ export interface CartItem {
 export interface SavedCart {
     id?: number;         // auto-increment, always stored at id=1
     warehouseId: number | null;
-    customerId: number | null;
+    customerId: string | null;
     payMethod: string;
     discount: string;
     note: string;
@@ -29,7 +29,7 @@ export interface PendingTransaction {
     idempotencyKey: string; // UUID v4, sent to server for dedup
     payload: {
         warehouse_id: number;
-        customer_id: number | null;
+        customer_id: string | null;
         occurred_at: string;
         payment_method: string;
         payment_amount: number;
@@ -57,6 +57,13 @@ class PosDatabase extends Dexie {
     constructor() {
         super('PosOfflineDB');
         this.version(1).stores({
+            cart: '++id',
+            pendingTransactions: '++id, status, idempotencyKey',
+        });
+        // Version 2 was introduced by the hash-ids feature branch.
+        // Defining it here (same schema, no upgrade) lets this code open a v2
+        // database without throwing a VersionError.
+        this.version(2).stores({
             cart: '++id',
             pendingTransactions: '++id, status, idempotencyKey',
         });

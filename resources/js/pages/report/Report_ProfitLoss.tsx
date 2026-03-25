@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -18,22 +19,32 @@ interface MonthData {
     month: string;
     month_num: number;
     revenue: number;
+    returns: number;
     cogs: number;
     gross_profit: number;
     expenses: number;
+    expense_breakdown: Record<string, number>;
     net_profit: number;
 }
 
 interface Totals {
     revenue: number;
+    returns: number;
     cogs: number;
     gross_profit: number;
     expenses: number;
     net_profit: number;
 }
 
+interface PrevMonth {
+    revenue: number;
+    net_profit: number;
+}
+
 interface PageProps {
     monthly: MonthData[];
+    prevMonthly: Record<number, PrevMonth>;
+    prevYear: number;
     totals: Totals;
     year: number;
     years: number[];
@@ -52,32 +63,61 @@ function formatRpFull(n: number) {
     return 'Rp ' + n.toLocaleString('id-ID');
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { name: string; value: number; fill: string; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string; }
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
     return (
         <div className="rounded-lg border bg-background shadow-md px-3 py-2 text-xs space-y-1">
             <p className="font-semibold mb-1">{label}</p>
-            {payload.map((p: any) => (
+            {payload.map((p) => (
                 <p key={p.name} style={{ color: p.fill }}>{p.name}: {formatRpFull(p.value)}</p>
             ))}
         </div>
     );
 };
 
-export default function ReportProfitLoss() {
-    const { monthly = [], totals, year, years = [], warehouses = [], warehouseId } = usePage<PageProps>().props;
+const QUARTERS = [
+    { label: 'Q1', months: [1, 2, 3] },
+    { label: 'Q2', months: [4, 5, 6] },
+    { label: 'Q3', months: [7, 8, 9] },
+    { label: 'Q4', months: [10, 11, 12] },
+];
 
-    const safeTotals: Totals = totals ?? { revenue: 0, cogs: 0, gross_profit: 0, expenses: 0, net_profit: 0 };
+export default function ReportProfitLoss() {
+    const { monthly = [], prevMonthly = {}, prevYear, totals, year, years = [], warehouses = [], warehouseId } = usePage<PageProps>().props;
+    const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+
+    const safeTotals: Totals = totals ?? { revenue: 0, returns: 0, cogs: 0, gross_profit: 0, expenses: 0, net_profit: 0 };
+
+    const toggleCategory = (monthNum: number) => {
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            next.has(monthNum) ? next.delete(monthNum) : next.add(monthNum);
+            return next;
+        });
+    };
+
+    const quarterData = QUARTERS.map(q => {
+        const rows = monthly.filter(r => q.months.includes(r.month_num));
+        const rev  = rows.reduce((s, r) => s + r.revenue, 0);
+        const cogs = rows.reduce((s, r) => s + r.cogs, 0);
+        const exp  = rows.reduce((s, r) => s + r.expenses, 0);
+        const net  = rev - cogs - exp;
+        return { label: q.label, revenue: rev, cogs, expenses: exp, gross_profit: rev - cogs, net_profit: net };
+    });
 
     const exportCSV = () => {
         const date = new Date().toISOString().slice(0, 10);
         const rows: string[][] = [
             ['Laporan Laba Rugi', String(year)],
             [],
-            ['Bulan', 'Omzet', 'HPP', 'Laba Kotor', 'Beban Operasional', 'Laba Bersih', 'Margin %'],
+            ['Bulan', 'Omzet (net retur)', 'Retur Pelanggan', 'HPP', 'Laba Kotor', 'Beban Operasional', 'Laba Bersih', 'Margin %'],
             ...monthly.map(r => [
                 `${r.month} ${year}`,
                 String(r.revenue),
+                String(r.returns),
                 String(r.cogs),
                 String(r.gross_profit),
                 String(r.expenses),
@@ -210,47 +250,108 @@ export default function ReportProfitLoss() {
                     )}
                 </div>
 
-                {/* Monthly table */}
+                {/* Monthly + quarterly table */}
                 <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50">
                             <tr>
                                 <th className="text-left px-4 py-2.5 font-medium text-xs">Bulan</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Omzet</th>
+                                <th className="text-right px-4 py-2.5 font-medium text-xs text-rose-500">Retur</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">HPP</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Laba Kotor</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Beban</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Laba Bersih</th>
+                                <th className="text-right px-4 py-2.5 font-medium text-xs">vs {prevYear}</th>
                                 <th className="text-right px-4 py-2.5 font-medium text-xs">Margin %</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {monthly.map(row => (
-                                <tr key={row.month_num} className="hover:bg-muted/30 transition-colors">
-                                    <td className="px-4 py-2.5 font-medium text-xs">{row.month} {year}</td>
-                                    <td className="px-4 py-2.5 text-right text-xs">{formatRpFull(row.revenue)}</td>
-                                    <td className="px-4 py-2.5 text-right text-xs text-rose-600 dark:text-rose-400">{formatRpFull(row.cogs)}</td>
-                                    <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                        {formatRpFull(row.gross_profit)}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right text-xs text-orange-600 dark:text-orange-400">{formatRpFull(row.expenses)}</td>
-                                    <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.net_profit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                        {formatRpFull(row.net_profit)}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
-                                        {row.revenue > 0 ? ((row.net_profit / row.revenue) * 100).toFixed(1) + '%' : '-'}
-                                    </td>
-                                </tr>
-                            ))}
+                            {QUARTERS.map(q => {
+                                const qRows = monthly.filter(r => q.months.includes(r.month_num));
+                                const qd    = quarterData.find(d => d.label === q.label)!;
+                                return (
+                                    <>
+                                        {qRows.map(row => {
+                                            const prev = prevMonthly[row.month_num];
+                                            const yoyDiff = prev ? row.net_profit - prev.net_profit : null;
+                                            const isCatOpen = expandedCategories.has(row.month_num);
+                                            const hasBreakdown = Object.keys(row.expense_breakdown ?? {}).length > 0;
+                                            return (
+                                                <>
+                                                    <tr key={row.month_num} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="px-4 py-2.5 font-medium text-xs">{row.month} {year}</td>
+                                                        <td className="px-4 py-2.5 text-right text-xs">{formatRpFull(row.revenue)}</td>
+                                                        <td className="px-4 py-2.5 text-right text-xs text-rose-500">{row.returns > 0 ? formatRpFull(row.returns) : '—'}</td>
+                                                        <td className="px-4 py-2.5 text-right text-xs text-rose-600 dark:text-rose-400">{formatRpFull(row.cogs)}</td>
+                                                        <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                            {formatRpFull(row.gross_profit)}
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-right text-xs text-orange-600 dark:text-orange-400">
+                                                            {hasBreakdown ? (
+                                                                <button className="underline decoration-dotted hover:no-underline" onClick={() => toggleCategory(row.month_num)}>
+                                                                    {formatRpFull(row.expenses)} {isCatOpen ? '▲' : '▼'}
+                                                                </button>
+                                                            ) : formatRpFull(row.expenses)}
+                                                        </td>
+                                                        <td className={`px-4 py-2.5 text-right text-xs font-semibold ${row.net_profit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                            {formatRpFull(row.net_profit)}
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-right text-xs">
+                                                            {yoyDiff !== null ? (
+                                                                <span className={yoyDiff >= 0 ? 'text-emerald-600' : 'text-rose-500'}>
+                                                                    {yoyDiff >= 0 ? '+' : ''}{formatRp(yoyDiff)}
+                                                                </span>
+                                                            ) : '—'}
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
+                                                            {row.revenue > 0 ? ((row.net_profit / row.revenue) * 100).toFixed(1) + '%' : '-'}
+                                                        </td>
+                                                    </tr>
+                                                    {isCatOpen && hasBreakdown && (
+                                                        <tr key={`cat-${row.month_num}`} className="bg-muted/20">
+                                                            <td colSpan={9} className="px-8 py-2">
+                                                                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                                                    {Object.entries(row.expense_breakdown).map(([cat, amt]) => (
+                                                                        <span key={cat} className="text-xs text-muted-foreground">
+                                                                            <span className="font-medium text-foreground">{cat}:</span> {formatRpFull(amt)}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </>
+                                            );
+                                        })}
+                                        {/* Quarterly subtotal */}
+                                        <tr key={`q-${q.label}`} className="bg-indigo-50/60 dark:bg-indigo-950/20 font-semibold border-t border-indigo-200 dark:border-indigo-800">
+                                            <td className="px-4 py-2 text-xs text-indigo-700 dark:text-indigo-300">{q.label} {year}</td>
+                                            <td className="px-4 py-2 text-right text-xs">{formatRpFull(qd.revenue)}</td>
+                                            <td className="px-4 py-2 text-right text-xs">—</td>
+                                            <td className="px-4 py-2 text-right text-xs text-rose-600">{formatRpFull(qd.cogs)}</td>
+                                            <td className="px-4 py-2 text-right text-xs text-emerald-600">{formatRpFull(qd.gross_profit)}</td>
+                                            <td className="px-4 py-2 text-right text-xs text-orange-600">{formatRpFull(qd.expenses)}</td>
+                                            <td className={`px-4 py-2 text-right text-xs ${qd.net_profit >= 0 ? 'text-teal-600' : 'text-rose-600'}`}>{formatRpFull(qd.net_profit)}</td>
+                                            <td className="px-4 py-2 text-right text-xs">—</td>
+                                            <td className="px-4 py-2 text-right text-xs">
+                                                {qd.revenue > 0 ? ((qd.net_profit / qd.revenue) * 100).toFixed(1) + '%' : '—'}
+                                            </td>
+                                        </tr>
+                                    </>
+                                );
+                            })}
                         </tbody>
                         <tfoot className="bg-muted/60 font-semibold border-t-2">
                             <tr>
                                 <td className="px-4 py-2.5 text-xs">TOTAL {year}</td>
                                 <td className="px-4 py-2.5 text-right text-xs">{formatRpFull(safeTotals.revenue)}</td>
+                                <td className="px-4 py-2.5 text-right text-xs text-rose-500">{safeTotals.returns > 0 ? formatRpFull(safeTotals.returns) : '—'}</td>
                                 <td className="px-4 py-2.5 text-right text-xs text-rose-600 dark:text-rose-400">{formatRpFull(safeTotals.cogs)}</td>
                                 <td className="px-4 py-2.5 text-right text-xs text-emerald-600 dark:text-emerald-400">{formatRpFull(safeTotals.gross_profit)}</td>
                                 <td className="px-4 py-2.5 text-right text-xs text-orange-600 dark:text-orange-400">{formatRpFull(safeTotals.expenses)}</td>
                                 <td className={`px-4 py-2.5 text-right text-xs ${safeTotals.net_profit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatRpFull(safeTotals.net_profit)}</td>
+                                <td className="px-4 py-2.5 text-right text-xs">—</td>
                                 <td className="px-4 py-2.5 text-right text-xs">{netMargin}%</td>
                             </tr>
                         </tfoot>

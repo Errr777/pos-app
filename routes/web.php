@@ -169,6 +169,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(f
     // Returns
     Route::get('returns', [ReturnController::class, 'index'])->name('returns.index');
     Route::post('returns', [ReturnController::class, 'store'])->name('returns.store');
+    Route::get('returns/sale-lookup', [ReturnController::class, 'saleLookup'])->name('returns.sale-lookup');
     Route::get('returns/{returnHeader}', [ReturnController::class, 'show'])->name('returns.show');
     Route::post('returns/{returnHeader}/void', [ReturnController::class, 'void'])->name('returns.void');
 

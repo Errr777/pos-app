@@ -10,6 +10,7 @@ use App\Exports\SalesReportExport;
 use App\Exports\StockReportExport;
 use App\Models\Expense;
 use App\Models\Item;
+use App\Models\ReturnHeader;
 use App\Models\SaleHeader;
 use App\Models\SaleItem;
 use App\Traits\FiltersWarehouseByUser;
@@ -54,12 +55,14 @@ class ReportController extends Controller
     /** Returns active warehouses as [{id, name}] arrays, cached for 5 minutes. */
     private function getActiveWarehouses(array $allowedIds = []): \Illuminate\Support\Collection
     {
-        $cacheKey = 'active_warehouses_mapped'.(empty($allowedIds) ? '' : '_'.implode('_', $allowedIds));
+        $sortedIds = $allowedIds;
+        sort($sortedIds);
+        $cacheKey = 'active_warehouses_mapped'.(empty($sortedIds) ? '' : '_'.implode('_', $sortedIds));
 
-        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($allowedIds) {
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($sortedIds) {
             $q = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-            if (! empty($allowedIds)) {
-                $q->whereIn('id', $allowedIds);
+            if (! empty($sortedIds)) {
+                $q->whereIn('id', $sortedIds);
             }
 
             return $q->get(['id', 'name'])->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
@@ -69,12 +72,14 @@ class ReportController extends Controller
     /** Returns active warehouse Eloquent models, cached for 5 minutes. */
     private function getActiveWarehouseModels(array $allowedIds = []): \Illuminate\Support\Collection
     {
-        $cacheKey = 'active_warehouses_models'.(empty($allowedIds) ? '' : '_'.implode('_', $allowedIds));
+        $sortedIds = $allowedIds;
+        sort($sortedIds);
+        $cacheKey = 'active_warehouses_models'.(empty($sortedIds) ? '' : '_'.implode('_', $sortedIds));
 
-        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($allowedIds) {
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($sortedIds) {
             $q = \App\Models\Warehouse::where('is_active', true)->orderBy('name');
-            if (! empty($allowedIds)) {
-                $q->whereIn('id', $allowedIds);
+            if (! empty($sortedIds)) {
+                $q->whereIn('id', $sortedIds);
             }
 
             return $q->get();
@@ -173,9 +178,9 @@ class ReportController extends Controller
 
     public function exportStockCsv(Request $request)
     {
-        $search   = trim((string) $request->get('search', ''));
+        $search = trim((string) $request->get('search', ''));
         $dateFrom = $request->get('date_from');
-        $dateTo   = $request->get('date_to');
+        $dateTo = $request->get('date_to');
 
         $query = Item::select([
             'items.id',
@@ -212,7 +217,7 @@ class ReportController extends Controller
         $rows = $query->orderBy('items.nama')->get();
 
         $headers = ['Kode', 'Nama', 'Kategori', 'Stok Saat Ini', 'Stok Minimal', 'Total Masuk', 'Total Keluar'];
-        $lines   = $rows->map(fn ($i) => [
+        $lines = $rows->map(fn ($i) => [
             $i->kode_item ?? '',
             $i->nama,
             $i->kategori ?? '',
@@ -229,7 +234,7 @@ class ReportController extends Controller
         $filename = 'laporan-stok-'.now()->format('Y-m-d').'.csv';
 
         return response($csv, 200, [
-            'Content-Type'        => 'text/csv; charset=utf-8',
+            'Content-Type' => 'text/csv; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
@@ -238,11 +243,11 @@ class ReportController extends Controller
 
     public function salesReport(Request $request)
     {
-        $perPage     = $this->sanitizePerPage($request);
-        $dateFrom    = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
-        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
-        $search      = trim((string) $request->get('search', ''));
-        $method      = (string) $request->get('method', '');
+        $perPage = $this->sanitizePerPage($request);
+        $dateFrom = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo = $request->get('date_to') ?: now()->format('Y-m-d');
+        $search = trim((string) $request->get('search', ''));
+        $method = (string) $request->get('method', '');
         $warehouseId = (string) $request->get('warehouse_id', '');
         $sortDir = $this->sanitizeSortDir($request, 'desc');
 
@@ -269,7 +274,7 @@ class ReportController extends Controller
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(sale_number) like ?', ["%{$term}%"])
                     ->orWhereHas('customer', fn ($cq) => $cq->whereRaw('LOWER(nama) like ?', ["%{$term}%"]))
-                    ->orWhereHas('cashier',  fn ($uq) => $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"]));
+                    ->orWhereHas('cashier', fn ($uq) => $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"]));
             });
         }
 
@@ -286,8 +291,8 @@ class ReportController extends Controller
             'cashier' => $s->cashier?->name ?? '-',
             'customer' => $s->customer?->name ?? 'Walk-in',
             'grandTotal' => $s->grand_total,
-            'method'     => $s->payment_method,
-            'outlet'     => $s->warehouse?->name ?? '-',
+            'method' => $s->payment_method,
+            'outlet' => $s->warehouse?->name ?? '-',
         ]);
 
         $summaryQuery = SaleHeader::where('status', 'completed')
@@ -320,12 +325,12 @@ class ReportController extends Controller
             ],
             'warehouses' => $warehouses,
             'filters' => [
-                'search'       => $search,
-                'date_from'    => $dateFrom,
-                'date_to'      => $dateTo,
-                'method'       => $method,
+                'search' => $search,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'method' => $method,
                 'warehouse_id' => $warehouseId,
-                'per_page'     => $perPage,
+                'per_page' => $perPage,
             ],
         ]);
     }
@@ -334,12 +339,12 @@ class ReportController extends Controller
 
     public function exportSalesExcel(Request $request)
     {
-        $from        = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $to          = $request->get('date_to', now()->format('Y-m-d'));
+        $from = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $to = $request->get('date_to', now()->format('Y-m-d'));
         $warehouseId = (string) $request->get('warehouse_id', '');
-        $method      = (string) $request->get('method', '');
-        $allowedIds  = $this->allowedWarehouseIds();
-        $filename    = 'laporan-penjualan-'.$from.'-'.$to.'.xlsx';
+        $method = (string) $request->get('method', '');
+        $allowedIds = $this->allowedWarehouseIds();
+        $filename = 'laporan-penjualan-'.$from.'-'.$to.'.xlsx';
 
         return Excel::download(new SalesReportExport($from, $to, $warehouseId, $method, $allowedIds), $filename);
     }
@@ -348,10 +353,10 @@ class ReportController extends Controller
 
     public function cashReport(Request $request)
     {
-        $dateFrom    = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
-        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
+        $dateFrom = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo = $request->get('date_to') ?: now()->format('Y-m-d');
         $warehouseId = (string) ($request->get('warehouse_id') ?? '');
-        $groupBy     = in_array($request->get('group_by'), ['daily', 'monthly'])
+        $groupBy = in_array($request->get('group_by'), ['daily', 'monthly'])
                         ? $request->get('group_by') : 'daily';
         $allowedIds = $this->allowedWarehouseIds();
 
@@ -418,10 +423,10 @@ class ReportController extends Controller
             ],
             'warehouses' => $warehouses,
             'filters' => [
-                'date_from'    => $dateFrom,
-                'date_to'      => $dateTo,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'warehouse_id' => $warehouseId,
-                'group_by'     => $groupBy,
+                'group_by' => $groupBy,
             ],
         ]);
     }
@@ -452,42 +457,90 @@ class ReportController extends Controller
                 ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
                 ->sum('grand_total');
 
+            $returns = (int) ReturnHeader::where('type', 'customer_return')
+                ->where('status', 'completed')
+                ->whereBetween('occurred_at', [$start, $end])
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->sum('total_amount');
+
+            $revenue = max(0, $revenue - $returns);
+
             $cogs = (int) SaleItem::whereHas('saleHeader', fn ($q) => $q->where('status', 'completed')
                 ->whereBetween('occurred_at', [$start, $end])
                 ->when(! empty($effectiveIds), fn ($q2) => $q2->whereIn('warehouse_id', $effectiveIds))
-            )->join('items', 'items.id', '=', 'sale_items.item_id')
-                ->sum(DB::raw('sale_items.quantity * items.harga_beli'));
+            )->sum(DB::raw('sale_items.quantity * sale_items.cost_price_snapshot'));
 
-            $expenses = (int) Expense::whereBetween('occurred_at', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+            $expenseRows = Expense::whereBetween('occurred_at', [$start->format('Y-m-d'), $end->format('Y-m-d')])
                 ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
-                ->sum('amount');
+                ->selectRaw('category, SUM(amount) as total')
+                ->groupBy('category')
+                ->pluck('total', 'category')
+                ->map(fn ($v) => (int) $v)
+                ->toArray();
+
+            $expenses = (int) array_sum($expenseRows);
 
             $monthly[] = [
                 'month' => Carbon::create($year, $m, 1)->format('M'),
                 'month_num' => $m,
                 'revenue' => $revenue,
+                'returns' => $returns,
                 'cogs' => $cogs,
                 'gross_profit' => $revenue - $cogs,
                 'expenses' => $expenses,
+                'expense_breakdown' => $expenseRows,
                 'net_profit' => $revenue - $cogs - $expenses,
             ];
         }
 
         $totals = [
             'revenue' => array_sum(array_column($monthly, 'revenue')),
+            'returns' => array_sum(array_column($monthly, 'returns')),
             'cogs' => array_sum(array_column($monthly, 'cogs')),
             'gross_profit' => array_sum(array_column($monthly, 'gross_profit')),
             'expenses' => array_sum(array_column($monthly, 'expenses')),
             'net_profit' => array_sum(array_column($monthly, 'net_profit')),
         ];
 
+        // Year-over-year: build prev year monthly net_profit array keyed by month_num
+        $prevYear = $year - 1;
+        $prevMonthly = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $s = Carbon::create($prevYear, $m, 1)->startOfMonth();
+            $e = $s->copy()->endOfMonth();
+
+            $prevRev = (int) SaleHeader::where('status', 'completed')
+                ->whereBetween('occurred_at', [$s, $e])
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->sum('grand_total');
+            $prevRet = (int) ReturnHeader::where('type', 'customer_return')->where('status', 'completed')
+                ->whereBetween('occurred_at', [$s, $e])
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->sum('total_amount');
+            $prevRev = max(0, $prevRev - $prevRet);
+            $prevCogs = (int) SaleItem::whereHas('saleHeader', fn ($q) => $q->where('status', 'completed')
+                ->whereBetween('occurred_at', [$s, $e])
+                ->when(! empty($effectiveIds), fn ($q2) => $q2->whereIn('warehouse_id', $effectiveIds))
+            )->sum(DB::raw('sale_items.quantity * sale_items.cost_price_snapshot'));
+            $prevExp = (int) Expense::whereBetween('occurred_at', [$s->format('Y-m-d'), $e->format('Y-m-d')])
+                ->when(! empty($effectiveIds), fn ($q) => $q->whereIn('warehouse_id', $effectiveIds))
+                ->sum('amount');
+
+            $prevMonthly[$m] = [
+                'revenue' => $prevRev,
+                'net_profit' => $prevRev - $prevCogs - $prevExp,
+            ];
+        }
+
         $currentYear = now()->year;
-        $years = range($currentYear, max($currentYear - 3, 2020));
+        $years = range($currentYear, max($currentYear - 5, 2020));
 
         $warehouses = $this->getActiveWarehouses($allowedIds);
 
         return Inertia::render('report/Report_ProfitLoss', [
             'monthly' => $monthly,
+            'prevMonthly' => $prevMonthly,
+            'prevYear' => $prevYear,
             'totals' => $totals,
             'year' => $year,
             'years' => $years,
@@ -650,10 +703,10 @@ class ReportController extends Controller
 
     public function peakHours(Request $request)
     {
-        $dateFrom    = $request->get('date_from') ?: now()->subDays(29)->format('Y-m-d');
-        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
+        $dateFrom = $request->get('date_from') ?: now()->subDays(29)->format('Y-m-d');
+        $dateTo = $request->get('date_to') ?: now()->format('Y-m-d');
         $warehouseId = (string) ($request->get('warehouse_id') ?? '');
-        $allowedIds  = $this->allowedWarehouseIds();
+        $allowedIds = $this->allowedWarehouseIds();
 
         $query = SaleHeader::select([
             DB::raw('HOUR(occurred_at) as hour'),
@@ -714,8 +767,8 @@ class ReportController extends Controller
             'maxCount' => $maxCount,
             'warehouses' => $warehouses,
             'filters' => [
-                'date_from'    => $dateFrom,
-                'date_to'      => $dateTo,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'warehouse_id' => $warehouseId,
             ],
         ]);
