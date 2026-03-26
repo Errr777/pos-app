@@ -15,7 +15,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 
 type Kategori = {
-  id: string;
+  id: number;
   nama: string;
   deskripsi?: string | null;
   [k: string]: any;
@@ -90,7 +90,7 @@ export default function Add_Items() {
     }
 
     const id = value || null;
-    const found = kategoris.find((k) => k.id === value) ?? null;
+    const found = kategoris.find((k) => String(k.id) === value) ?? null;
     form.setData("id_kategori", id ?? "");
     form.setData("kategori", found ? found.nama : "");
   };

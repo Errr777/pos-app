@@ -4,7 +4,7 @@ import { Head, Link, router, usePage, useForm } from '@inertiajs/react';
 import { Search, Plus, Pencil, Trash, Eye, Tag, Printer } from 'lucide-react';
 
 interface Item {
-  id: string;
+  id: number;
   type: 'barang' | 'jasa';
   name: string;
   description: string | null;
@@ -14,10 +14,10 @@ interface Item {
   harga_beli: number;
   harga_jual: number;
   category: string | null;
-  id_kategori: string | null;
-  kategori_rel: { id: string; nama: string } | null;
-  tags: { id: string; name: string; color: string }[];
-  preferred_supplier_id: string | null;
+  id_kategori: number | null;
+  kategori_rel: { id: number; nama: string } | null;
+  tags: { id: number; name: string; color: string }[];
+  preferred_supplier_id: number | null;
   preferred_supplier_name: string | null;
   image_url: string | null;
 }
@@ -48,9 +48,9 @@ const ITEMS_PER_PAGE = 10;
 interface PageProps {
   items: { data: Item[]; meta: Record<string, unknown> };
   filters: Record<string, string>;
-  kategoris: { id: string; nama: string; deskripsi?: string | null }[];
-  allTags: { id: string; name: string; color: string }[];
-  allSuppliers: { id: string; name: string }[];
+  kategoris: { id: number; nama: string; deskripsi?: string | null }[];
+  allTags: { id: number; name: string; color: string }[];
+  allSuppliers: { id: number; name: string }[];
   [key: string]: unknown;
 }
 
@@ -78,7 +78,7 @@ export default function Items() {
 
   // edit modal state handled by Inertia useForm
   const form = useForm<{
-    id: string | null;
+    id: number | null;
     type: 'barang' | 'jasa';
     name: string;
     description: string;
@@ -88,8 +88,8 @@ export default function Items() {
     harga_beli: number;
     harga_jual: number;
     category: string;
-    id_kategori: string | null;
-    preferred_supplier_id: string | null;
+    id_kategori: number | null;
+    preferred_supplier_id: number | null;
   }>({
     id: null,
     type: 'barang',
@@ -107,8 +107,8 @@ export default function Items() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const [tagItem, setTagItem] = useState<Item | null>(null);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setLocalItems(items.data ?? []);
@@ -268,7 +268,7 @@ export default function Items() {
 
   function openTagEdit(item: Item) {
     setTagItem(item);
-    setSelectedTagIds(item.tags.map((t: { id: string }) => t.id));
+    setSelectedTagIds(item.tags.map((t: { id: number }) => t.id));
   }
 
   function submitTags() {
@@ -278,7 +278,7 @@ export default function Items() {
     });
   }
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
         const next = new Set(prev);
         next.has(id) ? next.delete(id) : next.add(id);
@@ -686,8 +686,8 @@ export default function Items() {
                 <select
                   value={form.data.id_kategori ?? ''}
                   onChange={(e) => {
-                    const id = e.target.value || null;
-                    const k = kategoris.find((x) => x.id === e.target.value) ?? null;
+                    const id = e.target.value ? Number(e.target.value) : null;
+                    const k = kategoris.find((x) => String(x.id) === e.target.value) ?? null;
                     form.setData('id_kategori', id);
                     form.setData('category', k ? k.nama : '');
                   }}
@@ -708,7 +708,7 @@ export default function Items() {
               <label className="block text-sm font-medium">Supplier Utama</label>
               <select
                 value={form.data.preferred_supplier_id ?? ''}
-                onChange={(e) => form.setData('preferred_supplier_id', e.target.value || null)}
+                onChange={(e) => form.setData('preferred_supplier_id', e.target.value ? Number(e.target.value) : null)}
                 className="w-full border rounded px-2 py-1"
               >
                 <option value="">-- Tidak ada --</option>

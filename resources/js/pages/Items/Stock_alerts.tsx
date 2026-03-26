@@ -46,7 +46,7 @@ export default function Stock_alerts() {
   const [query, setQuery] = useState<string>(filters.search ?? '');
   const [sortBy, setSortBy] = useState<string>((filters.sort_by as string) ?? 'stock');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
-    (filters.sort_dir === 'asc' ? 'asc' : 'desc') ?? 'asc'
+    filters.sort_dir === 'asc' ? 'asc' : 'desc'
   );
   const [page, setPage] = useState<number>(
     items?.meta?.current_page ? Number(items.meta.current_page) : 1

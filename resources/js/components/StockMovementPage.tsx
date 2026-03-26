@@ -139,8 +139,8 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
     const [form, setForm] = useState({
         id: 0,
         date: formatDateISO(new Date()),
-        itemId: staticItems?.[0]?.id ?? 0,
-        warehouseId: warehouses[0]?.id ?? 0,
+        itemId: String(staticItems?.[0]?.id ?? ''),
+        warehouseId: String(warehouses[0]?.id ?? ''),
         quantity: 1,
         party: '',
         reference: '',
@@ -154,7 +154,7 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
         (it.kode && it.kode.toLowerCase().includes(itemSearch.toLowerCase()))
     );
 
-    const fetchItems = async (warehouseId: number): Promise<ItemOption[]> => {
+    const fetchItems = async (warehouseId: string): Promise<ItemOption[]> => {
         if (!config.fetchItemsRoute || !warehouseId) return staticItems ?? [];
         setLoadingItems(true);
         try {
@@ -192,22 +192,22 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
 
     const openAddForm = async () => {
         setFormMode('add'); setFormErrors({}); setItemSearch(''); setPartySearch(''); setPartyDropOpen(false);
-        const wid = warehouses[0]?.id ?? 0;
+        const wid = String(warehouses[0]?.id ?? '');
         const items = config.fetchItemsRoute ? await fetchItems(wid) : (staticItems ?? []);
         setSelectedItemImageUrl(items[0]?.image_url ?? null);
-        setForm({ id: 0, date: formatDateISO(new Date()), itemId: items[0]?.id ?? 0,
+        setForm({ id: 0, date: formatDateISO(new Date()), itemId: String(items[0]?.id ?? ''),
             warehouseId: wid, quantity: 1, party: '', reference: '', qrcode: items[0]?.kode ?? '', note: '' });
         setIsFormOpen(true);
     };
 
     const openEditForm = async (row: MovementRow) => {
         setFormMode('edit'); setFormErrors({}); setItemSearch(''); setPartySearch(row.party ?? ''); setPartyDropOpen(false);
-        const wid = row.warehouseId ?? (warehouses[0]?.id ?? 0);
+        const wid = String(row.warehouseId ?? (warehouses[0]?.id ?? ''));
         let items = availableItems;
         if (config.fetchItemsRoute) items = await fetchItems(wid);
-        const matchedItem = items.find(it => it.id === row.itemId);
+        const matchedItem = items.find(it => String(it.id) === String(row.itemId));
         setSelectedItemImageUrl(matchedItem?.image_url ?? null);
-        setForm({ id: row.id, date: formatDateISO(row.date), itemId: row.itemId ?? 0,
+        setForm({ id: row.id, date: formatDateISO(row.date), itemId: String(row.itemId ?? ''),
             warehouseId: wid, quantity: row.quantity, party: row.party ?? '',
             reference: row.reference ?? '', qrcode: row.qrcode ?? '', note: row.note ?? '' });
         setIsFormOpen(true);
@@ -299,7 +299,7 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
                                 <tr key={row.id} className="border-b last:border-b-0">
                                     <td className="px-4 py-2">{formatDateISO(row.date)}</td>
                                     <td className="px-4 py-2">{row.itemName}</td>
-                                    <td className="px-4 py-2 text-muted-foreground text-sm">{warehouses.find((w) => w.id === row.warehouseId)?.name ?? '-'}</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-sm">{warehouses.find((w) => String(w.id) === String(row.warehouseId))?.name ?? '-'}</td>
                                     <td className="px-4 py-2">{row.quantity}</td>
                                     <td className="px-4 py-2">{row.party || '-'}</td>
                                     <td className="px-4 py-2">{row.reference || '-'}</td>
@@ -376,13 +376,13 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
                                 <label className="block font-semibold mb-1">Outlet</label>
                                 <select value={form.warehouseId}
                                     onChange={async (e) => {
-                                        const wid = Number(e.target.value);
-                                        setForm((f) => ({ ...f, warehouseId: wid, itemId: 0, qrcode: '' }));
+                                        const wid = e.target.value;
+                                        setForm((f) => ({ ...f, warehouseId: wid, itemId: '', qrcode: '' }));
                                         setItemSearch(''); setSelectedItemImageUrl(null);
                                         if (config.fetchItemsRoute) {
                                             const items = await fetchItems(wid);
                                             if (items.length > 0) {
-                                                setForm((f) => ({ ...f, itemId: items[0].id, qrcode: items[0].kode ?? '' }));
+                                                setForm((f) => ({ ...f, itemId: String(items[0].id), qrcode: items[0].kode ?? '' }));
                                                 setSelectedItemImageUrl(items[0].image_url ?? null);
                                             }
                                         }
@@ -409,8 +409,8 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
                                             className="w-full px-3 py-2 border rounded-t-lg border-b-0" />
                                         <select value={form.itemId} disabled={loadingItems}
                                             onChange={(e) => {
-                                                const id = Number(e.target.value);
-                                                const item = availableItems.find((it) => it.id === id);
+                                                const id = e.target.value;
+                                                const item = availableItems.find((it) => String(it.id) === id);
                                                 setForm((f) => ({ ...f, itemId: id, qrcode: item?.kode ?? '' }));
                                                 setSelectedItemImageUrl(item?.image_url ?? null);
                                             }}

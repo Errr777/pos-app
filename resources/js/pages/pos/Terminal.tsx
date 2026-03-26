@@ -196,8 +196,8 @@ export default function PosTerminal() {
     isRestored,
   } = useOfflineCart();
 
-  // selectedCustomer: controls the <select> display value (string hashid)
-  // checkoutCustomerId: the actual hash string to send at checkout
+  // selectedCustomer: controls the <select> display value (string for HTML select)
+  // checkoutCustomerId: the string ID to send at checkout (Laravel accepts numeric strings)
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [checkoutCustomerId, setCheckoutCustomerId] = useState<string | null>(null);
   const customerTouched = useRef(false);
@@ -205,9 +205,9 @@ export default function PosTerminal() {
   // Seed from IndexedDB restore only if user hasn't already picked a customer
   useEffect(() => {
     if (!isRestored || customerTouched.current) return;
-    if (savedCustomerId != null && savedCustomerId !== '') {
-      setSelectedCustomer(savedCustomerId);
-      setCheckoutCustomerId(savedCustomerId);
+    if (savedCustomerId != null) {
+      setSelectedCustomer(String(savedCustomerId));
+      setCheckoutCustomerId(String(savedCustomerId));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRestored]);

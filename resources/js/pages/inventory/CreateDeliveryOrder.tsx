@@ -6,15 +6,15 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-interface WarehouseOption { id: string; name: string; code: string; is_default: boolean; }
+interface WarehouseOption { id: number; name: string; code: string; is_default: boolean; }
 interface ItemOption {
-    id: string; name: string; code: string; category: string | null;
+    id: number; name: string; code: string; category: string | null;
     global_price: number; main_stock: number;
 }
-interface UserOption { id: string; name: string; role: string; }
+interface UserOption { id: number; name: string; role: string; }
 
 interface PrefillData {
-    to_warehouse_id: string;
+    to_warehouse_id: number;
     item: ItemOption;
     quantity: number;
     reference?: string | null;
@@ -22,16 +22,16 @@ interface PrefillData {
 }
 
 interface Props {
-    mainWarehouse: { id: string; name: string; code: string } | null;
+    mainWarehouse: { id: number; name: string; code: string } | null;
     warehouses: WarehouseOption[];
     items: ItemOption[];
     users: UserOption[];
     prefill?: PrefillData | null;
-    pendingByOutlet?: Record<string, { id: string; doNumber: string }[]>;
+    pendingByOutlet?: Record<string, { id: number; doNumber: string }[]>;
 }
 
 interface CartItem {
-    item_id: string;
+    item_id: number;
     name: string;
     code: string;
     quantity: number;
@@ -103,18 +103,18 @@ export default function CreateDeliveryOrder({ mainWarehouse, warehouses, items, 
         setItemDropOpen(false);
     }
 
-    function removeItem(id: string) {
+    function removeItem(id: number) {
         setCartItems(cartItems.filter(c => c.item_id !== id));
     }
 
-    function setQty(id: string, val: number) {
+    function setQty(id: number, val: number) {
         const item = cartItems.find(c => c.item_id === id);
         if (!item) return;
         const qty = Math.max(1, Math.min(val, item.main_stock));
         setCartItems(cartItems.map(c => c.item_id === id ? { ...c, quantity: qty } : c));
     }
 
-    function setPrice(id: string, val: number) {
+    function setPrice(id: number, val: number) {
         setCartItems(cartItems.map(c => c.item_id === id ? { ...c, unit_price: Math.max(0, val) } : c));
     }
 

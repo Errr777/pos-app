@@ -21,7 +21,7 @@ const breadcrumbs = [
 ];
 
 type Kategori = {
-  id: string;
+  id: number;
   nama: string;
   deskripsi?: string | null;
   [key: string]: any;
@@ -189,7 +189,7 @@ export default function Index() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: number) => {
     if (!confirm('Hapus kategori ini?')) return;
     const snapshot = [...local];
     setLocal((prev) => prev.filter((k) => k.id !== id));

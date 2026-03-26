@@ -171,6 +171,18 @@ Form tambah/edit Stock In & Out:
 | POST | `/inventory/opname/{opname}/submit` | `opname.submit` | Submit & terapkan selisih |
 | DELETE | `/inventory/opname/{opname}` | `opname.destroy` | Hapus sesi opname |
 
+### Surat Jalan (Delivery Orders)
+| Method | URL | Route Name | Deskripsi |
+|---|---|---|---|
+| GET | `/inventory/delivery-orders` | `delivery_orders.index` | Daftar surat jalan |
+| GET | `/inventory/delivery-orders/create` | `delivery_orders.create` | Form buat surat jalan |
+| POST | `/inventory/delivery-orders` | `delivery_orders.store` | Simpan surat jalan baru |
+| GET | `/inventory/delivery-orders/{deliveryOrder}` | `delivery_orders.show` | Detail surat jalan |
+| POST | `/inventory/delivery-orders/{deliveryOrder}/items` | `delivery_orders.add_item` | Tambah item ke surat jalan |
+| POST | `/inventory/delivery-orders/{deliveryOrder}/confirm` | `delivery_orders.confirm` | Konfirmasi penerimaan |
+| POST | `/inventory/delivery-orders/{deliveryOrder}/cancel` | `delivery_orders.cancel` | Batalkan surat jalan |
+| GET | `/inventory/delivery-orders/{deliveryOrder}/print` | `delivery_orders.print` | Cetak surat jalan (popup) |
+
 ### Gudang
 | Method | URL | Route Name | Deskripsi |
 |---|---|---|---|
@@ -180,6 +192,12 @@ Form tambah/edit Stock In & Out:
 | PUT | `/warehouses/{warehouse}` | `warehouses.update` | Update gudang |
 | DELETE | `/warehouses/{warehouse}` | `warehouses.destroy` | Hapus gudang |
 | PUT | `/warehouses/{warehouse}/items/{item}/min` | `warehouses.item_min` | Set stok minimum item |
+| GET | `/warehouses/{warehouse}/prices` | `warehouses.prices` | Halaman harga item per gudang |
+| PUT | `/warehouses/{warehouse}/items/{item}/price` | `warehouses.item_price` | Set harga jual item per gudang |
+| POST | `/warehouses/{warehouse}/prices/sync` | `warehouses.prices.sync` | Sync harga semua item |
+| POST | `/warehouses/{warehouse}/items/{item}/price/sync` | `warehouses.item_price.sync` | Sync harga satu item |
+| POST | `/inventory/jasa-prices` | `inventory.jasa_prices` | Batch update harga jasa per gudang |
+| DELETE | `/warehouses/{warehouse}/items/{item}/jasa-price` | `warehouses.jasa_price.destroy` | Hapus harga jasa custom |
 
 ### Supplier
 | Method | URL | Route Name | Deskripsi |
@@ -193,9 +211,11 @@ Form tambah/edit Stock In & Out:
 | Method | URL | Route Name | Deskripsi |
 |---|---|---|---|
 | GET | `/customers` | `customers.index` | Daftar pelanggan |
+| GET | `/customers/{customer}` | `customers.show` | Detail pelanggan + riwayat transaksi + rencana cicilan |
 | POST | `/customers` | `customers.store` | Tambah pelanggan |
 | PUT | `/customers/{customer}` | `customers.update` | Update pelanggan |
 | DELETE | `/customers/{customer}` | `customers.destroy` | Hapus pelanggan |
+| GET | `/customers/{customer}/installments` | `installments.plans` | Daftar rencana cicilan pelanggan (JSON) |
 
 ### Promosi & Diskon
 | Method | URL | Route Name | Deskripsi |
@@ -222,8 +242,12 @@ Form tambah/edit Stock In & Out:
 ### POS / Kredit Pelanggan
 | Method | URL | Route Name | Deskripsi |
 |---|---|---|---|
-| GET | `/pos/kredit` | `installments.history` | Halaman semua rencana cicilan aktif (ganti: bayar cicilan + riwayat kredit) |
-| POST | `/pos/installments/{plan}/pay` | `installments.pay` | Bayar angsuran |
+| GET | `/pos/kredit` | `installments.history` | Halaman semua rencana cicilan aktif + selesai |
+| POST | `/installments/{plan}/payments/{payment}/pay` | `installments.pay` | Bayar satu angsuran |
+| POST | `/pos/installments/{plan}/pay-extra` | `installments.pay_extra` | Bayar ekstra di luar jadwal |
+| POST | `/pos/installments/{plan}/add-installment` | `installments.add_installment` | Tambah angsuran ke rencana |
+| POST | `/pos/installments/pay` | `installments.pay_terminal` | Bayar cicilan langsung dari terminal (throttle: 30/menit) |
+| GET | `/pos/installments/customer/{customer}` | `installments.customer_plans` | Rencana cicilan per pelanggan (JSON) |
 | GET | `/pos/installments/{plan}/invoice` | `installments.invoice` | Invoice cicilan A4 (popup print) |
 
 Halaman Kredit Pelanggan menggunakan dua modal terpisah:
@@ -495,7 +519,7 @@ Server-side (report/stock):
 ### SaleHeader & SaleItem
 - **Tables:** `sale_headers`, `sale_items`
 - **Fields SaleHeader:** `sale_number`, `warehouse_id`, `customer_id`, `cashier_id`, `occurred_at`, `subtotal`, `discount_amount`, `tax_amount`, `grand_total`, `payment_method`, `payment_amount`, `change_amount`, `status`, `note`, `invoice_number` (VARCHAR 30, unique, nullable), `invoice_issued_at` (timestamp, nullable)
-- **Fields SaleItem:** `sale_header_id`, `item_id`, `item_name_snapshot`, `item_code_snapshot`, `unit_price`, `quantity`, `discount_amount`, `line_total`
+- **Fields SaleItem:** `sale_header_id`, `item_id`, `item_name_snapshot`, `item_code_snapshot`, `cost_price_snapshot` (int, harga beli saat transaksi untuk kalkulasi HPP), `unit_price`, `quantity`, `discount_amount`, `line_total`
 
 ### PurchaseOrder & PurchaseOrderItem
 - **Tables:** `purchase_orders`, `purchase_order_items`
@@ -524,6 +548,19 @@ Server-side (report/stock):
 - **Table:** `promotions`
 - **Types:** kode diskon, persentase, nominal tetap
 - **Digunakan di:** POS terminal (validasi saat checkout)
+
+### DeliveryOrder & DeliveryOrderItem
+- **Tables:** `delivery_orders`, `delivery_order_items`
+- **Fields DeliveryOrder:** `do_number`, `from_warehouse_id`, `to_warehouse_id`, `sender_id`, `recipient_id`, `status`, `note`, `sent_at`, `confirmed_at`
+- **Status:** `pending` → `confirmed` / `cancelled`
+- **Relasi ke StockTransfer:** `delivery_order_id` FK di `stock_transfers` — DO dapat memiliki transfer terkait
+- **Pages:** `inventory/DeliveryOrders.tsx` (list), `inventory/CreateDeliveryOrder.tsx` (buat), `inventory/ShowDeliveryOrder.tsx` (detail), `inventory/PrintDeliveryOrder.tsx` (cetak)
+
+### WarehouseItemPrice
+- **Table:** `warehouse_item_prices`
+- **Fields:** `warehouse_id`, `item_id`, `selling_price` (int)
+- **Purpose:** Override harga jual item per gudang/outlet. Jika tidak ada record, fallback ke `items.harga_jual`
+- **Page:** `warehouse/Prices.tsx`
 
 ### StockOpname
 - **Tables:** `stock_opnames`, `stock_opname_items`
@@ -650,6 +687,8 @@ Dua komponen shared di `resources/js/components/DatePickerInput.tsx`:
 - `DatePickerFilter` — untuk filter bar (compact, h-9)
 
 Keduanya menggunakan `captionLayout="dropdown"` dengan `startMonth`/`endMonth` (react-day-picker v9). Jangan gunakan `fromYear`/`toYear` (props v8, tidak kompatibel).
+
+**DatePicker di dalam Dialog (Modal):** Radix UI Dialog (modal) mengeset `pointer-events: none` pada `document.body` dan hanya me-restore `pointer-events: auto` pada dialog content-nya sendiri. `PopoverContent` (yang digunakan DatePickerInput) mem-portal ke body sebagai sibling dialog — ia mewarisi `none` dari body dan tidak menerima klik. **Fix:** `pointer-events-auto` ditambahkan ke class default `PopoverContent` di `resources/js/components/ui/popover.tsx`.
 
 ### Report Filter Bug Pattern
 `$request->get('key', $default)` TIDAK menggunakan default jika value adalah `''` (empty string). Selalu gunakan:

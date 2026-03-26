@@ -20,12 +20,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface AdjRow {
-  id: string;
+  id: number;
   txnId: string;
   date: string;
-  itemId: string;
+  itemId: number;
   itemName: string;
-  warehouseId: string;
+  warehouseId: number;
   warehouseName: string;
   oldQty: number;
   newQty: number;
@@ -35,8 +35,8 @@ interface AdjRow {
   note?: string | null;
 }
 
-interface WarehouseOption { id: string; code: string; name: string; }
-interface ItemOption      { id: string; name: string; category: string | null; stock: number; }
+interface WarehouseOption { id: number; code: string; name: string; }
+interface ItemOption      { id: number; name: string; category: string | null; stock: number; }
 
 interface PaginatedAdj {
   data: AdjRow[];
@@ -117,7 +117,7 @@ export default function Stock_Adjustment() {
   const handlePage = (page: number) => navigate({ page });
 
   // Fetch real warehouse stock when warehouse or item changes
-  const fetchStock = async (warehouseId: string, itemId: string) => {
+  const fetchStock = async (warehouseId: number, itemId: number) => {
     if (!warehouseId || !itemId) return;
     setLoadingStock(true);
     try {
@@ -132,8 +132,8 @@ export default function Stock_Adjustment() {
   const openAdd = async () => {
     setFormErrors({});
     setItemSearch('');
-    const wid = warehouses[0]?.id ?? '';
-    const iid = itemOptions[0]?.id ?? '';
+    const wid = warehouses[0]?.id ?? 0;
+    const iid = itemOptions[0]?.id ?? 0;
     setForm({ warehouse_id: wid, item_id: iid, new_quantity: 0, date: formatDateISO(new Date()), reason: reasons[0] ?? '', note: '' });
     setIsFormOpen(true);
     await fetchStock(wid, iid);
@@ -164,11 +164,13 @@ export default function Stock_Adjustment() {
     const csv = [header, ...lines].map(row => row.map(c => {
       const s = String(c); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     }).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),
+      href: url,
       download: `adjustment_${formatDateISO(new Date())}.csv`,
     });
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleDateFromChange = (v: string) => {
@@ -344,7 +346,7 @@ export default function Stock_Adjustment() {
                 <label className="block font-semibold mb-1">Outlet</label>
                 <select value={form.warehouse_id}
                   onChange={async (e) => {
-                    const wid = e.target.value;
+                    const wid = Number(e.target.value);
                     setForm(f => ({ ...f, warehouse_id: wid }));
                     await fetchStock(wid, form.item_id);
                   }}
@@ -364,7 +366,7 @@ export default function Stock_Adjustment() {
                 />
                 <select value={form.item_id}
                   onChange={async (e) => {
-                    const iid = e.target.value;
+                    const iid = Number(e.target.value);
                     setForm(f => ({ ...f, item_id: iid }));
                     await fetchStock(form.warehouse_id, iid);
                   }}

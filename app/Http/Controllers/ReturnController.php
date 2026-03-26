@@ -207,6 +207,7 @@ class ReturnController extends Controller
         $cartItems = $data['items'];
         $result = null;
 
+        try {
         DB::transaction(function () use ($data, $warehouseId, $isCustomer, $cartItems, &$result) {
             $totalAmount = 0;
             $lineData = [];
@@ -310,6 +311,13 @@ class ReturnController extends Controller
 
             $result = ['returnNumber' => $returnNumber, 'returnId' => $header->id];
         });
+        } catch (\RuntimeException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withErrors(['error' => $e->getMessage()])->withInput();
+        }
 
         if ($request->wantsJson()) {
             return response()->json($result);

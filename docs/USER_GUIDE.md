@@ -6,7 +6,7 @@
 2. [Dashboard](#2-dashboard)
 3. [Produk & Kategori](#3-produk--kategori)
 4. [Tags Produk](#4-tags-produk)
-5. [Inventaris & Stok](#5-inventaris--stok)
+5. [Inventaris & Stok](#5-inventaris--stok) *(termasuk Surat Jalan)*
 6. [Gudang](#6-gudang)
 7. [Supplier](#7-supplier)
 8. [Pelanggan](#8-pelanggan)
@@ -236,7 +236,31 @@ Memindahkan stok dari satu gudang ke gudang lain.
 
 > Stok gudang asal akan berkurang dan gudang tujuan akan bertambah secara otomatis.
 
-### 5.5 Penyesuaian Stok
+### 5.5 Surat Jalan (Delivery Orders)
+
+Menu: **Inventaris → Surat Jalan**
+
+Digunakan untuk mencatat dan melacak pengiriman barang antar outlet/gudang secara formal.
+
+**Status Surat Jalan:**
+- **Pending** — surat jalan dibuat, belum dikonfirmasi penerima
+- **Dikonfirmasi** — penerima sudah mengkonfirmasi penerimaan barang
+- **Dibatalkan** — pengiriman dibatalkan
+
+**Buat Surat Jalan:**
+1. Klik **Buat Surat Jalan**
+2. Pilih **Gudang Asal** dan **Gudang Tujuan**
+3. Tambahkan item yang dikirim beserta jumlahnya
+4. Klik **Simpan**
+
+**Konfirmasi Penerimaan:**
+1. Buka detail surat jalan
+2. Klik **Konfirmasi** untuk mengonfirmasi penerimaan barang
+3. Status berubah menjadi **Dikonfirmasi**
+
+**Cetak Surat Jalan:** Klik tombol **Cetak** di halaman detail untuk membuka surat jalan dalam format cetak.
+
+### 5.6 Penyesuaian Stok
 
 Menu: **Inventaris → Penyesuaian Stok**
 
@@ -329,14 +353,21 @@ Menampilkan semua pelanggan terdaftar. Transaksi tanpa pelanggan dicatat sebagai
 
 Kode pelanggan digenerate otomatis (format: `CUST-0001`, dst).
 
-### 8.3 Edit & Hapus Pelanggan
+### 8.3 Detail Pelanggan
+
+Klik nama atau tombol **Detail** pada baris pelanggan untuk membuka halaman detail yang menampilkan:
+- Informasi kontak pelanggan
+- **Riwayat transaksi** — semua transaksi penjualan pelanggan ini
+- **Rencana cicilan aktif** — daftar cicilan dengan status dan jadwal pembayaran
+
+### 8.4 Edit & Hapus Pelanggan
 
 - **Edit** — klik tombol Edit, ubah data, simpan
 - **Hapus** — klik tombol Hapus, konfirmasi
 
-### 8.4 Rencana Cicilan Pelanggan
+### 8.5 Rencana Cicilan Pelanggan
 
-Di halaman detail pelanggan, klik nama pelanggan untuk melihat:
+Di halaman detail pelanggan, lihat bagian **Rencana Cicilan**:
 - **Riwayat transaksi** pelanggan tersebut
 - **Rencana cicilan aktif** — daftar cicilan dengan status dan jadwal pembayaran
 

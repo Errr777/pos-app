@@ -11,7 +11,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    public static array $roles = ['admin', 'staff', 'kasir'];
+    public static array $roles = ['admin', 'manajer', 'staff', 'kasir'];
 
     protected $fillable = [
         'name',

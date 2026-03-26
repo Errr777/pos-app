@@ -170,6 +170,7 @@ File utama: `resources/js/lib/db.ts` menggunakan **Dexie v2** (bukan v3).
 
 ## Gotchas & Jebakan Umum
 
+- **Radix Dialog + Popover (DatePicker) tidak interaktif** — Dialog modal menyetel `pointer-events: none` pada body; `PopoverContent` yang portal ke body mewarisi ini. Fix: `pointer-events-auto` sudah ditambahkan ke `PopoverContent` base class (`components/ui/popover.tsx`). Jangan hapus class ini.
 - **`hid(null)` return `''` bukan `null`** — frontend harus cek `!value` atau `value === ''`, bukan `value === null`.
 - **`dhid('')` return `0`** — aman sebagai sentinel value untuk "tidak ada", tapi jangan asumsikan `0` berarti "global" atau "semua".
 - **`outletPrices` (dan object key serupa) keyed by hash string** — jangan cast key dengan `Number(key)`, akan selalu `NaN`.
@@ -187,8 +188,12 @@ File utama: `resources/js/lib/db.ts` menggunakan **Dexie v2** (bukan v3).
 
 | Tanggal | Perubahan | File Utama |
 |---|---|---|
+| 2026-03-25 | Fix: `pointer-events-auto` di `PopoverContent` — date picker bisa diklik di dalam Radix Dialog | `resources/js/components/ui/popover.tsx` |
+| 2026-03-25 | Fix: semua TypeScript interface ID diubah ke `string` di semua halaman frontend | semua halaman inventory, items, POS, purchase-orders |
 | 2026-03-25 | Hash ID obfuscation — semua ID integer di-encode sebelum ke frontend | `app/Helpers/HashId.php`, `app/Traits/HasHashId.php`, semua controllers, semua frontend pages |
 | 2026-03-23 | Cost price snapshot pada SaleItem | `database/migrations/*add_cost_price_snapshot*`, `app/Models/SaleItem.php` |
+| ~2026-03-20 | Surat Jalan (Delivery Orders) — pengiriman antar outlet dengan status tracking | `DeliveryOrderController.php`, `app/Models/DeliveryOrder.php`, halaman inventory/Delivery* |
+| ~2026-03-20 | Harga item per gudang (WarehouseItemPrice) | `WarehouseItemPriceController.php`, `app/Models/WarehouseItemPrice.php`, `warehouse/Prices.tsx` |
 | ~2026-03-20 | Offline POS dengan IndexedDB (Dexie) | `resources/js/lib/db.ts`, `hooks/use-offline-cart.ts` |
 | ~2026-03-19 | Sistem kredit/cicilan pelanggan | `app/Models/InstallmentPlan.php`, `InstallmentPayment.php`, `InstallmentController.php` |
 

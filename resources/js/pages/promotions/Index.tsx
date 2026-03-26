@@ -6,7 +6,7 @@ import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { DatePickerInput } from '@/components/DatePickerInput';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog, DialogContent, DialogHeader,
+    Dialog, DialogContent, DialogDescription, DialogHeader,
     DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 
@@ -232,6 +232,7 @@ export default function PromotionsIndex() {
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Tambah Promo Baru</DialogTitle>
+                        <DialogDescription>Isi form untuk menambah promo baru.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={submitCreate} className="space-y-3 mt-2">
                         <PromoForm form={createForm} categories={categories} items={items} tags={tags} />
@@ -248,6 +249,7 @@ export default function PromotionsIndex() {
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Promo</DialogTitle>
+                        <DialogDescription>Ubah detail promo yang dipilih.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={submitEdit} className="space-y-3 mt-2">
                         <PromoForm form={editForm} categories={categories} items={items} tags={tags} />
@@ -264,6 +266,7 @@ export default function PromotionsIndex() {
                 <DialogContent className="max-w-sm">
                     <DialogHeader>
                         <DialogTitle>Hapus Promo?</DialogTitle>
+                        <DialogDescription>Tindakan ini tidak dapat dibatalkan.</DialogDescription>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
                         Promo <span className="font-semibold text-foreground">"{deleteTarget?.name}"</span> akan dihapus permanen.

@@ -1,5 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
-import { formatRp, fmtDate, METHOD_LABEL, STATUS_LABEL } from '@/lib/formats';
+import { formatRp, fmtDate, METHOD_LABEL, STATUS_LABEL, decodePaginatorLabel } from '@/lib/formats';
 import { type BreadcrumbItem } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
@@ -375,12 +375,12 @@ export default function KreditPelangganPage() {
                             {plans.links.map((link, i) => (
                                 <button key={i} type="button" onClick={() => goToPage(link.url)}
                                     disabled={!link.url}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
                                     className={[
                                         'px-2.5 py-1 rounded text-xs border transition-colors',
                                         link.active ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted',
                                         !link.url ? 'opacity-40 cursor-default' : '',
-                                    ].join(' ')} />
+                                    ].join(' ')}
+                                >{decodePaginatorLabel(link.label)}</button>
                             ))}
                         </div>
                     </div>

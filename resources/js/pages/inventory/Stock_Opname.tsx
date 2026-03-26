@@ -13,7 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface OpnameRow {
-    id: string;
+    id: number;
     refNumber: string;
     warehouse: string;
     date: string;
@@ -25,7 +25,7 @@ interface OpnameRow {
 
 interface PageProps {
     opnames: { data: OpnameRow[]; current_page: number; last_page: number; total: number };
-    warehouses: { id: string; name: string }[];
+    warehouses: { id: number; name: string }[];
     filters: { per_page?: number };
     [key: string]: unknown;
 }
@@ -53,7 +53,7 @@ export default function StockOpname() {
         });
     };
 
-    const deleteOpname = (id: string, ref: string) => {
+    const deleteOpname = (id: number, ref: string) => {
         if (!confirm(`Hapus opname ${ref}?`)) return;
         router.delete(`/inventory/opname/${id}`);
     };

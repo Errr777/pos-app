@@ -20,14 +20,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface TransferRow {
-  id: string;
+  id: number;
   txnId: string;
   date: string;
-  itemId: string;
+  itemId: number;
   itemName: string;
-  fromId: string;
+  fromId: number;
   fromName: string;
-  toId: string;
+  toId: number;
   toName: string;
   quantity: number;
   reference?: string | null;
@@ -37,14 +37,14 @@ interface TransferRow {
 }
 
 interface WarehouseOption {
-  id: string;
+  id: number;
   code: string;
   name: string;
   is_default: boolean;
 }
 
 interface ItemOption {
-  id: string;
+  id: number;
   name: string;
   category: string | null;
   stock: number;
@@ -70,7 +70,7 @@ interface Filters {
 }
 
 interface JasaOption {
-  id: string;
+  id: number;
   name: string;
   code: string;
   category: string | null;
@@ -78,14 +78,14 @@ interface JasaOption {
 }
 
 interface JasaCartItem {
-  item_id: string;
+  item_id: number;
   name: string;
   code: string;
   global_price: number;
   outlet_price: number;
 }
 
-interface OutletOption { id: string; name: string; code: string; }
+interface OutletOption { id: number; name: string; code: string; }
 
 interface PageProps {
   transfers: PaginatedTransfers;
@@ -191,8 +191,8 @@ export default function Stock_Transfer() {
     setJasaSearch('');
     setJasaDropOpen(false);
   }
-  function removeJasa(id: string) { setJasaCart(prev => prev.filter(c => c.item_id !== id)); }
-  function setJasaPrice(id: string, val: number) {
+  function removeJasa(id: number) { setJasaCart(prev => prev.filter(c => c.item_id !== id)); }
+  function setJasaPrice(id: number, val: number) {
     setJasaCart(prev => prev.map(c => c.item_id === id ? { ...c, outlet_price: Math.max(0, val) } : c));
   }
 
@@ -234,8 +234,10 @@ export default function Stock_Transfer() {
       const s = String(c); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     }).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `transfer_${formatDateISO(new Date())}.csv` });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `transfer_${formatDateISO(new Date())}.csv` });
     a.click();
+    URL.revokeObjectURL(url);
   };
 
 

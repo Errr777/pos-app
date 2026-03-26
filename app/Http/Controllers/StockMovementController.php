@@ -99,7 +99,7 @@ class StockMovementController extends Controller
             ->orderBy('items.nama')
             ->get()
             ->map(fn($row) => [
-                'id'        => $row->id,
+                'id'        => (int) $row->id,
                 'name'      => $row->nama,
                 'category'  => $row->kategori,
                 'stock'     => (int) $row->stok,

@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface PoRow {
-  id: string;
+  id: number;
   poNumber: string;
   supplierName: string;
   warehouseName: string;
@@ -31,9 +31,9 @@ interface PoRow {
   note: string | null;
 }
 
-interface ItemOption { id: string; name: string; code: string; costPrice: number; }
-interface SupplierOption { id: string; name: string; }
-interface WarehouseOption { id: string; name: string; }
+interface ItemOption { id: number; name: string; code: string; costPrice: number; }
+interface SupplierOption { id: number; name: string; }
+interface WarehouseOption { id: number; name: string; }
 
 interface PaginatedPos {
   data: PoRow[];

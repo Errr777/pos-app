@@ -1,3 +1,4 @@
+import { decodePaginatorLabel } from '@/lib/formats';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
@@ -310,7 +311,7 @@ export default function WarehousePrices({ warehouse, items, filters }: Props) {
                                         onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
                                         className={`px-2 py-1 rounded text-xs ${link.active ? 'bg-indigo-600 text-white' : 'hover:bg-muted disabled:opacity-40'}`}
                                     >
-                                        {link.label.replace(/&laquo;/g, '«').replace(/&raquo;/g, '»').replace(/<[^>]*>/g, '')}
+                                        {decodePaginatorLabel(link.label)}
                                     </button>
                                 ))}
                             </div>

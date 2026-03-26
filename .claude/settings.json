@@ -5,10 +5,40 @@
       "Bash(sort git:*)",
       "Bash(rsync -av --delete --exclude='.git/' --exclude='.env' --exclude='.env.*' --exclude='node_modules/' --exclude='vendor/' --exclude='bootstrap/cache/*.php' --exclude='storage/logs/*.log' --exclude='database/database.sqlite' --exclude='public/build/' --exclude='docker/' --exclude='Dockerfile' --exclude='docker-compose.coolify.yml' --exclude='docker-compose.yml' --exclude='DEPLOYMENT.md' --exclude='.dockerignore' --exclude='db_post' /Users/errr/Developer/Project/my/pos-app/ /Users/errr/Developer/Project/my/pos-app-production/)",
       "Bash(grep -v '^sending\\\\|^sent\\\\|^total\\\\|^\\\\.$')",
-      "Bash(lsof -ti:8000)"
+      "Bash(lsof -ti:8000)",
+      "Bash(for page:*)",
+      "Bash(do test:*)",
+      "Bash(echo \"✓ $page exists\")",
+      "Bash(echo \"✗ MISSING: $page.tsx\")",
+      "Bash(done)",
+      "Bash(grep -r \"HasHashId\" /Users/errr/Developer/Project/my/pos-app/app/Models/*.php)"
     ],
     "additionalDirectories": [
       "/Users/errr/Developer/Project/my/pos-app-production/.claude"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"INGAT: Baca .knowledge/sessions.md dan .knowledge/bugs-and-todos.md sebelum mulai. Update kedua file di akhir sesi.\"}}'",
+            "statusMessage": "Memuat konteks sesi..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"INGAT: Update .knowledge/sessions.md (ringkasan sesi ini) dan .knowledge/bugs-and-todos.md (plan berikutnya) sebelum selesai.\"}}'",
+            "statusMessage": "Menyimpan catatan sesi..."
+          }
+        ]
+      }
     ]
   }
 }

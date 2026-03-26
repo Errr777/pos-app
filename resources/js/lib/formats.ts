@@ -2,6 +2,15 @@
  * Shared formatting utilities — import these instead of defining locally.
  */
 
+/** Decode HTML entities in Laravel paginator link labels (e.g. "&laquo; Previous"). */
+export function decodePaginatorLabel(label: string): string {
+    return label
+        .replace(/&laquo;\s*/g, '« ')
+        .replace(/\s*&raquo;/g, ' »')
+        .replace(/&hellip;/g, '…')
+        .replace(/<[^>]*>/g, '');
+}
+
 export function formatRp(n: number): string {
     return 'Rp ' + n.toLocaleString('id-ID');
 }
