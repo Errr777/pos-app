@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class InstallmentPayment extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'installment_plan_id',
         'due_date',

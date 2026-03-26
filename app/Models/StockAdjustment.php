@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class StockAdjustment extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'txn_id', 'warehouse_id', 'item_id',
         'old_quantity', 'new_quantity', 'difference',

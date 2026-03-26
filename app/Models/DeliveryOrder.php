@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class DeliveryOrder extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'do_number',
         'from_warehouse_id',

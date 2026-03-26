@@ -99,6 +99,8 @@ return [
 
     'key' => env('APP_KEY'),
 
+    'hash_id_salt' => env('HASH_ID_SALT', 'change-me-in-production'),
+
     'previous_keys' => [
         ...array_filter(
             explode(',', env('APP_PREVIOUS_KEYS', ''))

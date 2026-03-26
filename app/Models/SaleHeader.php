@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class SaleHeader extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'sale_number',
         'warehouse_id',

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Supplier extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'name',
         'code',

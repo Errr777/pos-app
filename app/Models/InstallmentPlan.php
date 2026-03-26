@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class InstallmentPlan extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'sale_header_id',
         'customer_id',

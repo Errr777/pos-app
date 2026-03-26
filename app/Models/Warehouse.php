@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Warehouse extends Model
 {
+    use HasHashId;
+
     protected $fillable = ['code', 'name', 'location', 'description', 'is_active', 'is_default', 'phone', 'city'];
 
     protected $casts = [

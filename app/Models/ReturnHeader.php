@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class ReturnHeader extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'return_number', 'type', 'sale_header_id', 'purchase_order_id',
         'customer_id', 'supplier_id', 'warehouse_id', 'processed_by',

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Promotion extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'name', 'code', 'type', 'value', 'applies_to',
         'applies_id', 'min_purchase', 'max_discount',

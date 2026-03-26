@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseOrder extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'po_number', 'supplier_id', 'warehouse_id', 'ordered_by', 'received_by',
         'status', 'ordered_at', 'expected_at', 'received_at',

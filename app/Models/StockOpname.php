@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class StockOpname extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'ref_number', 'warehouse_id', 'status',
         'date', 'created_by', 'submitted_at', 'note',

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class StockTransfer extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'txn_id',
         'from_warehouse_id',

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -9,6 +11,8 @@ use App\Models\RolePermission;
 
 class User extends Authenticatable
 {
+    use HasHashId;
+
     use HasFactory, Notifiable;
 
     public static array $roles = ['admin', 'manajer', 'staff', 'kasir'];

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasHashId;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
 {
+    use HasHashId;
+
     protected $fillable = [
         'code',
         'name',
