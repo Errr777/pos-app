@@ -6,18 +6,18 @@ import { useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface CustomerInfo {
-    id: number; name: string; code: string; phone: string | null;
+    id: string; name: string; code: string; phone: string | null;
     email: string | null; address: string | null; city: string | null; notes: string | null;
 }
 
 interface PaymentRow {
-    id: number; dueDate: string; amountDue: number; interestAmount: number;
+    id: string; dueDate: string; amountDue: number; interestAmount: number;
     lateFeeApplied: number; totalDue: number; amountPaid: number; paidAt: string | null;
     status: 'pending' | 'paid' | 'overdue' | 'partial'; paymentMethod: string | null; note: string | null;
 }
 
 interface PlanRow {
-    id: number; saleNumber: string | null; occurredAt: string | null; grandTotal: number;
+    id: string; saleNumber: string | null; occurredAt: string | null; grandTotal: number;
     totalAmount: number; paidAmount: number; remainingAmount: number;
     installmentCount: number; interestRate: number; lateFeeAmount: number;
     status: 'active' | 'completed' | 'overdue' | 'cancelled'; note: string | null;
@@ -45,7 +45,7 @@ const statusStyle: Record<string, { label: string; cls: string }> = {
 };
 
 function PaymentForm({ payment, planId, onDone }: {
-    payment: PaymentRow; planId: number; onDone: () => void;
+    payment: PaymentRow; planId: string; onDone: () => void;
 }) {
     const form = useForm({
         amount_paid: String(payment.totalDue),
@@ -109,8 +109,8 @@ export default function CustomerShow() {
         usePage<PageProps>().props;
     const canWrite = permissions?.pos?.can_write ?? false;
 
-    const [expandedPlan, setExpandedPlan] = useState<number | null>(plans[0]?.id ?? null);
-    const [payingPaymentId, setPayingPaymentId] = useState<number | null>(null);
+    const [expandedPlan, setExpandedPlan] = useState<string | null>(plans[0]?.id ?? null);
+    const [payingPaymentId, setPayingPaymentId] = useState<string | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Pelanggan', href: route('customers.index') },

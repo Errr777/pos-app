@@ -21,7 +21,7 @@ const breadcrumbs = [
 ];
 
 type Kategori = {
-  id: number;
+  id: string;
   nama: string;
   deskripsi?: string | null;
   [key: string]: any;
@@ -53,7 +53,7 @@ export default function Index() {
     deskripsi: '',
   });
   const editForm = useForm({
-    id: null as number | null,
+    id: null as string | null,
     nama: '',
     deskripsi: '',
   });
@@ -146,7 +146,7 @@ export default function Index() {
         const fresh = (page.props as Record<string, any>)?.kategoris?.data;
         if (fresh) setLocal(fresh); else {
           // optimistic: prepend newest
-          setLocal((prev) => [{ id: Date.now(), nama: createForm.data.nama, deskripsi: createForm.data.deskripsi }, ...prev]);
+          setLocal((prev) => [{ id: String(Date.now()), nama: createForm.data.nama, deskripsi: createForm.data.deskripsi }, ...prev]);
         }
 
         createForm.reset();
@@ -189,7 +189,7 @@ export default function Index() {
     });
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (!confirm('Hapus kategori ini?')) return;
     const snapshot = [...local];
     setLocal((prev) => prev.filter((k) => k.id !== id));

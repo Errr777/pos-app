@@ -12,7 +12,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface Branch {
-    id: number;
+    id: string;
     name: string;
     code: string;
     city: string | null;

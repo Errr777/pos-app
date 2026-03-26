@@ -92,7 +92,7 @@ class ItemController extends Controller
             ->withQueryString()
             ->through(function ($i) {
                 return [
-                    'id'           => $i->id,
+                    'id'           => hid($i->id),
                     'name'         => $i->nama,
                     'description'  => $i->deskripsi,
                     'qrcode'       => $i->kode_item,
@@ -101,35 +101,37 @@ class ItemController extends Controller
                     'harga_beli'   => $i->harga_beli,
                     'harga_jual'   => $i->harga_jual,
                     'category'     => $i->kategori,
-                    'id_kategori'  => $i->id_kategori,
+                    'id_kategori'  => hid($i->id_kategori),
                     'kategori_rel' => $i->kategoriRelation
                         ? [
-                            'id'   => $i->kategoriRelation->id,
+                            'id'   => hid($i->kategoriRelation->id),
                             'nama' => $i->kategoriRelation->nama,
                         ]
                         : null,
                     'tags'                   => $i->tags->map(fn($t) => [
-                        'id'    => $t->id,
+                        'id'    => hid($t->id),
                         'name'  => $t->name,
                         'color' => $t->color,
                     ])->values()->all(),
                     'type'                   => $i->type ?? 'barang',
                     'image_url'              => $i->image_path ? Storage::url($i->image_path) : null,
-                    'preferred_supplier_id'  => $i->preferred_supplier_id,
+                    'preferred_supplier_id'  => hid($i->preferred_supplier_id),
                     'preferred_supplier_name'=> $i->preferredSupplier?->name,
                 ];
             });
 
         $kategoris = Kategori::all()->map(function ($k) {
             return [
-                'id'        => $k->id,
+                'id'        => hid($k->id),
                 'nama'      => $k->nama,
                 'deskripsi' => $k->deskripsi ?? null,
             ];
         });
 
-        $allTags = \App\Models\Tag::orderBy('name')->get(['id', 'name', 'color']);
-        $allSuppliers = Supplier::orderBy('name')->get(['id', 'name']);
+        $allTags = \App\Models\Tag::orderBy('name')->get()
+            ->map(fn ($t) => ['id' => hid($t->id), 'name' => $t->name, 'color' => $t->color])->values();
+        $allSuppliers = Supplier::orderBy('name')->get()
+            ->map(fn ($s) => ['id' => hid($s->id), 'name' => $s->name])->values();
 
         // Return filters including sort_by & sort_dir so frontend can initialize
         return Inertia::render('Items/Index', [
@@ -158,7 +160,7 @@ class ItemController extends Controller
             ->orderBy('warehouses.name')
             ->get()
             ->map(fn($r) => [
-                'warehouseId' => $r->warehouse_id,
+                'warehouseId' => hid((int) $r->warehouse_id),
                 'outletName'  => $r->outlet_name,
                 'stock'       => (int) $r->stok,
                 'stockMin'    => (int) $r->stok_minimal,
@@ -183,7 +185,7 @@ class ItemController extends Controller
 
         return Inertia::render('Items/Show', [
             'item' => [
-                'id'          => $item->id,
+                'id'          => hid($item->id),
                 'type'        => $item->type ?? 'barang',
                 'name'        => $item->nama,
                 'description' => $item->deskripsi,
@@ -194,8 +196,8 @@ class ItemController extends Controller
                 'hargaJual'   => $item->harga_jual,
                 'hargaBeli'   => $item->harga_beli,
                 'category'    => $item->kategori,
-                'tags'                    => $item->tags->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'color' => $t->color])->all(),
-                'preferredSupplierId'     => $item->preferred_supplier_id,
+                'tags'                    => $item->tags->map(fn($t) => ['id' => hid($t->id), 'name' => $t->name, 'color' => $t->color])->all(),
+                'preferredSupplierId'     => hid($item->preferred_supplier_id),
                 'preferredSupplierName'   => $item->preferredSupplier?->name,
             ],
             'stockByOutlet' => $stockByOutletQuery,
@@ -208,7 +210,8 @@ class ItemController extends Controller
     {
         // Get all categories for the dropdown
         
-        $kategoris = Kategori::select('id', 'nama', 'deskripsi')->orderBy('nama')->get();
+        $kategoris = Kategori::select('id', 'nama', 'deskripsi')->orderBy('nama')->get()
+            ->map(fn($k) => ['id' => hid($k->id), 'nama' => $k->nama, 'deskripsi' => $k->deskripsi]);
 
         return Inertia::render('Items/Add_Items', [
             'kategoris' => $kategoris,
@@ -219,6 +222,11 @@ class ItemController extends Controller
     {
         // ✅ Validate the input
         $isJasa = $request->input('type') === 'jasa';
+
+        // Decode hash IDs to integers before validation
+        $request->merge([
+            'id_kategori' => $request->id_kategori ? dhid($request->id_kategori) : null,
+        ]);
 
         $validated = $request->validate([
             'type'         => 'nullable|in:barang,jasa',
@@ -307,8 +315,8 @@ class ItemController extends Controller
             'stok_minimal' => isset($data['stock_min']) ? (int) $data['stock_min'] : $item->stok_minimal,
             'harga_beli'   => isset($data['harga_beli']) ? (int) $data['harga_beli'] : $item->harga_beli,
             'harga_jual'   => isset($data['harga_jual']) ? (int) $data['harga_jual'] : $item->harga_jual,
-            'id_kategori'           => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? (int) $data['id_kategori'] : null,
-            'preferred_supplier_id' => isset($data['preferred_supplier_id']) && $data['preferred_supplier_id'] !== '' ? (int) $data['preferred_supplier_id'] : null,
+            'id_kategori'           => isset($data['id_kategori']) && $data['id_kategori'] !== '' ? dhid($data['id_kategori']) : null,
+            'preferred_supplier_id' => isset($data['preferred_supplier_id']) && $data['preferred_supplier_id'] !== '' ? dhid($data['preferred_supplier_id']) : null,
         ];
 
         $newType = isset($data['type']) && in_array($data['type'], ['barang', 'jasa']) ? $data['type'] : ($item->type ?? 'barang');
@@ -396,7 +404,7 @@ class ItemController extends Controller
             return response()->json([
                 'message' => 'Item updated',
                 'item' => [
-                    'id'          => $item->id,
+                    'id'          => hid($item->id),
                     'name'        => $item->nama,
                     'description' => $item->deskripsi,
                     'qrcode'      => $item->kode_item,
@@ -404,7 +412,7 @@ class ItemController extends Controller
                     'stock_min'   => $item->stok_minimal,
                     'harga_beli'  => $item->harga_beli,
                     'harga_jual'  => $item->harga_jual,
-                    'id_kategori' => $item->id_kategori,
+                    'id_kategori' => hid($item->id_kategori),
                     'kategori'    => $item->kategori,
                 ],
             ], 200);
@@ -471,16 +479,17 @@ class ItemController extends Controller
         ->paginate($perPage)
         ->withQueryString()
         ->through(fn($item) => [
-            'id'            => $item->id,
+            'id'            => hid($item->id),
             'name'          => $item->nama,
             'description'   => $item->deskripsi,
             'qrcode'        => $item->kode_item,
+            'image'         => $item->image_path ? asset('storage/' . $item->image_path) : null,
             'stock'         => $item->stok,
             'minimumStock'  => $item->stok_minimal,
             'category'      => $item->kategori,
-            'id_kategori'   => $item->id_kategori,
+            'id_kategori'   => hid($item->id_kategori),
             'kategori_rel'  => $item->kategoriRelation ? [
-                'id' => $item->kategoriRelation->id,
+                'id' => hid($item->kategoriRelation->id),
                 'nama' => $item->kategoriRelation->nama ?? $item->kategoriRelation->nama_kategori ?? null,
             ] : null,
         ]);
@@ -506,6 +515,13 @@ class ItemController extends Controller
 
     public function syncTags(Request $request, Item $item)
     {
+        $decodedTagIds = collect($request->tag_ids ?? [])
+            ->map(fn ($h) => dhid((string) $h))
+            ->filter()
+            ->values()
+            ->toArray();
+        $request->merge(['tag_ids' => $decodedTagIds]);
+
         $data = $request->validate([
             'tag_ids'   => 'array',
             'tag_ids.*' => 'integer|exists:tags,id',
@@ -522,7 +538,10 @@ class ItemController extends Controller
 
     public function printLabels(Request $request)
     {
-        $ids = array_filter(array_map('intval', explode(',', $request->get('ids', ''))));
+        $ids = array_filter(array_map(
+            fn ($h) => dhid(trim($h)),
+            explode(',', $request->get('ids', ''))
+        ));
 
         if (empty($ids)) {
             return redirect()->route('item.index')->with('error', 'Pilih item terlebih dahulu.');
@@ -534,7 +553,7 @@ class ItemController extends Controller
             ->orderBy('nama')
             ->get()
             ->map(fn($i) => [
-                'id'       => $i->id,
+                'id'       => hid($i->id),
                 'name'     => $i->nama,
                 'code'     => $i->kode_item,
                 'price'    => $i->harga_jual,

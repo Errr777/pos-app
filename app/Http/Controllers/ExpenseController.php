@@ -39,21 +39,32 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $allowedIds  = $this->allowedWarehouseIds();
-        $dateFrom    = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $dateTo      = $request->get('date_to',   now()->format('Y-m-d'));
-        $category    = $request->get('category', '');
-        $warehouseId = $request->get('warehouse_id', '');
+        $dateFrom    = $request->get('date_from') ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo      = $request->get('date_to')   ?: now()->format('Y-m-d');
+        $category    = (string) $request->get('category', '');
+        $warehouseId = (string) $request->get('warehouse_id', '');
 
         $query = Expense::with(['warehouse', 'creator'])
-            ->whereBetween('occurred_at', [$dateFrom, $dateTo])
-            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
-            ->when($category !== '', fn($q) => $q->where('category', $category))
-            ->when($warehouseId !== '', fn($q) => $q->where('warehouse_id', (int) $warehouseId))
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id');
+            ->where('occurred_at', '>=', $dateFrom . ' 00:00:00')
+            ->where('occurred_at', '<=', $dateTo . ' 23:59:59');
+
+        if (!empty($allowedIds)) {
+            $query->whereIn('warehouse_id', $allowedIds);
+        }
+        if ($category !== '') {
+            $query->where('category', $category);
+        }
+        if ($warehouseId !== '') {
+            $wId = dhid($warehouseId);
+            if ($wId > 0 && (empty($allowedIds) || in_array($wId, $allowedIds))) {
+                $query->where('warehouse_id', $wId);
+            }
+        }
+
+        $query->orderByDesc('occurred_at')->orderByDesc('id');
 
         $expenses = $query->paginate(20)->withQueryString()->through(fn($e) => [
-            'id'            => $e->id,
+            'id'            => hid($e->id),
             'occurredAt'    => $e->occurred_at->format('Y-m-d'),
             'category'      => $e->category,
             'amount'        => $e->amount,
@@ -63,10 +74,21 @@ class ExpenseController extends Controller
         ]);
 
         // Summary by category for selected period
-        $summary = Expense::selectRaw('category, SUM(amount) as total')
-            ->whereBetween('occurred_at', [$dateFrom, $dateTo])
-            ->when(!empty($allowedIds), fn($q) => $q->whereIn('warehouse_id', $allowedIds))
-            ->when($warehouseId !== '', fn($q) => $q->where('warehouse_id', (int) $warehouseId))
+        $summaryQuery = Expense::selectRaw('category, SUM(amount) as total')
+            ->where('occurred_at', '>=', $dateFrom . ' 00:00:00')
+            ->where('occurred_at', '<=', $dateTo . ' 23:59:59');
+
+        if (!empty($allowedIds)) {
+            $summaryQuery->whereIn('warehouse_id', $allowedIds);
+        }
+        if ($warehouseId !== '') {
+            $wId = dhid($warehouseId);
+            if ($wId > 0 && (empty($allowedIds) || in_array($wId, $allowedIds))) {
+                $summaryQuery->where('warehouse_id', $wId);
+            }
+        }
+
+        $summary = $summaryQuery
             ->groupBy('category')
             ->orderByDesc('total')
             ->get()
@@ -77,7 +99,8 @@ class ExpenseController extends Controller
 
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('name');
         if (!empty($allowedIds)) $warehouseQuery->whereIn('id', $allowedIds);
-        $warehouses = $warehouseQuery->get(['id', 'name']);
+        $warehouses = $warehouseQuery->get(['id', 'name'])
+            ->map(fn($w) => ['id' => hid($w->id), 'name' => $w->name]);
 
         return Inertia::render('expenses/Index', [
             'expenses'    => $expenses,
@@ -92,6 +115,10 @@ class ExpenseController extends Controller
     public function store(Request $request)
     {
         $allowedIds = $this->allowedWarehouseIds();
+
+        $request->merge([
+            'warehouse_id' => $request->warehouse_id ? dhid((string) $request->warehouse_id) : null,
+        ]);
 
         $data = $request->validate([
             'occurred_at'  => 'required|date',
@@ -122,6 +149,10 @@ class ExpenseController extends Controller
         if (!empty($allowedIds) && $expense->warehouse_id && !in_array($expense->warehouse_id, $allowedIds)) {
             abort(403);
         }
+
+        $request->merge([
+            'warehouse_id' => $request->warehouse_id ? dhid((string) $request->warehouse_id) : null,
+        ]);
 
         $data = $request->validate([
             'occurred_at'  => 'required|date',

@@ -5,7 +5,7 @@ import { ArrowLeft, Pencil, Package, Tag, Truck, Trash2, Plus, ImageOff } from '
 import { useState, useEffect } from 'react';
 
 interface ItemDetail {
-    id: number;
+    id: string;
     type: 'barang' | 'jasa';
     name: string;
     description: string | null;
@@ -15,14 +15,14 @@ interface ItemDetail {
     hargaJual: number;
     hargaBeli: number;
     category: string | null;
-    tags: { id: number; name: string; color: string }[];
-    preferredSupplierId: number | null;
+    tags: { id: string; name: string; color: string }[];
+    preferredSupplierId: string | null;
     preferredSupplierName: string | null;
     imageUrl: string | null;
 }
 
 interface StockOutlet {
-    warehouseId: number;
+    warehouseId: string;
     outletName: string;
     stock: number;
     stockMin: number;
@@ -54,9 +54,9 @@ function stockBadge(stock: number, min: number) {
     return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Oke</span>;
 }
 
-interface Variant { id: number; name: string; price_modifier: number; is_active: boolean }
+interface Variant { id: string; name: string; price_modifier: number; is_active: boolean }
 
-function VariantManager({ itemId, basePrice, canWrite }: { itemId: number; basePrice: number; canWrite: boolean }) {
+function VariantManager({ itemId, basePrice, canWrite }: { itemId: string; basePrice: number; canWrite: boolean }) {
     const [variants, setVariants] = useState<Variant[]>([]);
     const [newName, setNewName] = useState('');
     const [newModifier, setNewModifier] = useState('');
@@ -91,7 +91,7 @@ function VariantManager({ itemId, basePrice, canWrite }: { itemId: number; baseP
         }
     };
 
-    const deleteVariant = async (id: number) => {
+    const deleteVariant = async (id: string) => {
         const res = await fetch(`/item/${itemId}/variants/${id}`, {
             method: 'DELETE',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '') },

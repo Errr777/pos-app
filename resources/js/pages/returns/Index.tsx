@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ReturnRow {
-    id: number;
+    id: string;
     returnNumber: string;
     type: string;
     partyName: string;
@@ -30,10 +30,10 @@ interface ReturnRow {
     itemCount: number;
 }
 
-interface ItemOption     { id: number; name: string; code: string; price: number; }
-interface CustomerOption { id: number; name: string; }
-interface SupplierOption { id: number; name: string; }
-interface WarehouseOption{ id: number; name: string; }
+interface ItemOption     { id: string; name: string; code: string; price: number; }
+interface CustomerOption { id: string; name: string; }
+interface SupplierOption { id: string; name: string; }
+interface WarehouseOption{ id: string; name: string; }
 
 interface PaginatedReturns {
     data: ReturnRow[];
@@ -66,8 +66,8 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-interface CartLine { itemId: number; name: string; qty: number; unitPrice: number; condition: string; }
-interface SaleLookupResult { id: number; saleNumber: string; occurredAt: string; customer: string; grandTotal: number; items: { item_id: number; name: string; quantity: number; unit_price: number }[]; }
+interface CartLine { itemId: string; name: string; qty: number; unitPrice: number; condition: string; }
+interface SaleLookupResult { id: string; saleNumber: string; occurredAt: string; customer: string; grandTotal: number; items: { item_id: string; name: string; quantity: number; unit_price: number }[]; }
 
 const TYPE_CONFIG: Record<string, { label: string; cls: string }> = {
     customer_return: { label: 'Retur Pelanggan', cls: 'bg-blue-100 text-blue-700' },
@@ -177,14 +177,14 @@ export default function ReturnsIndex() {
     const SortIcon = ({ col }: { col: string }) =>
         col !== sortBy ? <span className="opacity-30 ml-1">↕</span> : <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
 
-    const addLine = () => setLines(l => [...l, { itemId: 0, name: '', qty: 1, unitPrice: 0, condition: 'good' }]);
+    const addLine = () => setLines(l => [...l, { itemId: '', name: '', qty: 1, unitPrice: 0, condition: 'good' }]);
 
     const updateLine = (idx: number, field: keyof CartLine, value: string | number) => {
         setLines(l => l.map((line, i) => {
             if (i !== idx) return line;
             if (field === 'itemId') {
-                const item = items.find(it => it.id === Number(value));
-                return { ...line, itemId: Number(value), name: item?.name ?? '', unitPrice: item?.price ?? 0 };
+                const item = items.find(it => it.id === String(value));
+                return { ...line, itemId: String(value), name: item?.name ?? '', unitPrice: item?.price ?? 0 };
             }
             return { ...line, [field]: value };
         }));

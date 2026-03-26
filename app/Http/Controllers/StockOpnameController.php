@@ -50,9 +50,9 @@ class StockOpnameController extends Controller
         $this->applyWarehouseFilter($query, 'warehouse_id');
 
         $opnames = $query->paginate($perPage)->withQueryString()->through(fn($o) => [
-            'id'          => $o->id,
+            'id'          => hid($o->id),
             'refNumber'   => $o->ref_number,
-            'warehouseId' => $o->warehouse_id,
+            'warehouseId' => hid($o->warehouse_id),
             'warehouse'   => $o->warehouse?->name ?? '-',
             'date'        => $o->date?->format('Y-m-d'),
             'status'      => $o->status,
@@ -63,7 +63,7 @@ class StockOpnameController extends Controller
 
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
-        $warehouses = $warehouseQuery->get()->map(fn($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $warehouseQuery->get()->map(fn($w) => ['id' => hid($w->id), 'name' => $w->name]);
 
         return Inertia::render('inventory/Stock_Opname', [
             'opnames'    => $opnames,
@@ -74,6 +74,10 @@ class StockOpnameController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'warehouse_id' => dhid((string) ($request->warehouse_id ?? '')),
+        ]);
+
         $data = $request->validate([
             'warehouse_id' => 'required|integer|exists:warehouses,id',
             'date'         => 'required|date_format:Y-m-d',
@@ -121,8 +125,8 @@ class StockOpnameController extends Controller
         $opname->load(['warehouse', 'items.item']);
 
         $rows = $opname->items->sortBy('item_name_snapshot')->map(fn($oi) => [
-            'id'        => $oi->id,
-            'itemId'    => $oi->item_id,
+            'id'        => hid($oi->id),
+            'itemId'    => hid($oi->item_id),
             'name'      => $oi->item_name_snapshot,
             'code'      => $oi->item_code_snapshot,
             'systemQty' => $oi->system_qty,
@@ -133,7 +137,7 @@ class StockOpnameController extends Controller
 
         return Inertia::render('inventory/Stock_Opname_Detail', [
             'opname' => [
-                'id'        => $opname->id,
+                'id'        => hid($opname->id),
                 'refNumber' => $opname->ref_number,
                 'warehouse' => $opname->warehouse?->name,
                 'date'      => $opname->date?->format('Y-m-d'),
@@ -150,6 +154,12 @@ class StockOpnameController extends Controller
         if ($opname->status !== 'draft') {
             return back()->with('error', 'Opname sudah disubmit, tidak dapat diubah.');
         }
+
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['id'] = dhid((string) ($i['id'] ?? ''));
+            return $i;
+        })->toArray();
+        $request->merge(['items' => $decodedItems]);
 
         $data = $request->validate([
             'items'              => 'required|array',

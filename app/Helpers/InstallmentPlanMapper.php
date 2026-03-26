@@ -21,7 +21,7 @@ class InstallmentPlanMapper
             ->orderByDesc('created_at')
             ->get()
             ->map(fn ($plan) => [
-                'id' => $plan->id,
+                'id' => hid($plan->id),
                 'saleNumber' => $plan->saleHeader?->sale_number,
                 'occurredAt' => $plan->saleHeader?->occurred_at?->toISOString(),
                 'grandTotal' => $plan->saleHeader?->grand_total,
@@ -34,7 +34,7 @@ class InstallmentPlanMapper
                 'status' => $plan->status,
                 'note' => $plan->note,
                 'payments' => $plan->payments->map(fn ($p) => [
-                    'id' => $p->id,
+                    'id' => hid($p->id),
                     'dueDate' => $p->due_date->toDateString(),
                     'amountDue' => $p->amount_due,
                     'interestAmount' => $p->interest_amount,

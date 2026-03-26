@@ -21,7 +21,7 @@ interface Cell {
 interface PageProps {
     cells: Cell[];
     maxCount: number;
-    warehouses: { id: number; name: string }[];
+    warehouses: { id: string; name: string }[];
     filters: { date_from?: string; date_to?: string; warehouse_id?: string };
     [key: string]: unknown;
 }

@@ -97,7 +97,7 @@ class ReturnController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $returns = $query->paginate($perPage)->withQueryString()->through(fn ($r) => [
-            'id' => $r->id,
+            'id' => hid($r->id),
             'returnNumber' => $r->return_number,
             'type' => $r->type,
             'partyName' => $r->type === 'customer_return'
@@ -114,16 +114,16 @@ class ReturnController extends Controller
 
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
-        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name]);
 
         $customers = Customer::where('is_active', true)->orderBy('name')
-            ->get()->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]);
+            ->get()->map(fn ($c) => ['id' => hid($c->id), 'name' => $c->name]);
 
         $suppliers = Supplier::where('is_active', true)->orderBy('name')
-            ->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
+            ->get()->map(fn ($s) => ['id' => hid($s->id), 'name' => $s->name]);
 
         $items = Item::orderBy('nama')->get()->map(fn ($i) => [
-            'id' => $i->id,
+            'id' => hid($i->id),
             'name' => $i->nama,
             'code' => $i->kode_item,
             'price' => $i->harga_jual,
@@ -159,13 +159,13 @@ class ReturnController extends Controller
             ->limit(10)
             ->get()
             ->map(fn ($s) => [
-                'id' => $s->id,
+                'id' => hid($s->id),
                 'saleNumber' => $s->sale_number,
                 'occurredAt' => $s->occurred_at?->format('d M Y'),
                 'customer' => $s->customer?->name ?? 'Walk-in',
                 'grandTotal' => $s->grand_total,
                 'items' => $s->saleItems->map(fn ($si) => [
-                    'item_id' => $si->item_id,
+                    'item_id' => hid($si->item_id),
                     'name' => $si->item_name_snapshot,
                     'quantity' => $si->quantity,
                     'unit_price' => $si->unit_price,
@@ -177,6 +177,18 @@ class ReturnController extends Controller
 
     public function store(Request $request)
     {
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['item_id'] = dhid((string) ($i['item_id'] ?? ''));
+            return $i;
+        })->toArray();
+        $request->merge([
+            'warehouse_id'   => dhid((string) ($request->warehouse_id ?? '')),
+            'sale_header_id' => $request->sale_header_id ? dhid((string) $request->sale_header_id) : null,
+            'customer_id'    => $request->customer_id    ? dhid((string) $request->customer_id)    : null,
+            'supplier_id'    => $request->supplier_id    ? dhid((string) $request->supplier_id)    : null,
+            'items'          => $decodedItems,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'type' => 'required|in:customer_return,supplier_return',
             'warehouse_id' => 'required|integer|exists:warehouses,id',
@@ -320,7 +332,10 @@ class ReturnController extends Controller
         }
 
         if ($request->wantsJson()) {
-            return response()->json($result);
+            return response()->json([
+                'returnNumber' => $result['returnNumber'],
+                'returnId'     => hid($result['returnId']),
+            ]);
         }
 
         $header = ReturnHeader::find($result['returnId']);
@@ -332,7 +347,7 @@ class ReturnController extends Controller
             ]);
         }
 
-        return redirect()->route('returns.show', $result['returnId'])
+        return redirect()->route('returns.show', hid($result['returnId']))
             ->with('success', "Retur {$result['returnNumber']} berhasil diproses.");
     }
 
@@ -342,7 +357,7 @@ class ReturnController extends Controller
 
         return Inertia::render('returns/Show', [
             'returnData' => [
-                'id' => $returnHeader->id,
+                'id' => hid($returnHeader->id),
                 'returnNumber' => $returnHeader->return_number,
                 'type' => $returnHeader->type,
                 'customerName' => $returnHeader->customer?->name,
@@ -355,8 +370,8 @@ class ReturnController extends Controller
                 'reason' => $returnHeader->reason,
                 'note' => $returnHeader->note,
                 'items' => $returnHeader->returnItems->map(fn ($ri) => [
-                    'id' => $ri->id,
-                    'itemId' => $ri->item_id,
+                    'id' => hid($ri->id),
+                    'itemId' => hid($ri->item_id),
                     'itemName' => $ri->item_name_snapshot,
                     'quantity' => $ri->quantity,
                     'unitPrice' => $ri->unit_price,

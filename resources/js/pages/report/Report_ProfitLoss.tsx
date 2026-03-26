@@ -48,8 +48,8 @@ interface PageProps {
     totals: Totals;
     year: number;
     years: number[];
-    warehouses: { id: number; name: string }[];
-    warehouseId: number | null;
+    warehouses: { id: string; name: string }[];
+    warehouseId: string | null;
     [key: string]: unknown;
 }
 

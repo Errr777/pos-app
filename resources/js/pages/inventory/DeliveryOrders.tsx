@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 interface Warehouse { id: string; name: string; is_default: boolean; }
 
 interface OrderRow {
-    id: number;
+    id: string;
     doNumber: string;
     status: 'pending' | 'confirmed' | 'cancelled';
     fromName: string;

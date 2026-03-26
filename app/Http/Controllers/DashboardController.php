@@ -139,7 +139,7 @@ class DashboardController extends Controller
             ->limit(8)
             ->get()
             ->map(fn ($s) => [
-                'id' => $s->id,
+                'id' => hid($s->id),
                 'saleNumber' => $s->sale_number,
                 'cashier' => $s->cashier?->name ?? '-',
                 'grandTotal' => $s->grand_total,
@@ -174,7 +174,7 @@ class DashboardController extends Controller
             ->limit(5)
             ->get()
             ->map(fn ($s) => [
-                'id' => $s->id,
+                'id' => hid($s->id),
                 'saleNumber' => $s->sale_number,
                 'occurredAt' => $s->occurred_at?->format('d/m H:i'),
                 'cashierName' => $s->cashier?->name ?? '-',
@@ -192,7 +192,7 @@ class DashboardController extends Controller
                 ->limit(8)
                 ->get()
                 ->map(fn ($i) => [
-                    'id' => $i->id,
+                    'id' => hid($i->id),
                     'name' => $i->nama,
                     'stock' => (int) $i->stok,
                     'minimum' => (int) $i->stok_minimal,
@@ -205,7 +205,7 @@ class DashboardController extends Controller
                 ->limit(8)
                 ->get()
                 ->map(fn ($i) => [
-                    'id' => $i->id,
+                    'id' => hid($i->id),
                     'name' => $i->nama,
                     'stock' => $i->stok,
                     'minimum' => $i->stok_minimal,
@@ -283,7 +283,7 @@ class DashboardController extends Controller
                 ->keyBy('warehouse_id');
 
             $branchStats = $warehouses->map(fn ($w) => [
-                'id' => $w->id,
+                'id' => hid($w->id),
                 'name' => $w->name,
                 'city' => $w->city,
                 'salesToday' => (int) ($todayAgg->get($w->id)?->total ?? 0),

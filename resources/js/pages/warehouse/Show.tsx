@@ -5,7 +5,7 @@ import { Search, AlertTriangle, Package, ArrowDownToLine, ArrowUpFromLine, Setti
 import { useState } from 'react';
 
 interface WarehouseInfo {
-    id: number;
+    id: string;
     code: string;
     name: string;
     location: string | null;
@@ -24,7 +24,7 @@ interface Stats {
 }
 
 interface JasaRow {
-    itemId: number;
+    itemId: string;
     name: string;
     qrcode: string | null;
     category: string | null;
@@ -33,7 +33,7 @@ interface JasaRow {
 }
 
 interface ItemRow {
-    itemId: number;
+    itemId: string;
     name: string;
     qrcode: string | null;
     category: string | null;
@@ -43,7 +43,7 @@ interface ItemRow {
 }
 
 interface LowStockRow {
-    itemId: number;
+    itemId: string;
     name: string;
     qrcode: string | null;
     category: string | null;
@@ -53,7 +53,7 @@ interface LowStockRow {
 }
 
 interface MovementRow {
-    id: number;
+    id: string;
     date: string;
     itemName: string;
     direction: 'IN' | 'OUT';
@@ -109,7 +109,7 @@ export default function WarehouseShow() {
     const [search, setSearch] = useState(filters.search ?? '');
 
     // Set min stock modal
-    const [minModal, setMinModal] = useState<{ itemId: number; name: string; current: number } | null>(null);
+    const [minModal, setMinModal] = useState<{ itemId: string; name: string; current: number } | null>(null);
     const [minValue, setMinValue] = useState(0);
 
     function navigate(overrides: Record<string, unknown> = {}) {

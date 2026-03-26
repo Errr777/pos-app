@@ -11,12 +11,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface Suggestion {
-    itemId: number;
+    itemId: string;
     itemName: string;
     unitPrice: number;
-    supplierId: number | null;
+    supplierId: string | null;
     supplierName: string | null;
-    warehouseId: number;
+    warehouseId: string;
     warehouseName: string;
     currentStock: number;
     stockMin: number;
@@ -24,8 +24,8 @@ interface Suggestion {
     suggestedQty: number;
 }
 
-interface Supplier { id: number; name: string }
-interface Warehouse { id: number; name: string }
+interface Supplier { id: string; name: string }
+interface Warehouse { id: string; name: string }
 
 interface PageProps {
     suggestions: Suggestion[];
@@ -48,7 +48,7 @@ export default function Suggestions({ suggestions, suppliers }: PageProps) {
         Object.fromEntries(suggestions.map(s => [rowKey(s), s.suggestedQty]))
     );
     // supplier overrides for items with no preferred supplier
-    const [supplierOverrides, setSupplierOverrides] = useState<Record<string, number | null>>(() =>
+    const [supplierOverrides, setSupplierOverrides] = useState<Record<string, string | null>>(() =>
         Object.fromEntries(suggestions.map(s => [rowKey(s), s.supplierId]))
     );
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -211,7 +211,7 @@ export default function Suggestions({ suggestions, suppliers }: PageProps) {
                                                     ) : (
                                                         <select
                                                             value={suppId ?? ''}
-                                                            onChange={e => setSupplierOverrides(prev => ({ ...prev, [key]: e.target.value ? Number(e.target.value) : null }))}
+                                                            onChange={e => setSupplierOverrides(prev => ({ ...prev, [key]: e.target.value || null }))}
                                                             className="border rounded px-2 py-1 text-sm bg-background w-36"
                                                         >
                                                             <option value="">-- Pilih --</option>

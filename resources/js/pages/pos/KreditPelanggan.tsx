@@ -8,13 +8,13 @@ import { AlertCircle, FileText, Search, X } from 'lucide-react';
 /* ─── Types ──────────────────────────────────────────────────── */
 
 interface PaymentRow {
-    id: number; dueDate: string; amountDue: number; interestAmount: number;
+    id: string; dueDate: string; amountDue: number; interestAmount: number;
     lateFeeApplied: number; totalDue: number; alreadyPaid: number; remainingDue: number;
     isPaid: boolean; status: string; paymentNumber: number; remainingAfter: number;
     paymentMethod: string | null; paidAt: string | null; note: string | null;
 }
 interface PlanRow {
-    id: number; customerId: number; customerName: string; customerCode: string;
+    id: string; customerId: string; customerName: string; customerCode: string;
     saleNumber: string | null; occurredAt: string | null; createdAt: string;
     totalAmount: number; paidAmount: number; remainingAmount: number;
     installmentCount: number; paidCount: number;
@@ -73,7 +73,7 @@ export default function KreditPelangganPage() {
     const [payPlan, setPayPlan]       = useState<PlanRow | null>(null);
 
     /* Installment payment form */
-    const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
+    const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
     const [selectedPayment, setSelectedPayment]     = useState<PaymentRow | null>(null);
     const [amountPaid, setAmountPaid]               = useState(0);
     const [paymentMethod, setPaymentMethod]         = useState('cash');
@@ -83,7 +83,7 @@ export default function KreditPelangganPage() {
     const [errors, setErrors]                       = useState<Record<string, string>>({});
 
     /* Extra pay form (all scheduled rows paid but balance remains) */
-    const [extraPayPlanId, setExtraPayPlanId]    = useState<number | null>(null);
+    const [extraPayPlanId, setExtraPayPlanId]    = useState<string | null>(null);
     const [extraPayAmount, setExtraPayAmount]    = useState(0);
     const [extraPayMethod, setExtraPayMethod]    = useState('cash');
     const [extraPayNote, setExtraPayNote]        = useState('');
@@ -91,7 +91,7 @@ export default function KreditPelangganPage() {
     const [extraErrors, setExtraErrors]         = useState<Record<string, string>>({});
 
     /* After successful payment, auto-advance to next unpaid in the same plan */
-    const advanceToPlanRef = useRef<number | null>(null);
+    const advanceToPlanRef = useRef<string | null>(null);
 
     useEffect(() => {
         const planId = advanceToPlanRef.current;
@@ -132,7 +132,7 @@ export default function KreditPelangganPage() {
     function goToPage(url: string | null) {
         if (url) router.visit(url, { preserveState: true });
     }
-    function openInvoice(planId: number) {
+    function openInvoice(planId: string) {
         const w = window.open(route('installments.invoice', { plan: planId }), 'invoice',
             'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes');
         if (!w) alert('Popup diblokir oleh browser. Izinkan popup untuk membuka invoice.');

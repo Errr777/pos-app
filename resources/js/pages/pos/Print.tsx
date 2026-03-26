@@ -3,7 +3,7 @@ import { formatRp, METHOD_LABEL } from '@/lib/formats';
 import { Head, usePage } from '@inertiajs/react';
 
 interface SaleItemRow {
-  id: number;
+  id: string;
   itemName: string;
   itemCode: string | null;
   unitPrice: number;
@@ -13,7 +13,7 @@ interface SaleItemRow {
 }
 
 interface SaleDetail {
-  id: number;
+  id: string;
   saleNumber: string;
   date: string | null;
   cashier: string;

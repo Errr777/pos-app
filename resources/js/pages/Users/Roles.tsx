@@ -16,7 +16,7 @@ interface ModulePermission {
 }
 
 interface RoleRow {
-    id: number;
+    id: string;
     name: string;
     label: string;
     is_system: boolean;

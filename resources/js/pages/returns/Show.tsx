@@ -16,8 +16,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ReturnItemRow {
-    id: number;
-    itemId: number | null;
+    id: string;
+    itemId: string | null;
     itemName: string;
     quantity: number;
     unitPrice: number;
@@ -26,7 +26,7 @@ interface ReturnItemRow {
 }
 
 interface ReturnData {
-    id: number;
+    id: string;
     returnNumber: string;
     type: string;
     customerName: string | null;

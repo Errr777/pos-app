@@ -73,7 +73,7 @@ class KategoriController extends Controller
             ->paginate($perPage)
             ->withQueryString() // preserves ?search & ?per_page & ?sort_by & ?sort_dir on page change
             ->through(fn($kategori) => [
-                'id' => $kategori->id,
+                'id' => hid($kategori->id),
                 'nama' => $kategori->nama,
                 'deskripsi' => $kategori->deskripsi,
                 'created_at' => $kategori->created_at?->format('Y-m-d H:i'),
@@ -108,7 +108,7 @@ class KategoriController extends Controller
     public function show(Kategori $kategori, Request $request)
     {
         return Inertia::render('category/Show', [
-            'kategori' => $kategori->toArray(),
+            'kategori' => array_merge($kategori->toArray(), ['id' => hid($kategori->id)]),
         ]);
     }
 

@@ -16,9 +16,9 @@ import { DatePickerFilter } from '@/components/DatePickerInput';
 type Direction = 'IN' | 'OUT';
 
 interface MovementRow {
-    id: number;
+    id: string;
     date: string;
-    itemId: number | null;
+    itemId: string | null;
     itemName: string;
     direction: Direction;
     quantity: number;

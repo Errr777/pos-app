@@ -91,14 +91,14 @@ class StockTransferController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $transfers = $query->paginate($perPage)->withQueryString()->through(fn ($t) => [
-            'id'            => $t->id,
+            'id'            => hid($t->id),
             'txnId'         => $t->txn_id,
             'date'          => $t->occurred_at?->toISOString(),
-            'itemId'        => $t->item_id,
+            'itemId'        => hid($t->item_id),
             'itemName'      => $t->item?->nama ?? '(item deleted)',
-            'fromId'        => $t->from_warehouse_id,
+            'fromId'        => hid($t->from_warehouse_id),
             'fromName'      => $t->fromWarehouse?->name ?? '-',
-            'toId'          => $t->to_warehouse_id,
+            'toId'          => hid($t->to_warehouse_id),
             'toName'        => $t->toWarehouse?->name ?? '-',
             'quantity'      => $t->quantity,
             'reference'     => $t->reference,
@@ -112,7 +112,7 @@ class StockTransferController extends Controller
             ->orderBy('is_default', 'desc')->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
         $warehouses = $warehouseQuery->get()->map(fn ($w) => [
-                'id'         => $w->id,
+                'id'         => hid($w->id),
                 'code'       => $w->code,
                 'name'       => $w->name,
                 'is_default' => $w->is_default,
@@ -121,7 +121,7 @@ class StockTransferController extends Controller
         // Items dropdown with per-warehouse stock
         $items = Item::select('id', 'nama', 'kategori', 'stok', 'kode_item')
             ->orderBy('nama')->get()->map(fn ($i) => [
-                'id'       => $i->id,
+                'id'       => hid($i->id),
                 'name'     => $i->nama,
                 'category' => $i->kategori,
                 'stock'    => $i->stok,
@@ -133,7 +133,7 @@ class StockTransferController extends Controller
             ->orderBy('nama')
             ->get()
             ->map(fn ($i) => [
-                'id'           => $i->id,
+                'id'           => hid($i->id),
                 'name'         => $i->nama,
                 'code'         => $i->kode_item,
                 'category'     => $i->kategori,
@@ -145,7 +145,7 @@ class StockTransferController extends Controller
             ->where('is_default', false)
             ->orderBy('name')
             ->get()
-            ->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+            ->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name, 'code' => $w->code]);
 
         return Inertia::render('inventory/Stock_Transfer', [
             'transfers'  => $transfers,
@@ -162,6 +162,12 @@ class StockTransferController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'from_warehouse_id' => dhid((string) ($request->from_warehouse_id ?? '')),
+            'to_warehouse_id'   => dhid((string) ($request->to_warehouse_id ?? '')),
+            'item_id'           => dhid((string) ($request->item_id ?? '')),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'from_warehouse_id' => 'required|integer|exists:warehouses,id',
             'to_warehouse_id'   => 'required|integer|exists:warehouses,id|different:from_warehouse_id',
@@ -332,9 +338,9 @@ class StockTransferController extends Controller
         // Instead of auto-creating, redirect to Create SJ page with item pre-filled.
         // The user can review, add more items, and submit manually.
         $params = http_build_query(array_filter([
-            'from_id'   => $fromId,
-            'to_id'     => $toId,
-            'item_id'   => $data['item_id'],
+            'from_id'   => hid($fromId),
+            'to_id'     => hid($toId),
+            'item_id'   => hid($data['item_id']),
             'quantity'  => $qty,
             'reference' => $data['reference'] ?? null,
             'note'      => $data['note'] ?? null,

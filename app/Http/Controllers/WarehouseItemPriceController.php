@@ -70,11 +70,20 @@ class WarehouseItemPriceController extends Controller
             });
         }
 
-        $items = $query->orderBy('items.nama')->paginate($perPage)->withQueryString();
+        $items = $query->orderBy('items.nama')->paginate($perPage)->withQueryString()
+            ->through(fn($i) => [
+                'item_id'      => hid($i->item_id),
+                'kode_item'    => $i->kode_item,
+                'nama'         => $i->nama,
+                'kategori'     => $i->kategori,
+                'global_price' => (int) $i->global_price,
+                'outlet_price' => (int) $i->outlet_price,
+                'stok'         => (int) $i->stok,
+            ]);
 
         return Inertia::render('warehouse/Prices', [
             'warehouse' => [
-                'id'         => $warehouse->id,
+                'id'         => hid($warehouse->id),
                 'code'       => $warehouse->code,
                 'name'       => $warehouse->name,
                 'is_default' => (bool) $warehouse->is_default,
@@ -144,6 +153,16 @@ class WarehouseItemPriceController extends Controller
      */
     public function batchJasaPrices(Request $request)
     {
+        $decodedServices = collect($request->services ?? [])->map(function ($s) {
+            $s['item_id'] = dhid((string) ($s['item_id'] ?? ''));
+            return $s;
+        })->toArray();
+
+        $request->merge([
+            'warehouse_id' => dhid((string) ($request->warehouse_id ?? '')),
+            'services'     => $decodedServices,
+        ]);
+
         $request->validate([
             'warehouse_id'              => 'required|integer|exists:warehouses,id',
             'services'                  => 'required|array|min:1',

@@ -46,13 +46,13 @@ class AuditLogController extends Controller
         }
 
         $logs = $query->paginate(20)->withQueryString()->through(fn($log) => [
-            'id'           => $log->id,
+            'id'           => hid($log->id),
             'occurredAt'   => $log->occurred_at?->toISOString(),
-            'userId'       => $log->user_id,
+            'userId'       => hid($log->user_id),
             'userName'     => $log->user_name_snapshot,
             'action'       => $log->action,
             'subjectType'  => $log->subject_type,
-            'subjectId'    => $log->subject_id,
+            'subjectId'    => hid($log->subject_id),
             'subjectLabel' => $log->subject_label,
             'oldValue'     => $log->old_value,
             'newValue'     => $log->new_value,

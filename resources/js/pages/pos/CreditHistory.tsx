@@ -6,12 +6,12 @@ import { useState } from 'react';
 import { Search, ChevronDown, ChevronRight, AlertCircle, FileText } from 'lucide-react';
 
 interface PaymentRow {
-    id: number; dueDate: string; amountDue: number; interestAmount: number;
+    id: string; dueDate: string; amountDue: number; interestAmount: number;
     lateFeeApplied: number; totalDue: number; amountPaid: number;
     paidAt: string | null; status: string; paymentMethod: string | null; note: string | null;
 }
 interface PlanRow {
-    id: number; customerId: number; customerName: string; customerCode: string;
+    id: string; customerId: string; customerName: string; customerCode: string;
     saleNumber: string | null; occurredAt: string | null;
     totalAmount: number; paidAmount: number; remainingAmount: number;
     installmentCount: number; paidCount: number; interestRate: number;
@@ -60,7 +60,7 @@ export default function CreditHistoryPage() {
     const { plans, filters } = usePage<PageProps>().props;
 
     const [search, setSearch]     = useState(filters.search ?? '');
-    const [expanded, setExpanded] = useState<number | null>(null);
+    const [expanded, setExpanded] = useState<string | null>(null);
     const activeStatus            = filters.status ?? 'all';
 
     function applyFilter(params: Record<string, string>) {
@@ -88,7 +88,7 @@ export default function CreditHistoryPage() {
         });
     }
 
-    function openInvoice(planId: number) {
+    function openInvoice(planId: string) {
         window.open(
             route('installments.invoice', { plan: planId }),
             'invoice',

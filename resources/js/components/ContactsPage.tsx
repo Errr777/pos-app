@@ -15,7 +15,7 @@ import {
 import Pagination, { type PaginationMeta } from '@/components/Pagination';
 
 export interface ContactRow {
-    id: number;
+    id: string;
     name: string;
     code: string | null;
     contactPerson?: string | null;

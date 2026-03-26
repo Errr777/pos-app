@@ -6,7 +6,7 @@ import { Save, CheckCircle2, AlertTriangle, ClipboardCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 
 interface OpnameInfo {
-    id: number;
+    id: string;
     refNumber: string;
     warehouse: string;
     date: string;
@@ -16,8 +16,8 @@ interface OpnameInfo {
 }
 
 interface OpnameRow {
-    id: number;
-    itemId: number | null;
+    id: string;
+    itemId: string | null;
     name: string;
     code: string | null;
     systemQty: number;
@@ -44,7 +44,7 @@ export default function StockOpnameDetail() {
         { title: opname.refNumber, href: `/inventory/opname/${opname.id}` },
     ];
 
-    const updateRow = useCallback((id: number, field: 'actualQty' | 'note', value: string) => {
+    const updateRow = useCallback((id: string, field: 'actualQty' | 'note', value: string) => {
         setRows(prev => prev.map(r => {
             if (r.id !== id) return r;
             if (field === 'actualQty') {

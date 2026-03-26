@@ -6,18 +6,18 @@ import { useRef, useState } from 'react';
 import { Search, AlertCircle, FileText, Info, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface CustomerOption {
-    id: number; name: string; code: string; isBlocked: boolean; hasCredit: boolean;
+    id: string; name: string; code: string; isBlocked: boolean; hasCredit: boolean;
     remainingTotal: number; activePlans: number; totalPayments: number; paidPayments: number;
     saleNumbers: string[];
 }
 interface PaymentRow {
-    id: number; dueDate: string; amountDue: number; interestAmount: number;
+    id: string; dueDate: string; amountDue: number; interestAmount: number;
     lateFeeApplied: number; totalDue: number; alreadyPaid: number; remainingDue: number;
     isPaid: boolean; status: string; paymentNumber: number; remainingAfter: number;
     paymentMethod: string | null; paidAt: string | null;
 }
 interface PlanOption {
-    id: number; saleNumber: string | null; occurredAt: string | null; createdAt: string | null;
+    id: string; saleNumber: string | null; occurredAt: string | null; createdAt: string | null;
     totalAmount: number; paidAmount: number; remainingAmount: number;
     interestRate: number; lateFeeAmount: number;
     status: string; totalPayments: number; note: string | null; canPayExtra: boolean;
@@ -48,7 +48,7 @@ export default function InstallmentPaymentPage() {
     const [loadingPlans, setLoadingPlans]         = useState(false);
     const [modalOpen, setModalOpen]               = useState(false);
     const [detailModalOpen, setDetailModalOpen]   = useState(false);
-    const [detailExpandedPlan, setDetailExpandedPlan] = useState<number | null>(null);
+    const [detailExpandedPlan, setDetailExpandedPlan] = useState<string | null>(null);
     const [successMsg, setSuccessMsg]             = useState('');
 
     // Extra-pay state (when all scheduled payments done but balance remains)
@@ -60,7 +60,7 @@ export default function InstallmentPaymentPage() {
     const [extraPayErrors, setExtraPayErrors]           = useState<Record<string, string>>({});
 
     // Normal payment form state
-    const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
+    const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
     const [selectedPayment, setSelectedPayment]     = useState<PaymentRow | null>(null);
     const [selectedPlan, setSelectedPlan]           = useState<PlanOption | null>(null);
     const [viewingPaidPayment, setViewingPaidPayment] = useState<PaymentRow | null>(null);

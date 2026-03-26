@@ -24,14 +24,14 @@ interface UserPermission {
 }
 
 interface UserRow {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
   created: string;
   isMe: boolean;
   permissions: Record<string, UserPermission>;
-  assignedWarehouseIds: number[];
+  assignedWarehouseIds: string[];
 }
 
 interface ModuleDefinition {
@@ -59,7 +59,7 @@ interface PageProps {
   roles: string[];
   modules: Record<string, ModuleDefinition>;
   filters: Filters;
-  warehouses: { id: number; name: string; code: string }[];
+  warehouses: { id: string; name: string; code: string }[];
   [key: string]: unknown;
 }
 
@@ -116,7 +116,7 @@ export default function UsersIndex() {
 
   // --- Warehouse assignment ---
   const [warehouseTarget, setWarehouseTarget] = useState<UserRow | null>(null);
-  const [selectedWarehouses, setSelectedWarehouses] = useState<number[]>([]);
+  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([]);
 
   // --- Permissions form ---
   const [isPermOpen, setIsPermOpen] = useState(false);

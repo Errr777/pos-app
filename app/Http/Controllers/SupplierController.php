@@ -52,7 +52,7 @@ class SupplierController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $suppliers = $query->paginate($perPage)->withQueryString()->through(fn ($s) => [
-            'id'            => $s->id,
+            'id'            => hid($s->id),
             'name'          => $s->name,
             'code'          => $s->code,
             'contactPerson' => $s->contact_person,

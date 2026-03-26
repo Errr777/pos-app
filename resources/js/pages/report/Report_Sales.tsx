@@ -12,7 +12,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface SaleRow {
-    id: number;
+    id: string;
     saleNumber: string;
     occurredAt: string;
     cashier: string;
@@ -32,7 +32,7 @@ interface PageProps {
     sales: { data: SaleRow[]; current_page: number; last_page: number; total: number };
     summary: Summary;
     filters: { search?: string; date_from?: string; date_to?: string; per_page?: number; method?: string; warehouse_id?: string };
-    warehouses: { id: number; name: string }[];
+    warehouses: { id: string; name: string }[];
     [key: string]: unknown;
 }
 

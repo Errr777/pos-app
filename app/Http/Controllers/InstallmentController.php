@@ -73,7 +73,7 @@ class InstallmentController extends Controller
                 $allScheduledPaid  = $allPmts->every(fn ($p) => $p->status === 'paid');
 
                 return [
-                    'id'              => $plan->id,
+                    'id'              => hid($plan->id),
                     'saleNumber'      => $plan->saleHeader?->sale_number,
                     'occurredAt'      => $plan->saleHeader?->occurred_at?->toISOString(),
                     'createdAt'       => $plan->created_at?->toISOString(),
@@ -87,7 +87,7 @@ class InstallmentController extends Controller
                     'note'            => $plan->note,
                     'canPayExtra'     => $allScheduledPaid && $remainingAmount > 0,
                     'payments'        => $allPmts->map(fn ($p) => [
-                        'id'             => $p->id,
+                        'id'             => hid($p->id),
                         'dueDate'        => $p->due_date->toDateString(),
                         'amountDue'      => $p->amount_due,
                         'interestAmount' => $p->interest_amount,
@@ -156,7 +156,7 @@ class InstallmentController extends Controller
             ->map(fn ($plans) => $plans->pluck('saleHeader.sale_number')->filter()->values()->all());
 
         $mapped = $customers->map(fn ($c) => [
-            'id' => $c->id,
+            'id' => hid($c->id),
             'name' => $c->name,
             'code' => $c->code,
             'isBlocked' => $c->overdue_count > 0,
@@ -245,8 +245,8 @@ class InstallmentController extends Controller
                 $allPaid   = $allPmts->every(fn ($p) => $p->status === 'paid');
 
                 return [
-                    'id'               => $plan->id,
-                    'customerId'       => $plan->customer?->id,
+                    'id'               => hid($plan->id),
+                    'customerId'       => hid($plan->customer?->id),
                     'customerName'     => $plan->customer?->name,
                     'customerCode'     => $plan->customer?->code,
                     'saleNumber'       => $plan->saleHeader?->sale_number,
@@ -263,7 +263,7 @@ class InstallmentController extends Controller
                     'note'             => $plan->note,
                     'canPayExtra'      => $allPaid && $remaining > 0,
                     'payments'         => $allPmts->map(fn ($p) => [
-                        'id'             => $p->id,
+                        'id'             => hid($p->id),
                         'dueDate'        => $p->due_date->toDateString(),
                         'amountDue'      => $p->amount_due,
                         'interestAmount' => $p->interest_amount,
@@ -347,8 +347,8 @@ class InstallmentController extends Controller
                 $paidCount = $payments->where('status', 'paid')->count();
 
                 return [
-                    'id'               => $plan->id,
-                    'customerId'       => $plan->customer?->id,
+                    'id'               => hid($plan->id),
+                    'customerId'       => hid($plan->customer?->id),
                     'customerName'     => $plan->customer?->name,
                     'customerCode'     => $plan->customer?->code,
                     'saleNumber'       => $plan->saleHeader?->sale_number,
@@ -363,7 +363,7 @@ class InstallmentController extends Controller
                     'note'             => $plan->note,
                     'createdAt'        => $plan->created_at?->toISOString(),
                     'payments'         => $payments->map(fn ($p) => [
-                        'id'             => $p->id,
+                        'id'             => hid($p->id),
                         'dueDate'        => $p->due_date->toDateString(),
                         'amountDue'      => $p->amount_due,
                         'interestAmount' => $p->interest_amount,
@@ -676,6 +676,10 @@ class InstallmentController extends Controller
      */
     public function payFromTerminal(Request $request)
     {
+        $request->merge([
+            'installment_payment_id' => dhid((string) ($request->installment_payment_id ?? '')),
+        ]);
+
         $request->validate([
             'installment_payment_id' => 'required|integer|exists:installment_payments,id',
             'amount_paid' => 'required|integer|min:1',

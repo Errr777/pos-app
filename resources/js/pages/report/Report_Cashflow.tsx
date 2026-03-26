@@ -27,7 +27,7 @@ interface Totals {
     net: number;
 }
 
-interface Warehouse { id: number; name: string; }
+interface Warehouse { id: string; name: string; }
 
 interface Filters {
     date_from?: string;

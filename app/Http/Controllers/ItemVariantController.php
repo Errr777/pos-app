@@ -12,7 +12,7 @@ class ItemVariantController extends Controller
     {
         $variants = $item->hasMany(ItemVariant::class)->orderBy('name')->get()
             ->map(fn($v) => [
-                'id'             => $v->id,
+                'id'             => hid($v->id),
                 'name'           => $v->name,
                 'price_modifier' => $v->price_modifier,
                 'is_active'      => $v->is_active,
@@ -39,7 +39,7 @@ class ItemVariantController extends Controller
         ]);
 
         return response()->json([
-            'id'             => $variant->id,
+            'id'             => hid($variant->id),
             'name'           => $variant->name,
             'price_modifier' => $variant->price_modifier,
             'is_active'      => $variant->is_active,
@@ -63,7 +63,7 @@ class ItemVariantController extends Controller
         $variant->update($data);
 
         return response()->json([
-            'id'             => $variant->id,
+            'id'             => hid($variant->id),
             'name'           => $variant->name,
             'price_modifier' => $variant->price_modifier,
             'is_active'      => $variant->is_active,

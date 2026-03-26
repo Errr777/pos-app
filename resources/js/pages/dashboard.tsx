@@ -24,11 +24,11 @@ interface DashboardStats {
 
 interface SalesChartPoint { date: string; total: number; count: number; }
 interface TopItem        { name: string; qty: number; }
-interface RecentSale     { id: number; saleNumber: string; cashier: string; grandTotal: number; occurredAt: string; }
-interface LowStockItem   { id: number; name: string; stock: number; minimum: number; deficit: number; }
+interface RecentSale     { id: string; saleNumber: string; cashier: string; grandTotal: number; occurredAt: string; }
+interface LowStockItem   { id: string; name: string; stock: number; minimum: number; deficit: number; }
 interface RevenueTrendPoint { date: string; revenue: number; }
 interface TopProduct    { name: string; qtySold: number; revenue: number; }
-interface RecentTransaction { id: number; saleNumber: string; occurredAt: string; cashierName: string; grandTotal: number; }
+interface RecentTransaction { id: string; saleNumber: string; occurredAt: string; cashierName: string; grandTotal: number; }
 interface StockAlerts   { count: number; items: { name: string; stock: number; stockMin: number; outletName: string | null }[] }
 
 interface PageProps {
@@ -44,7 +44,7 @@ interface PageProps {
     storeSettings?: { store_name?: string; [key: string]: unknown } | null;
     warehouseContext?: string | null;
     branchStats: {
-        id: number;
+        id: string;
         name: string;
         city: string | null;
         salesToday: number;

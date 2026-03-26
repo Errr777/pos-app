@@ -11,7 +11,9 @@
       "Bash(echo \"✓ $page exists\")",
       "Bash(echo \"✗ MISSING: $page.tsx\")",
       "Bash(done)",
-      "Bash(grep -r \"HasHashId\" /Users/errr/Developer/Project/my/pos-app/app/Models/*.php)"
+      "Bash(grep -r \"HasHashId\" /Users/errr/Developer/Project/my/pos-app/app/Models/*.php)",
+      "Bash(composer require:*)",
+      "Bash(composer dump-autoload:*)"
     ],
     "additionalDirectories": [
       "/Users/errr/Developer/Project/my/pos-app-production/.claude"

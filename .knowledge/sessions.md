@@ -4,6 +4,32 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-03-26 (hashid implementation — lanjutan multi-sesi)
+
+### Yang dikerjakan
+- Selesaikan Task 4 (controller encode/decode):
+  - `ItemVariantController` — encode `id` di `store()` dan `update()` response
+  - `AuditLogController` — encode `id`, `userId`, `subjectId` di through()
+  - `KategoriController::show()` — fix `toArray()` yang bocorkan integer `id`
+  - `InstallmentPlanMapper::forCustomer()` — encode plan `id` dan payment `id`
+- Task 5 (TypeScript types):
+  - `index.d.ts` — `User.id: number → string`, `allowedWarehouseIds: number[] → string[]`
+  - `lib/db.ts` — semua entity ID fields diubah ke `string`; tambah Dexie v2 upgrade (clear stale numeric-ID data)
+  - `hooks/use-offline-cart.ts` — `warehouseId: string | null`, fix restore logic pakai `safeStr`
+- Task 6 (frontend pages — 76 file diupdate):
+  - Semua `id: number` di interfaces/types diubah ke `string`
+  - Hapus semua `parseInt(id)` / `Number(id)` casts di entity IDs
+  - Fix `=== 0` ID comparisons → `=== ''`
+  - Fix `Suggestions.tsx` supplier override dari `Number(e.target.value)` → string langsung
+  - `pos/Terminal.tsx` — fix `updateQty`, `updateDiscount`, `removeFromCart` parameter types
+- TypeScript check: **0 errors**
+
+### Plan / Todo Berikutnya
+- Task 7: Full type check + smoke test (sudah done TypeScript, perlu smoke test manual di browser)
+- Deploy: pastikan offline transactions sudah sync sebelum deploy (Dexie v2 upgrade akan clear cart)
+
+---
+
 ## 2026-03-26
 
 ### Yang dikerjakan

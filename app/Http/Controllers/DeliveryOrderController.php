@@ -79,7 +79,7 @@ class DeliveryOrderController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn ($do) => [
-                'id'            => $do->id,
+                'id'            => hid($do->id),
                 'doNumber'      => $do->do_number,
                 'status'        => $do->status,
                 'fromName'      => $do->fromWarehouse?->name ?? '-',
@@ -94,7 +94,7 @@ class DeliveryOrderController extends Controller
 
         $warehouses = Warehouse::where('is_active', true)
             ->orderBy('is_default', 'desc')->orderBy('name')
-            ->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'is_default' => (bool) $w->is_default]);
+            ->get()->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name, 'is_default' => (bool) $w->is_default]);
 
         return Inertia::render('inventory/DeliveryOrders', [
             'orders'     => $orders,
@@ -112,7 +112,7 @@ class DeliveryOrderController extends Controller
         $warehouses = Warehouse::where('is_active', true)
             ->orderBy('is_default', 'desc')->orderBy('name')
             ->get()->map(fn ($w) => [
-                'id'         => $w->id,
+                'id'         => hid($w->id),
                 'name'       => $w->name,
                 'code'       => $w->code,
                 'is_default' => (bool) $w->is_default,
@@ -131,7 +131,7 @@ class DeliveryOrderController extends Controller
             ->orderBy('items.nama')
             ->get()
             ->map(fn ($i) => [
-                'id'          => $i->id,
+                'id'          => hid($i->id),
                 'name'        => $i->nama,
                 'code'        => $i->kode_item,
                 'category'    => $i->kategori,
@@ -140,7 +140,7 @@ class DeliveryOrderController extends Controller
             ]);
 
         $users = User::orderBy('name')->get()->map(fn ($u) => [
-            'id'   => $u->id,
+            'id'   => hid($u->id),
             'name' => $u->name,
             'role' => $u->role,
         ]);
@@ -148,10 +148,10 @@ class DeliveryOrderController extends Controller
         // Build prefill from query params (coming from Transfer Stok form)
         $prefill = null;
         if ($request->has('item_id') && $request->has('to_id')) {
-            $prefillItem = $items->firstWhere('id', (int) $request->get('item_id'));
+            $prefillItem = $items->firstWhere('id', hid(dhid((string) $request->get('item_id'))));
             if ($prefillItem) {
                 $prefill = [
-                    'to_warehouse_id' => (int) $request->get('to_id'),
+                    'to_warehouse_id' => $request->get('to_id'), // already hash from redirect
                     'item'            => $prefillItem,
                     'quantity'        => max(1, (int) $request->get('quantity', 1)),
                     'reference'       => $request->get('reference'),
@@ -167,14 +167,14 @@ class DeliveryOrderController extends Controller
             ->get()
             ->groupBy('to_warehouse_id')
             ->map(fn ($group) => $group->map(fn ($do) => [
-                'id'       => $do->id,
+                'id'       => hid($do->id),
                 'doNumber' => $do->do_number,
             ])->values())
             ->toArray();
 
         return Inertia::render('inventory/CreateDeliveryOrder', [
             'mainWarehouse'   => $mainWarehouse ? [
-                'id'   => $mainWarehouse->id,
+                'id'   => hid($mainWarehouse->id),
                 'name' => $mainWarehouse->name,
                 'code' => $mainWarehouse->code,
             ] : null,
@@ -190,6 +190,17 @@ class DeliveryOrderController extends Controller
 
     public function store(Request $request)
     {
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['item_id'] = dhid((string) ($i['item_id'] ?? ''));
+            return $i;
+        })->toArray();
+
+        $request->merge([
+            'to_warehouse_id' => dhid((string) ($request->to_warehouse_id ?? '')),
+            'sender_id'       => $request->sender_id ? dhid((string) $request->sender_id) : null,
+            'items'           => $decodedItems,
+        ]);
+
         $request->validate([
             'to_warehouse_id'          => 'required|integer|exists:warehouses,id',
             'sender_name'              => 'required|string|max:100',
@@ -294,7 +305,7 @@ class DeliveryOrderController extends Controller
                 ->get()
                 ->filter(fn ($i) => ! in_array($i->id, $existingItemIds))
                 ->map(fn ($i) => [
-                    'id'          => $i->id,
+                    'id'          => hid($i->id),
                     'name'        => $i->nama,
                     'code'        => $i->kode_item,
                     'global_price'=> $i->harga_jual,
@@ -315,6 +326,10 @@ class DeliveryOrderController extends Controller
         if (! $deliveryOrder->isPending()) {
             return back()->withErrors(['status' => 'Item hanya dapat ditambahkan ke Surat Jalan dengan status pending.']);
         }
+
+        $request->merge([
+            'item_id' => dhid((string) ($request->item_id ?? '')),
+        ]);
 
         $request->validate([
             'item_id'    => 'required|integer|exists:items,id',
@@ -363,6 +378,16 @@ class DeliveryOrderController extends Controller
         if (! $deliveryOrder->isPending()) {
             return back()->withErrors(['status' => 'Surat Jalan ini sudah ' . $deliveryOrder->status . '.']);
         }
+
+        $decodedConfirmItems = collect($request->items ?? [])->map(function ($i) {
+            $i['doi_id'] = dhid((string) ($i['doi_id'] ?? ''));
+            return $i;
+        })->toArray();
+
+        $request->merge([
+            'recipient_id' => $request->recipient_id ? dhid((string) $request->recipient_id) : null,
+            'items'        => $decodedConfirmItems,
+        ]);
 
         $request->validate([
             'recipient_name' => 'required|string|max:100',
@@ -505,18 +530,18 @@ class DeliveryOrderController extends Controller
     private function formatOrder(DeliveryOrder $do): array
     {
         return [
-            'id'            => $do->id,
+            'id'            => hid($do->id),
             'doNumber'      => $do->do_number,
             'status'        => $do->status,
             'fromWarehouse' => $do->fromWarehouse ? [
-                'id'       => $do->fromWarehouse->id,
+                'id'       => hid($do->fromWarehouse->id),
                 'name'     => $do->fromWarehouse->name,
                 'location' => $do->fromWarehouse->location,
                 'city'     => $do->fromWarehouse->city,
                 'phone'    => $do->fromWarehouse->phone,
             ] : null,
             'toWarehouse'   => $do->toWarehouse ? [
-                'id'       => $do->toWarehouse->id,
+                'id'       => hid($do->toWarehouse->id),
                 'name'     => $do->toWarehouse->name,
                 'location' => $do->toWarehouse->location,
                 'city'     => $do->toWarehouse->city,
@@ -532,8 +557,8 @@ class DeliveryOrderController extends Controller
             'createdAt'     => $do->created_at?->toISOString(),
             'createdBy'     => $do->creator?->name,
             'items'         => $do->items->map(fn ($doi) => [
-                'id'               => $doi->id,
-                'itemId'           => $doi->item_id,
+                'id'               => hid($doi->id),
+                'itemId'           => hid($doi->item_id),
                 'itemName'         => $doi->item_name_snapshot,
                 'itemCode'         => $doi->item_code_snapshot,
                 'quantity'         => $doi->quantity,

@@ -3,7 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 
 interface KategoriDetail {
-  id: number;
+  id: string;
   nama: string;
   deskripsi?: string | null;
   [key: string]: unknown;

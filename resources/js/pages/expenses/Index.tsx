@@ -11,7 +11,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface Expense {
-    id: number;
+    id: string;
     occurredAt: string;
     category: string;
     amount: number;
@@ -21,7 +21,7 @@ interface Expense {
 }
 
 interface Summary { category: string; total: number }
-interface Warehouse { id: number; name: string }
+interface Warehouse { id: string; name: string }
 
 interface PageProps {
     expenses: { data: Expense[]; current_page: number; last_page: number; total: number; from: number | null; to: number | null };
@@ -62,7 +62,7 @@ export default function ExpensesIndex() {
         category:     categories[0] ?? '',
         amount:       '' as unknown as number,
         description:  '',
-        warehouse_id: '' as unknown as number | null,
+        warehouse_id: '' as string | null,
     });
 
     function applyFilters() {
@@ -102,7 +102,7 @@ export default function ExpensesIndex() {
         }
     }
 
-    function handleDelete(id: number) {
+    function handleDelete(id: string) {
         if (!confirm('Hapus pengeluaran ini?')) return;
         router.delete(route('expenses.destroy', id), { preserveState: true });
     }
@@ -209,7 +209,7 @@ export default function ExpensesIndex() {
                             {warehouses.length > 0 && (
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Outlet</label>
-                                    <select value={form.data.warehouse_id ?? ''} onChange={e => form.setData('warehouse_id', e.target.value ? Number(e.target.value) : null)}
+                                    <select value={form.data.warehouse_id ?? ''} onChange={e => form.setData('warehouse_id', e.target.value || null)}
                                         className="w-full border rounded-lg px-3 py-2 text-sm bg-background">
                                         <option value="">(Umum)</option>
                                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -280,15 +280,60 @@ export default function ExpensesIndex() {
 
                             {/* Pagination */}
                             {expenses.last_page > 1 && (
-                                <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
+                                <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground flex-wrap gap-2">
                                     <span>{expenses.from}–{expenses.to} dari {expenses.total}</span>
-                                    <div className="flex gap-1">
-                                        {Array.from({ length: expenses.last_page }, (_, i) => i + 1).map(page => (
-                                            <button key={page} onClick={() => goToPage(page)}
-                                                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${page === expenses.current_page ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                                                {page}
-                                            </button>
-                                        ))}
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        {/* Prev */}
+                                        <button
+                                            onClick={() => goToPage(expenses.current_page - 1)}
+                                            disabled={expenses.current_page === 1}
+                                            className="px-2 h-8 rounded-lg text-xs font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                        >‹ Prev</button>
+
+                                        {/* Page buttons — max 10, centered around current page */}
+                                        {(() => {
+                                            const total = expenses.last_page;
+                                            const cur   = expenses.current_page;
+                                            const MAX   = 10;
+                                            let start = Math.max(1, cur - Math.floor(MAX / 2));
+                                            let end   = start + MAX - 1;
+                                            if (end > total) { end = total; start = Math.max(1, end - MAX + 1); }
+                                            const pages: (number | '…')[] = [];
+                                            if (start > 1)     { pages.push(1); if (start > 2) pages.push('…'); }
+                                            for (let p = start; p <= end; p++) pages.push(p);
+                                            if (end < total)   { if (end < total - 1) pages.push('…'); pages.push(total); }
+                                            return pages.map((p, i) =>
+                                                p === '…'
+                                                    ? <span key={`e${i}`} className="w-8 h-8 flex items-center justify-center text-xs text-muted-foreground">…</span>
+                                                    : <button key={p} onClick={() => goToPage(p as number)}
+                                                        className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${p === cur ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                                                        {p}
+                                                    </button>
+                                            );
+                                        })()}
+
+                                        {/* Next */}
+                                        <button
+                                            onClick={() => goToPage(expenses.current_page + 1)}
+                                            disabled={expenses.current_page === expenses.last_page}
+                                            className="px-2 h-8 rounded-lg text-xs font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                        >Next ›</button>
+
+                                        {/* Go to page */}
+                                        <form
+                                            onSubmit={e => { e.preventDefault(); const v = parseInt((e.currentTarget.elements.namedItem('gotopage') as HTMLInputElement).value); if (v >= 1 && v <= expenses.last_page) goToPage(v); }}
+                                            className="flex items-center gap-1 ml-2"
+                                        >
+                                            <span className="text-xs">Hal.</span>
+                                            <input
+                                                name="gotopage"
+                                                type="number"
+                                                min={1}
+                                                max={expenses.last_page}
+                                                placeholder="..."
+                                                className="w-14 h-8 rounded-lg border bg-background px-2 text-xs text-center"
+                                            />
+                                        </form>
                                     </div>
                                 </div>
                             )}

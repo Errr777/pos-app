@@ -20,12 +20,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface AdjRow {
-  id: number;
+  id: string;
   txnId: string;
   date: string;
-  itemId: number;
+  itemId: string;
   itemName: string;
-  warehouseId: number;
+  warehouseId: string;
   warehouseName: string;
   oldQty: number;
   newQty: number;
@@ -35,8 +35,8 @@ interface AdjRow {
   note?: string | null;
 }
 
-interface WarehouseOption { id: number; code: string; name: string; }
-interface ItemOption      { id: number; name: string; category: string | null; stock: number; }
+interface WarehouseOption { id: string; code: string; name: string; }
+interface ItemOption      { id: string; name: string; category: string | null; stock: number; }
 
 interface PaginatedAdj {
   data: AdjRow[];
@@ -90,8 +90,8 @@ export default function Stock_Adjustment() {
     (it.category && it.category.toLowerCase().includes(itemSearch.toLowerCase()))
   );
   const [form, setForm] = useState({
-    warehouse_id: warehouses[0]?.id ?? 0,
-    item_id:      itemOptions[0]?.id ?? 0,
+    warehouse_id: warehouses[0]?.id ?? '',
+    item_id:      itemOptions[0]?.id ?? '',
     new_quantity: 0,
     date:         formatDateISO(new Date()),
     reason:       reasons[0] ?? '',
@@ -117,7 +117,7 @@ export default function Stock_Adjustment() {
   const handlePage = (page: number) => navigate({ page });
 
   // Fetch real warehouse stock when warehouse or item changes
-  const fetchStock = async (warehouseId: number, itemId: number) => {
+  const fetchStock = async (warehouseId: string, itemId: string) => {
     if (!warehouseId || !itemId) return;
     setLoadingStock(true);
     try {
@@ -132,8 +132,8 @@ export default function Stock_Adjustment() {
   const openAdd = async () => {
     setFormErrors({});
     setItemSearch('');
-    const wid = warehouses[0]?.id ?? 0;
-    const iid = itemOptions[0]?.id ?? 0;
+    const wid = warehouses[0]?.id ?? '';
+    const iid = itemOptions[0]?.id ?? '';
     setForm({ warehouse_id: wid, item_id: iid, new_quantity: 0, date: formatDateISO(new Date()), reason: reasons[0] ?? '', note: '' });
     setIsFormOpen(true);
     await fetchStock(wid, iid);
@@ -346,7 +346,7 @@ export default function Stock_Adjustment() {
                 <label className="block font-semibold mb-1">Outlet</label>
                 <select value={form.warehouse_id}
                   onChange={async (e) => {
-                    const wid = Number(e.target.value);
+                    const wid = e.target.value;
                     setForm(f => ({ ...f, warehouse_id: wid }));
                     await fetchStock(wid, form.item_id);
                   }}
@@ -366,7 +366,7 @@ export default function Stock_Adjustment() {
                 />
                 <select value={form.item_id}
                   onChange={async (e) => {
-                    const iid = Number(e.target.value);
+                    const iid = e.target.value;
                     setForm(f => ({ ...f, item_id: iid }));
                     await fetchStock(form.warehouse_id, iid);
                   }}

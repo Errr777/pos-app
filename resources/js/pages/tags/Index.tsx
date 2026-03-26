@@ -10,7 +10,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface TagRow {
-    id: number;
+    id: string;
     name: string;
     slug: string;
     color: string;

@@ -19,9 +19,9 @@ import {
 import { DatePickerInput, DatePickerFilter } from '@/components/DatePickerInput';
 
 interface MovementRow {
-    id: number;
+    id: string;
     date: string;
-    itemId: number | null;
+    itemId: string | null;
     itemName: string;
     quantity: number;
     party?: string | null;   // supplier (in) or receiver (out)
@@ -29,11 +29,11 @@ interface MovementRow {
     qrcode?: string | null;
     image_url?: string | null;
     note?: string | null;
-    warehouseId?: number | null;
+    warehouseId?: string | null;
 }
 
 interface ItemOption {
-    id: number;
+    id: string;
     name: string;
     category: string | null;
     stock: number;
@@ -42,12 +42,12 @@ interface ItemOption {
 }
 
 interface PartyOption {
-    id: number;
+    id: string;
     name: string;
 }
 
 interface WarehouseOption {
-    id: number;
+    id: string;
     code: string;
     name: string;
     is_default: boolean;
@@ -137,7 +137,7 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
     const [partySearch, setPartySearch] = useState('');
     const [partyDropOpen, setPartyDropOpen] = useState(false);
     const [form, setForm] = useState({
-        id: 0,
+        id: '' as string,
         date: formatDateISO(new Date()),
         itemId: String(staticItems?.[0]?.id ?? ''),
         warehouseId: String(warehouses[0]?.id ?? ''),
@@ -195,7 +195,7 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
         const wid = String(warehouses[0]?.id ?? '');
         const items = config.fetchItemsRoute ? await fetchItems(wid) : (staticItems ?? []);
         setSelectedItemImageUrl(items[0]?.image_url ?? null);
-        setForm({ id: 0, date: formatDateISO(new Date()), itemId: String(items[0]?.id ?? ''),
+        setForm({ id: '', date: formatDateISO(new Date()), itemId: String(items[0]?.id ?? ''),
             warehouseId: wid, quantity: 1, party: '', reference: '', qrcode: items[0]?.kode ?? '', note: '' });
         setIsFormOpen(true);
     };
@@ -231,7 +231,7 @@ export default function StockMovementPage({ config }: { config: StockMovementPag
         }
     };
 
-    const handleDelete = (id: number) => {
+    const handleDelete = (id: string) => {
         if (!confirm(config.deleteConfirm)) return;
         router.delete(route('stock.destroy', { transaction: id }));
     };

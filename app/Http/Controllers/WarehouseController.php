@@ -59,7 +59,7 @@ class WarehouseController extends Controller
                 $itemCount  = WarehouseItem::where('warehouse_id', $w->id)->count();
 
                 return [
-                    'id'            => $w->id,
+                    'id'            => hid($w->id),
                     'code'          => $w->code,
                     'name'          => $w->name,
                     'location'      => $w->location,
@@ -134,7 +134,7 @@ class WarehouseController extends Controller
                 ->paginate($perPage)
                 ->withQueryString()
                 ->through(fn($wi) => [
-                    'itemId'   => $wi->item_id,
+                    'itemId'   => hid($wi->item_id),
                     'name'     => $wi->nama,
                     'qrcode'   => $wi->kode_item,
                     'category' => $wi->kategori,
@@ -162,7 +162,7 @@ class WarehouseController extends Controller
                 ->paginate($perPage)
                 ->withQueryString()
                 ->through(fn($wi) => [
-                    'itemId'   => $wi->item_id,
+                    'itemId'   => hid($wi->item_id),
                     'name'     => $wi->nama,
                     'qrcode'   => $wi->kode_item,
                     'category' => $wi->kategori,
@@ -193,7 +193,7 @@ class WarehouseController extends Controller
                 ->paginate($perPage)
                 ->withQueryString()
                 ->through(fn($i) => [
-                    'itemId'      => $i->id,
+                    'itemId'      => hid($i->id),
                     'name'        => $i->nama,
                     'qrcode'      => $i->kode_item,
                     'category'    => $i->kategori,
@@ -220,7 +220,7 @@ class WarehouseController extends Controller
                 ->paginate($perPage)
                 ->withQueryString()
                 ->through(fn($t) => [
-                    'id'        => $t->id,
+                    'id'        => hid($t->id),
                     'date'      => $t->occurred_at?->toISOString(),
                     'itemName'  => $t->item?->nama ?? '(deleted)',
                     'direction' => $t->type === 'stock_in' ? 'IN' : 'OUT',
@@ -234,7 +234,7 @@ class WarehouseController extends Controller
 
         return Inertia::render('warehouse/Show', [
             'warehouse' => [
-                'id'          => $warehouse->id,
+                'id'          => hid($warehouse->id),
                 'code'        => $warehouse->code,
                 'name'        => $warehouse->name,
                 'location'    => $warehouse->location,

@@ -24,31 +24,31 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ItemVariantOption {
-  id: number;
+  id: string;
   name: string;
   priceModifier: number;
 }
 
 interface ItemOption {
-  id: number;
+  id: string;
   name: string;
   code: string;
   category: string | null;
-  categoryId: number | null;
+  categoryId: string | null;
   stock: number;
   price: number;
   imageUrl?: string | null;
-  tagIds: number[];
+  tagIds: string[];
   variants?: ItemVariantOption[];
 }
 
 interface Promotion {
-  id: number;
+  id: string;
   name: string;
   type: 'percentage' | 'fixed';
   value: number;
   appliesTo: 'all' | 'category' | 'item' | 'tag';
-  appliesId: number | null;
+  appliesId: string | null;
   minPurchase: number;
   maxDiscount: number;
 }
@@ -69,7 +69,7 @@ interface ScheduleRow {
 }
 
 interface WarehouseOption {
-  id: number;
+  id: string;
   name: string;
   code: string;
   isDefault: boolean;
@@ -80,7 +80,7 @@ interface PageProps {
   customers: CustomerOption[];
   warehouses: WarehouseOption[];
   promotions: Promotion[];
-  autoWarehouseId: number | null;
+  autoWarehouseId: string | null;
   [key: string]: unknown;
 }
 
@@ -177,7 +177,7 @@ export default function PosTerminal() {
   const { addToQueue } = useSyncQueue(isOnline);
 
   // Warehouse selection (local — initialized from props)
-  const [warehouseId, setWarehouseId] = useState<number | null>(
+  const [warehouseId, setWarehouseId] = useState<string | null>(
     autoWarehouseId
     ?? warehouses.find(w => w.isDefault)?.id
     ?? warehouses[0]?.id
@@ -229,7 +229,7 @@ export default function PosTerminal() {
   const [creditSchedule, setCreditSchedule]     = useState<ScheduleRow[]>([]);
 
   // Outlet-resolved prices: itemId → price override
-  const [outletPrices, setOutletPrices] = useState<Record<number, number>>({});
+  const [outletPrices, setOutletPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!warehouseId) { setOutletPrices({}); return; }
@@ -345,7 +345,7 @@ export default function PosTerminal() {
     addToCartWithVariant(item);
   };
 
-  const updateQty = (itemId: number, delta: number) => {
+  const updateQty = (itemId: string, delta: number) => {
     setCart(cart.map(c => {
       if (c.itemId !== itemId) return c;
       const newQty = Math.max(1, Math.min(c.availableStock, c.quantity + delta));
@@ -355,11 +355,11 @@ export default function PosTerminal() {
     }));
   };
 
-  const updateDiscount = (itemId: number, val: string) => {
+  const updateDiscount = (itemId: string, val: string) => {
     setCart(cart.map(c => c.itemId === itemId ? { ...c, discountAmount: parseInt(val) || 0 } : c));
   };
 
-  const removeFromCart = (itemId: number) => {
+  const removeFromCart = (itemId: string) => {
     setCart(cart.filter(c => c.itemId !== itemId));
   };
 
@@ -515,7 +515,7 @@ export default function PosTerminal() {
             </div>
             {warehouses.length > 1 ? (
               <select className="text-sm border border-border rounded px-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                value={warehouseId ?? ''} onChange={e => setWarehouseId(parseInt(e.target.value))}>
+                value={warehouseId ?? ''} onChange={e => setWarehouseId(e.target.value || null)}>
                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             ) : (

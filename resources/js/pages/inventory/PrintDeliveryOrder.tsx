@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 interface DOItem {
-    id: number;
+    id: string;
     itemName: string;
     itemCode: string;
     quantity: number;
@@ -11,7 +11,7 @@ interface DOItem {
 }
 
 interface DOWarehouse {
-    id: number;
+    id: string;
     name: string;
     location: string | null;
     city: string | null;
@@ -19,7 +19,7 @@ interface DOWarehouse {
 }
 
 interface DeliveryOrderData {
-    id: number;
+    id: string;
     doNumber: string;
     status: 'pending' | 'confirmed' | 'cancelled';
     fromWarehouse: DOWarehouse | null;

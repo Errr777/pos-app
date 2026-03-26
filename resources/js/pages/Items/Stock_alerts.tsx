@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Eye, AlertCircle } from 'lucide-react';
+import { Search, Eye, AlertCircle, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -28,10 +28,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 const ITEMS_PER_PAGE_DEFAULT = 10;
 
 type ItemShape = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   qrcode: string;
+  image: string | null;
   stock: number;
   minimumStock: number;
   category: string;
@@ -199,7 +200,7 @@ export default function Stock_alerts() {
                 >
                   Nama {sortIcon('name')}
                 </th>
-                <th className="px-4 py-2 text-left">QR Code</th>
+                <th className="px-4 py-2 text-left">Gambar</th>
                 <th
                   className="px-4 py-2 text-left cursor-pointer select-none"
                   onClick={() => handleSort('stock')}
@@ -240,7 +241,12 @@ export default function Stock_alerts() {
                     </td>
 
                     <td className="px-4 py-2">{item.name}</td>
-                    <td className="px-4 py-2">{item.qrcode}</td>
+                    <td className="px-4 py-2">
+                      {item.image
+                        ? <img src={item.image} alt={item.name} className="h-10 w-10 rounded object-cover border" />
+                        : <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center"><ImageOff size={16} className="text-muted-foreground" /></div>
+                      }
+                    </td>
                     <td className="px-4 py-2 text-red-600 font-semibold">
                       {item.stock}
                       <span className="ml-2 text-red-500 inline-flex items-center text-xs">
@@ -314,23 +320,21 @@ export default function Stock_alerts() {
               </DialogDescription>
             </DialogHeader>
             {selectedItem && (
-              <div className="space-y-2 gap-0.5">
-                <p><strong>Nama:</strong> {selectedItem.name}</p>
-                <p><strong>Deskripsi:</strong> {selectedItem.description}</p>
-                <p><strong>QR Code:</strong> {selectedItem.qrcode}</p>
-                <p>
-                  <strong>Stok:</strong>{' '}
-                  <span className="text-red-600">{selectedItem.stock}</span>
-                </p>
-                <p>
-                  <strong>Stok Minimum:</strong> {selectedItem.minimumStock}
-                </p>
-                <p><strong>Kategori:</strong> {selectedItem.category}</p>
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedItem.qrcode)}`}
-                  alt="QR Code"
-                  className="mx-auto mt-4 rounded-lg border border-white p-3"
-                />
+              <div className="flex gap-4">
+                <div className="w-28 h-28 flex-shrink-0 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
+                  {selectedItem.image
+                    ? <img src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
+                    : <ImageOff size={32} className="text-muted-foreground" />
+                  }
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  <p><strong>Nama:</strong> {selectedItem.name}</p>
+                  <p><strong>Kategori:</strong> {selectedItem.category || '-'}</p>
+                  <p><strong>Kode:</strong> {selectedItem.qrcode || '-'}</p>
+                  <p><strong>Deskripsi:</strong> {selectedItem.description || '-'}</p>
+                  <p><strong>Stok:</strong> <span className="text-red-600 font-semibold">{selectedItem.stock}</span></p>
+                  <p><strong>Stok Minimum:</strong> {selectedItem.minimumStock}</p>
+                </div>
               </div>
             )}
             <DialogFooter>

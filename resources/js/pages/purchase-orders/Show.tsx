@@ -12,8 +12,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface PoItemRow {
-  id: number;
-  itemId: number | null;
+  id: string;
+  itemId: string | null;
   itemName: string;
   orderedQty: number;
   receivedQty: number;
@@ -23,7 +23,7 @@ interface PoItemRow {
 }
 
 interface PoDetail {
-  id: number;
+  id: string;
   poNumber: string;
   supplierName: string;
   warehouseName: string;
@@ -67,7 +67,7 @@ export default function PurchaseOrderShow() {
   const canOrder   = po.status === 'draft';
 
   // Receive form state — one receive_qty per PO item
-  const [receiveQtys, setReceiveQtys] = useState<Record<number, number>>(
+  const [receiveQtys, setReceiveQtys] = useState<Record<string, number>>(
     Object.fromEntries(po.items.map(i => [i.id, i.pendingQty]))
   );
   const [submitting, setSubmitting] = useState(false);

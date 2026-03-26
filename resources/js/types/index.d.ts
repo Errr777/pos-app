@@ -46,7 +46,7 @@ export interface SharedData {
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
     permissions: Permissions;
-    allowedWarehouseIds: number[]; // empty = all warehouses allowed
+    allowedWarehouseIds: string[]; // empty = all warehouses allowed (hashids)
     flash: { success: string | null; error: string | null };
     storeSettings: {
         store_name: string;
@@ -61,7 +61,7 @@ export interface SharedData {
 }
 
 export interface User {
-    id: number;
+    id: string;
     name: string;
     email: string;
     role?: string;

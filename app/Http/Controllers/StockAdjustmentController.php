@@ -82,12 +82,12 @@ class StockAdjustmentController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $adjustments = $query->paginate($perPage)->withQueryString()->through(fn ($a) => [
-            'id'           => $a->id,
+            'id'           => hid($a->id),
             'txnId'        => $a->txn_id,
             'date'         => $a->occurred_at?->toISOString(),
-            'itemId'       => $a->item_id,
+            'itemId'       => hid($a->item_id),
             'itemName'     => $a->item?->nama ?? '(item deleted)',
-            'warehouseId'  => $a->warehouse_id,
+            'warehouseId'  => hid($a->warehouse_id),
             'warehouseName'=> $a->warehouse?->name ?? '-',
             'oldQty'       => $a->old_quantity,
             'newQty'       => $a->new_quantity,
@@ -99,11 +99,11 @@ class StockAdjustmentController extends Controller
 
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('is_default', 'desc')->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
-        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name, 'code' => $w->code]);
 
         $items = Item::select('id', 'nama', 'kategori', 'stok')
             ->orderBy('nama')->get()->map(fn ($i) => [
-                'id' => $i->id, 'name' => $i->nama, 'category' => $i->kategori, 'stock' => $i->stok,
+                'id' => hid($i->id), 'name' => $i->nama, 'category' => $i->kategori, 'stock' => $i->stok,
             ]);
 
         $reasons = ['Koreksi Stok', 'Stok Opname', 'Barang Rusak / Hilang', 'Barang Kadaluarsa', 'Selisih Hitung', 'Lainnya'];
@@ -125,8 +125,8 @@ class StockAdjustmentController extends Controller
      */
     public function warehouseStock(Request $request)
     {
-        $warehouseId = (int) $request->get('warehouse_id');
-        $itemId      = (int) $request->get('item_id');
+        $warehouseId = dhid((string) $request->get('warehouse_id', ''));
+        $itemId      = dhid((string) $request->get('item_id', ''));
 
         $wi = WarehouseItem::where('warehouse_id', $warehouseId)
             ->where('item_id', $itemId)
@@ -137,6 +137,11 @@ class StockAdjustmentController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'warehouse_id' => dhid((string) ($request->warehouse_id ?? '')),
+            'item_id'      => dhid((string) ($request->item_id ?? '')),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'warehouse_id' => 'required|integer|exists:warehouses,id',
             'item_id'      => 'required|integer|exists:items,id',

@@ -4,7 +4,7 @@ import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
 
 interface LabelItem {
-    id: number;
+    id: string;
     name: string;
     code: string;
     price: number;

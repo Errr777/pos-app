@@ -109,7 +109,7 @@ class PosController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $sales = $query->paginate($perPage)->withQueryString()->through(fn ($s) => [
-            'id' => $s->id,
+            'id' => hid($s->id),
             'saleNumber' => $s->sale_number,
             'date' => $s->occurred_at?->toISOString(),
             'cashier' => $s->cashier?->name ?? '-',
@@ -141,9 +141,9 @@ class PosController extends Controller
      */
     public function items(Request $request)
     {
-        $warehouseId = (int) $request->get('warehouse_id', 0);
+        $warehouseId = dhid((string) $request->get('warehouse_id', ''));
 
-        $query = DB::table('items')
+        $result = DB::table('items')
             ->where('items.harga_jual', '>', 0)
             ->leftJoin('warehouse_item_prices as wip', function ($join) use ($warehouseId) {
                 $join->on('wip.item_id', '=', 'items.id')
@@ -154,10 +154,9 @@ class PosController extends Controller
                 DB::raw('COALESCE(wip.harga_jual, items.harga_jual) as resolved_price'),
             ])
             ->get()
-            ->keyBy('id')
-            ->map(fn ($r) => (int) $r->resolved_price);
+            ->mapWithKeys(fn ($r) => [hid($r->id) => (int) $r->resolved_price]);
 
-        return response()->json($query);
+        return response()->json($result);
     }
 
     /**
@@ -169,7 +168,7 @@ class PosController extends Controller
             ->orderBy('is_default', 'desc')->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
         $warehouses = $warehouseQuery->get()->map(fn ($w) => [
-            'id' => $w->id,
+            'id' => hid($w->id),
             'name' => $w->name,
             'code' => $w->code,
             'isDefault' => (bool) $w->is_default,
@@ -181,17 +180,17 @@ class PosController extends Controller
         $items = Item::with(['tags', 'variants'])->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual', 'image_path')
             ->where('harga_jual', '>', 0)
             ->orderBy('nama')->get()->map(fn ($i) => [
-                'id' => $i->id,
+                'id' => hid($i->id),
                 'name' => $i->nama,
                 'code' => $i->kode_item,
                 'category' => $i->kategori,
-                'categoryId' => $i->id_kategori,
+                'categoryId' => hid($i->id_kategori),
                 'stock' => $i->stok,
                 'price' => $i->harga_jual,
                 'imageUrl' => $i->image_path ? Storage::url($i->image_path) : null,
-                'tagIds' => $i->tags->pluck('id')->values()->all(),
+                'tagIds' => $i->tags->map(fn ($t) => hid($t->id))->values()->all(),
                 'variants' => $i->variants->map(fn ($v) => [
-                    'id' => $v->id,
+                    'id' => hid($v->id),
                     'name' => $v->name,
                     'priceModifier' => $v->price_modifier,
                 ])->values()->all(),
@@ -203,7 +202,7 @@ class PosController extends Controller
             ->withCount(['installmentPlans as active_count' => fn ($q) => $q->whereIn('status', ['active', 'overdue'])])
             ->get()
             ->map(fn ($c) => [
-                'id' => $c->id,
+                'id' => hid($c->id),
                 'name' => $c->name,
                 'code' => $c->code,
                 'isBlocked' => $c->overdue_count > 0,
@@ -213,12 +212,12 @@ class PosController extends Controller
         $promotions = Promotion::active()
             ->get()
             ->map(fn ($p) => [
-                'id' => $p->id,
+                'id' => hid($p->id),
                 'name' => $p->name,
                 'type' => $p->type,
                 'value' => $p->value,
                 'appliesTo' => $p->applies_to,
-                'appliesId' => $p->applies_id,
+                'appliesId' => hid($p->applies_id),
                 'minPurchase' => $p->min_purchase,
                 'maxDiscount' => $p->max_discount,
             ]);
@@ -248,7 +247,7 @@ class PosController extends Controller
         }
 
         return response()->json([
-            'id' => $promo->id,
+            'id' => hid($promo->id),
             'name' => $promo->name,
             'code' => $promo->code,
             'type' => $promo->type,
@@ -263,6 +262,19 @@ class PosController extends Controller
      */
     public function store(Request $request)
     {
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['item_id']   = dhid((string) ($i['item_id'] ?? ''));
+            $i['variant_id'] = isset($i['variant_id']) && $i['variant_id'] !== null
+                ? dhid((string) $i['variant_id']) : null;
+            return $i;
+        })->toArray();
+
+        $request->merge([
+            'warehouse_id' => dhid((string) ($request->warehouse_id ?? '')),
+            'customer_id'  => $request->customer_id ? dhid((string) $request->customer_id) : null,
+            'items'        => $decodedItems,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'warehouse_id' => 'required|integer|exists:warehouses,id',
             'customer_id' => 'nullable|integer|exists:customers,id|required_if:payment_method,credit',
@@ -306,7 +318,7 @@ class PosController extends Controller
                     'saleNumber' => $existing->sale_number,
                     'grandTotal' => $existing->grand_total,
                     'changeAmount' => $existing->change_amount,
-                    'saleId' => $existing->id,
+                    'saleId' => hid($existing->id),
                 ];
                 if ($request->wantsJson()) {
                     return response()->json($result);
@@ -435,7 +447,7 @@ class PosController extends Controller
                     'saleNumber' => $saleNumber,
                     'grandTotal' => $grandTotal,
                     'changeAmount' => $changeAmount,
-                    'saleId' => $sale->id,
+                    'saleId' => hid($sale->id),
                 ];
 
                 // 5. For credit sales: create installment plan and payment schedule
@@ -510,7 +522,7 @@ class PosController extends Controller
         $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item']);
 
         $saleData = [
-            'id' => $saleHeader->id,
+            'id' => hid($saleHeader->id),
             'saleNumber' => $saleHeader->sale_number,
             'date' => $saleHeader->occurred_at?->toISOString(),
             'cashier' => $saleHeader->cashier?->name ?? '-',
@@ -529,8 +541,8 @@ class PosController extends Controller
             'status' => $saleHeader->status,
             'note' => $saleHeader->note,
             'items' => $saleHeader->saleItems->map(fn ($si) => [
-                'id' => $si->id,
-                'itemId' => $si->item_id,
+                'id' => hid($si->id),
+                'itemId' => hid($si->item_id),
                 'itemName' => $si->item_name_snapshot,
                 'itemCode' => $si->item_code_snapshot,
                 'unitPrice' => $si->unit_price,
@@ -549,7 +561,7 @@ class PosController extends Controller
 
         return Inertia::render('pos/Print', [
             'sale' => [
-                'id' => $saleHeader->id,
+                'id' => hid($saleHeader->id),
                 'saleNumber' => $saleHeader->sale_number,
                 'date' => $saleHeader->occurred_at?->toISOString(),
                 'cashier' => $saleHeader->cashier?->name ?? '-',
@@ -566,7 +578,7 @@ class PosController extends Controller
                 'status' => $saleHeader->status,
                 'note' => $saleHeader->note,
                 'items' => $saleHeader->saleItems->map(fn ($si) => [
-                    'id' => $si->id,
+                    'id' => hid($si->id),
                     'itemName' => $si->item_name_snapshot,
                     'itemCode' => $si->item_code_snapshot,
                     'unitPrice' => $si->unit_price,

@@ -26,7 +26,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ReportRow {
-  id: number;
+  id: string;
   kode: string | null;
   name: string;
   category: string | null;

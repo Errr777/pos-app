@@ -12,7 +12,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ABCItem {
-    id: number;
+    id: string;
     code: string;
     name: string;
     category: string | null;
@@ -31,7 +31,7 @@ interface PageProps {
     items: ABCItem[];
     grandTotal: number;
     classSummary: ClassSummary;
-    warehouses: { id: number; name: string }[];
+    warehouses: { id: string; name: string }[];
     filters: { date_from?: string; date_to?: string; warehouse_id?: string };
     [key: string]: unknown;
 }

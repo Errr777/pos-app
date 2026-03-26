@@ -90,7 +90,7 @@ class StockMovementController extends Controller
     /** Return items with stock > 0 for a specific warehouse (used by Stock Out form). */
     public function stockOutItems(Request $request): \Illuminate\Http\JsonResponse
     {
-        $warehouseId = (int) $request->get('warehouse_id', 0);
+        $warehouseId = dhid((string) $request->get('warehouse_id', ''));
 
         $items = WarehouseItem::where('warehouse_items.warehouse_id', $warehouseId)
             ->where('warehouse_items.stok', '>', 0)
@@ -99,7 +99,7 @@ class StockMovementController extends Controller
             ->orderBy('items.nama')
             ->get()
             ->map(fn($row) => [
-                'id'        => (int) $row->id,
+                'id'        => hid($row->id),
                 'name'      => $row->nama,
                 'category'  => $row->kategori,
                 'stock'     => (int) $row->stok,
@@ -116,7 +116,7 @@ class StockMovementController extends Controller
             ->orderBy('nama')
             ->get()
             ->map(fn($i) => [
-                'id'        => $i->id,
+                'id'        => hid($i->id),
                 'name'      => $i->nama,
                 'category'  => $i->kategori,
                 'stock'     => $i->stok,
@@ -129,13 +129,15 @@ class StockMovementController extends Controller
     {
         return Supplier::where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name'])
+            ->map(fn($s) => ['id' => hid($s->id), 'name' => $s->name]);
     }
 
     private function staffOptions(): \Illuminate\Support\Collection
     {
         return User::orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name'])
+            ->map(fn($u) => ['id' => hid($u->id), 'name' => $u->name]);
     }
 
     /** Return active warehouses for the dropdown. */
@@ -146,7 +148,7 @@ class StockMovementController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn($w) => [
-                'id'         => $w->id,
+                'id'         => hid($w->id),
                 'code'       => $w->code,
                 'name'       => $w->name,
                 'is_default' => $w->is_default,
@@ -206,9 +208,9 @@ class StockMovementController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($t) => [
-                'id'          => $t->id,
+                'id'          => hid($t->id),
                 'date'        => $t->occurred_at?->toISOString(),
-                'itemId'      => $t->item_id,
+                'itemId'      => hid($t->item_id),
                 'itemName'    => $t->item?->nama ?? '(item deleted)',
                 'quantity'    => (int) abs($t->amount),
                 'party'       => $t->party,
@@ -216,7 +218,7 @@ class StockMovementController extends Controller
                 'qrcode'      => $t->qrcode,
                 'image_url'   => $t->item?->image_path ? Storage::url($t->item->image_path) : null,
                 'note'        => $t->note,
-                'warehouseId' => $t->warehouse_id,
+                'warehouseId' => hid($t->warehouse_id),
             ]);
 
         return Inertia::render('inventory/Stock_In', [
@@ -274,9 +276,9 @@ class StockMovementController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($t) => [
-                'id'          => $t->id,
+                'id'          => hid($t->id),
                 'date'        => $t->occurred_at?->toISOString(),
-                'itemId'      => $t->item_id,
+                'itemId'      => hid($t->item_id),
                 'itemName'    => $t->item?->nama ?? '(item deleted)',
                 'quantity'    => (int) abs($t->amount),
                 'party'       => $t->party,
@@ -284,7 +286,7 @@ class StockMovementController extends Controller
                 'qrcode'      => $t->qrcode,
                 'image_url'   => $t->item?->image_path ? Storage::url($t->item->image_path) : null,
                 'note'        => $t->note,
-                'warehouseId' => $t->warehouse_id,
+                'warehouseId' => hid($t->warehouse_id),
             ]);
 
         return Inertia::render('inventory/Stock_Out', [
@@ -348,9 +350,9 @@ class StockMovementController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn($t) => [
-                'id'        => $t->id,
+                'id'        => hid($t->id),
                 'date'      => $t->occurred_at?->toISOString(),
-                'itemId'    => $t->item_id,
+                'itemId'    => hid($t->item_id),
                 'itemName'  => $t->item?->nama ?? '(item deleted)',
                 'direction' => $t->type === 'stock_in' ? 'IN' : 'OUT',
                 'quantity'  => $t->type === 'stock_in' ? (int) abs($t->amount) : -(int) abs($t->amount),
@@ -418,9 +420,9 @@ class StockMovementController extends Controller
             ->through(function ($t) {
                 $meta = is_array($t->metadata) ? $t->metadata : [];
                 return [
-                    'id'           => $t->id,
+                    'id'           => hid($t->id),
                     'date'         => $t->occurred_at?->toISOString(),
-                    'itemId'       => $t->item_id,
+                    'itemId'       => hid($t->item_id),
                     'itemName'     => $t->item?->nama ?? '(item deleted)',
                     'direction'    => $t->type === 'stock_in' ? 'IN' : 'OUT',
                     'quantity'     => $t->type === 'stock_in' ? (int) abs($t->amount) : -(int) abs($t->amount),
@@ -450,6 +452,11 @@ class StockMovementController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'item_id'      => dhid((string) ($request->item_id ?? '')),
+            'warehouse_id' => $request->warehouse_id ? dhid((string) $request->warehouse_id) : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'type'         => 'required|in:stock_in,stock_out',
             'item_id'      => 'required|integer|exists:items,id',
@@ -556,6 +563,11 @@ class StockMovementController extends Controller
         if (!in_array($transaction->type, ['stock_in', 'stock_out'])) {
             abort(403, 'Tipe transaksi ini tidak dapat diedit di sini.');
         }
+
+        $request->merge([
+            'item_id'      => dhid((string) ($request->item_id ?? '')),
+            'warehouse_id' => $request->warehouse_id ? dhid((string) $request->warehouse_id) : null,
+        ]);
 
         $validator = Validator::make($request->all(), [
             'item_id'      => 'required|integer|exists:items,id',

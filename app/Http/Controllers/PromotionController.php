@@ -49,11 +49,27 @@ class PromotionController extends Controller
             });
         }
 
-        $promotions = $query->paginate(20)->withQueryString();
+        $promotions = $query->paginate(20)->withQueryString()->through(fn ($p) => [
+            'id'           => hid($p->id),
+            'name'         => $p->name,
+            'code'         => $p->code,
+            'type'         => $p->type,
+            'value'        => $p->value,
+            'applies_to'   => $p->applies_to,
+            'applies_id'   => hid($p->applies_id),
+            'min_purchase' => $p->min_purchase,
+            'max_discount' => $p->max_discount,
+            'start_date'   => $p->start_date?->format('Y-m-d'),
+            'end_date'     => $p->end_date?->format('Y-m-d'),
+            'is_active'    => (bool) $p->is_active,
+        ]);
 
-        $categories = Kategori::orderBy('nama')->get(['id', 'nama']);
-        $items      = Item::orderBy('nama')->get(['id', 'nama']);
-        $tags       = Tag::orderBy('name')->get(['id', 'name', 'color']);
+        $categories = Kategori::orderBy('nama')->get(['id', 'nama'])
+            ->map(fn ($c) => ['id' => hid($c->id), 'nama' => $c->nama]);
+        $items      = Item::orderBy('nama')->get(['id', 'nama'])
+            ->map(fn ($i) => ['id' => hid($i->id), 'nama' => $i->nama]);
+        $tags       = Tag::orderBy('name')->get(['id', 'name', 'color'])
+            ->map(fn ($t) => ['id' => hid($t->id), 'name' => $t->name, 'color' => $t->color]);
 
         return Inertia::render('promotions/Index', [
             'promotions' => $promotions,
@@ -66,6 +82,10 @@ class PromotionController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'applies_id' => $request->applies_id ? dhid((string) $request->applies_id) : null,
+        ]);
+
         $data = $request->validate([
             'name'         => 'required|string|max:100',
             'code'         => 'nullable|string|max:50|unique:promotions,code',
@@ -93,6 +113,10 @@ class PromotionController extends Controller
 
     public function update(Request $request, Promotion $promotion)
     {
+        $request->merge([
+            'applies_id' => $request->applies_id ? dhid((string) $request->applies_id) : null,
+        ]);
+
         $data = $request->validate([
             'name'       => 'required|string|max:100',
             'code'       => 'nullable|string|max:50|unique:promotions,code,' . $promotion->id,
@@ -128,6 +152,19 @@ class PromotionController extends Controller
     // JSON endpoint — dipakai oleh POS terminal untuk cek promo aktif
     public function active()
     {
-        return response()->json(Promotion::active()->get());
+        return response()->json(Promotion::active()->get()->map(fn ($p) => [
+            'id'           => hid($p->id),
+            'name'         => $p->name,
+            'code'         => $p->code,
+            'type'         => $p->type,
+            'value'        => $p->value,
+            'applies_to'   => $p->applies_to,
+            'applies_id'   => hid($p->applies_id),
+            'min_purchase' => $p->min_purchase,
+            'max_discount' => $p->max_discount,
+            'start_date'   => $p->start_date?->format('Y-m-d'),
+            'end_date'     => $p->end_date?->format('Y-m-d'),
+            'is_active'    => (bool) $p->is_active,
+        ]));
     }
 }

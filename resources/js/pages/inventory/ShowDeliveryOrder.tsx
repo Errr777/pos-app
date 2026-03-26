@@ -7,8 +7,8 @@ import {
 import { useRef, useState } from 'react';
 
 interface DOItem {
-    id: number;
-    itemId: number;
+    id: string;
+    itemId: string;
     itemName: string;
     itemCode: string;
     quantity: number;
@@ -18,7 +18,7 @@ interface DOItem {
 }
 
 interface DOWarehouse {
-    id: number;
+    id: string;
     name: string;
     location: string | null;
     city: string | null;
@@ -26,7 +26,7 @@ interface DOWarehouse {
 }
 
 interface DeliveryOrderData {
-    id: number;
+    id: string;
     doNumber: string;
     status: 'pending' | 'confirmed' | 'cancelled';
     fromWarehouse: DOWarehouse | null;
@@ -45,7 +45,7 @@ interface DeliveryOrderData {
 }
 
 interface AddableItem {
-    id: number; name: string; code: string; global_price: number; main_stock: number;
+    id: string; name: string; code: string; global_price: number; main_stock: number;
 }
 
 interface Props {
@@ -101,7 +101,7 @@ export default function ShowDeliveryOrder({ order, addableItems = [] }: Props) {
     const [confirmErr, setConfirmErr]           = useState<Record<string, string>>({});
 
     // Per-item checklist: doi_id → { checked, quantityReceived }
-    const [checklist, setChecklist] = useState<Record<number, { checked: boolean; qty: number }>>(
+    const [checklist, setChecklist] = useState<Record<string, { checked: boolean; qty: number }>>(
         () => Object.fromEntries(order.items.map(it => [it.id, { checked: true, qty: it.quantity }]))
     );
 
@@ -145,10 +145,10 @@ export default function ShowDeliveryOrder({ order, addableItems = [] }: Props) {
         );
     }
 
-    function setItemChecked(doiId: number, checked: boolean) {
+    function setItemChecked(doiId: string, checked: boolean) {
         setChecklist(prev => ({ ...prev, [doiId]: { ...prev[doiId], checked } }));
     }
-    function setItemQty(doiId: number, qty: number) {
+    function setItemQty(doiId: string, qty: number) {
         const item = order.items.find(it => it.id === doiId);
         const max  = item?.quantity ?? 9999;
         setChecklist(prev => ({ ...prev, [doiId]: { ...prev[doiId], qty: Math.max(0, Math.min(qty, max)) } }));

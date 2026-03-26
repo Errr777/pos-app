@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface SaleRow {
-  id: number;
+  id: string;
   saleNumber: string;
   date: string | null;
   cashier: string;

@@ -29,7 +29,11 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
-            'auth' => ['user' => $request->user()],
+            'auth' => [
+                'user' => $request->user()
+                    ? array_merge($request->user()->toArray(), ['id' => hid($request->user()->id)])
+                    : null,
+            ],
             'ziggy' => fn (): array => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
@@ -84,7 +88,7 @@ class HandleInertiaRequests extends Middleware
                     return [];
                 }
 
-                return $user->allowedWarehouseIds(); // empty = all allowed
+                return collect($user->allowedWarehouseIds())->map(fn ($id) => hid($id))->values()->toArray();
             },
 
             'flash' => [

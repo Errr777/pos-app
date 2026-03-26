@@ -1,10 +1,10 @@
 import Dexie, { type Table } from 'dexie';
 
 export interface CartItem {
-    itemId: number;
+    itemId: string;
     name: string;
     code: string;
-    variantId?: number | null;
+    variantId?: string | null;
     variantName?: string | null;
     unitPrice: number;
     quantity: number;
@@ -15,7 +15,7 @@ export interface CartItem {
 
 export interface SavedCart {
     id?: number;         // auto-increment, always stored at id=1
-    warehouseId: number | null;
+    warehouseId: string | null;
     customerId: string | null;
     payMethod: string;
     discount: string;
@@ -28,7 +28,7 @@ export interface PendingTransaction {
     id?: number;          // auto-increment, local reference
     idempotencyKey: string; // UUID v4, sent to server for dedup
     payload: {
-        warehouse_id: number;
+        warehouse_id: string;
         customer_id: string | null;
         occurred_at: string;
         payment_method: string;
@@ -36,8 +36,8 @@ export interface PendingTransaction {
         discount_amount: number;
         note: string;
         items: Array<{
-            item_id: number;
-            variant_id?: number | null;
+            item_id: string;
+            variant_id?: string | null;
             variant_name?: string | null;
             quantity: number;
             unit_price: number;
@@ -60,12 +60,15 @@ class PosDatabase extends Dexie {
             cart: '++id',
             pendingTransactions: '++id, status, idempotencyKey',
         });
-        // Version 2 was introduced by the hash-ids feature branch.
-        // Defining it here (same schema, no upgrade) lets this code open a v2
-        // database without throwing a VersionError.
+        // Version 2: clears stale numeric-ID data (hash-ids migration).
+        // ⚠️ DEPLOY NOTE: ensure all pending offline transactions are synced
+        // before deploying — numeric-ID payloads would 404 post-deploy.
         this.version(2).stores({
             cart: '++id',
             pendingTransactions: '++id, status, idempotencyKey',
+        }).upgrade(tx => {
+            tx.table('cart').clear();
+            return tx.table('pendingTransactions').clear();
         });
     }
 }

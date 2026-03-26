@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, Eye, Warehouse, AlertTriangle, Package, TrendingD
 import { useState } from 'react';
 
 interface WarehouseRow {
-    id: number;
+    id: string;
     code: string;
     name: string;
     location: string | null;

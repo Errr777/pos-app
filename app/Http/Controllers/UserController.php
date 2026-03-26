@@ -92,19 +92,20 @@ class UserController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn ($u) => [
-                'id' => $u->id,
+                'id' => hid($u->id),
                 'name' => $u->name,
                 'email' => $u->email,
                 'role' => $u->role ?? 'staff',
                 'created' => $u->created_at?->format('Y-m-d'),
                 'isMe' => $u->id === Auth::id(),
                 'permissions' => $this->getUserPermissions($u),
-                'assignedWarehouseIds' => $u->assignedWarehouses()->pluck('warehouses.id')->toArray(),
+                'assignedWarehouseIds' => $u->assignedWarehouses()->pluck('warehouses.id')
+                    ->map(fn ($id) => hid($id))->values()->toArray(),
             ]);
 
         $allWarehouses = \App\Models\Warehouse::orderBy('name')
             ->get(['id', 'name', 'code', 'is_active'])
-            ->map(fn ($w) => ['id' => $w->id, 'name' => $w->name, 'code' => $w->code]);
+            ->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name, 'code' => $w->code]);
 
         return Inertia::render('Users/Index', [
             'users' => $users,
@@ -299,6 +300,15 @@ class UserController extends Controller
 
     public function updateWarehouses(Request $request, User $user)
     {
+        // Decode hash IDs to integers before validation
+        $decodedIds = collect($request->warehouse_ids ?? [])
+            ->map(fn ($h) => dhid((string) $h))
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $request->merge(['warehouse_ids' => $decodedIds]);
+
         $validator = Validator::make($request->all(), [
             'warehouse_ids' => 'nullable|array',
             'warehouse_ids.*' => 'integer|exists:warehouses,id',

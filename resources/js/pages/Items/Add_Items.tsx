@@ -15,7 +15,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 
 type Kategori = {
-  id: number;
+  id: string;
   nama: string;
   deskripsi?: string | null;
   [k: string]: any;

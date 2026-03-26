@@ -47,7 +47,7 @@ class RoleController extends Controller
                 })->toArray();
 
             return [
-                'id' => $role->id,
+                'id' => hid($role->id),
                 'name' => $role->name,
                 'label' => $role->label,
                 'is_system' => $role->is_system,

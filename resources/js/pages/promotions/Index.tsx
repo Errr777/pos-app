@@ -16,13 +16,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface Promotion {
-    id: number;
+    id: string;
     name: string;
     code: string | null;
     type: 'percentage' | 'fixed';
     value: number;
     applies_to: 'all' | 'category' | 'item' | 'tag';
-    applies_id: number | null;
+    applies_id: string | null;
     min_purchase: number;
     max_discount: number;
     start_date: string;
@@ -30,14 +30,14 @@ interface Promotion {
     is_active: boolean;
 }
 
-interface CategoryOption { id: number; nama: string; }
-interface ItemOption     { id: number; nama: string; }
+interface CategoryOption { id: string; nama: string; }
+interface ItemOption     { id: string; nama: string; }
 
 interface PageProps {
     promotions: { data: Promotion[]; current_page: number; last_page: number; total: number };
     categories: CategoryOption[];
     items: ItemOption[];
-    tags: { id: number; name: string; color: string }[];
+    tags: { id: string; name: string; color: string }[];
     filters: { search?: string };
     [key: string]: unknown;
 }
@@ -285,9 +285,9 @@ export default function PromotionsIndex() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function PromoForm({ form, categories, items, tags }: {
     form: any;
-    categories: { id: number; nama: string }[];
-    items: { id: number; nama: string }[];
-    tags: { id: number; name: string; color: string }[];
+    categories: { id: string; nama: string }[];
+    items: { id: string; nama: string }[];
+    tags: { id: string; name: string; color: string }[];
 }) {
     return (
         <>

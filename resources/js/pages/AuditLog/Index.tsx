@@ -41,13 +41,13 @@ const ACTION_GROUPS = [
 ];
 
 interface LogEntry {
-    id: number;
+    id: string;
     occurredAt: string;
-    userId: number | null;
+    userId: string | null;
     userName: string;
     action: string;
     subjectType: string;
-    subjectId: number | null;
+    subjectId: string | null;
     subjectLabel: string;
     oldValue: Record<string, unknown> | null;
     newValue: Record<string, unknown> | null;

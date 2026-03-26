@@ -85,7 +85,7 @@ class PurchaseOrderController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $pos = $query->paginate($perPage)->withQueryString()->through(fn ($po) => [
-            'id' => $po->id,
+            'id' => hid($po->id),
             'poNumber' => $po->po_number,
             'supplierName' => $po->supplier?->name ?? '-',
             'warehouseName' => $po->warehouse?->name ?? '-',
@@ -100,12 +100,12 @@ class PurchaseOrderController extends Controller
         ]);
 
         $suppliers = Supplier::where('is_active', true)->orderBy('name')
-            ->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
+            ->get()->map(fn ($s) => ['id' => hid($s->id), 'name' => $s->name]);
         $warehouseQuery = Warehouse::where('is_active', true)->orderBy('is_default', 'desc')->orderBy('name');
         $this->applyWarehouseFilter($warehouseQuery, 'id');
-        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+        $warehouses = $warehouseQuery->get()->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name]);
         $items = Item::select('id', 'nama', 'kode_item', 'harga_beli')->orderBy('nama')
-            ->get()->map(fn ($i) => ['id' => $i->id, 'name' => $i->nama, 'code' => $i->kode_item, 'costPrice' => $i->harga_beli]);
+            ->get()->map(fn ($i) => ['id' => hid($i->id), 'name' => $i->nama, 'code' => $i->kode_item, 'costPrice' => $i->harga_beli]);
 
         return Inertia::render('purchase-orders/Index', [
             'pos' => $pos,
@@ -121,6 +121,16 @@ class PurchaseOrderController extends Controller
 
     public function store(Request $request)
     {
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['item_id'] = dhid((string) ($i['item_id'] ?? ''));
+            return $i;
+        })->toArray();
+        $request->merge([
+            'supplier_id'  => $request->supplier_id  ? dhid((string) $request->supplier_id)  : null,
+            'warehouse_id' => dhid((string) ($request->warehouse_id ?? '')),
+            'items'        => $decodedItems,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'supplier_id' => 'nullable|integer|exists:suppliers,id',
             'warehouse_id' => 'required|integer|exists:warehouses,id',
@@ -183,7 +193,7 @@ class PurchaseOrderController extends Controller
         $purchaseOrder->load(['supplier', 'warehouse', 'orderedBy', 'receivedBy', 'items.item']);
 
         $poData = [
-            'id' => $purchaseOrder->id,
+            'id' => hid($purchaseOrder->id),
             'poNumber' => $purchaseOrder->po_number,
             'supplierName' => $purchaseOrder->supplier?->name ?? '-',
             'warehouseName' => $purchaseOrder->warehouse?->name ?? '-',
@@ -197,8 +207,8 @@ class PurchaseOrderController extends Controller
             'grandTotal' => $purchaseOrder->grand_total,
             'note' => $purchaseOrder->note,
             'items' => $purchaseOrder->items->map(fn ($pi) => [
-                'id' => $pi->id,
-                'itemId' => $pi->item_id,
+                'id' => hid($pi->id),
+                'itemId' => hid($pi->item_id),
                 'itemName' => $pi->item_name_snapshot,
                 'orderedQty' => $pi->ordered_qty,
                 'receivedQty' => $pi->received_qty,
@@ -245,6 +255,12 @@ class PurchaseOrderController extends Controller
         if (! in_array($purchaseOrder->status, ['ordered', 'partial'])) {
             return back()->withErrors(['status' => 'PO hanya bisa diterima saat status ordered atau partial.']);
         }
+
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['purchase_order_item_id'] = dhid((string) ($i['purchase_order_item_id'] ?? ''));
+            return $i;
+        })->toArray();
+        $request->merge(['items' => $decodedItems]);
 
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
@@ -420,12 +436,12 @@ class PurchaseOrderController extends Controller
             ->orderByRaw('warehouse_items.stok_minimal - warehouse_items.stok DESC')
             ->get()
             ->map(fn ($r) => [
-                'itemId' => $r->item_id,
+                'itemId' => hid($r->item_id),
                 'itemName' => $r->item_name,
                 'unitPrice' => (int) $r->unit_price,
-                'supplierId' => $r->preferred_supplier_id,
+                'supplierId' => hid($r->preferred_supplier_id),
                 'supplierName' => $r->supplier_name,
-                'warehouseId' => $r->warehouse_id,
+                'warehouseId' => hid($r->warehouse_id),
                 'warehouseName' => $r->warehouse_name,
                 'currentStock' => (int) $r->current_stock,
                 'stockMin' => (int) $r->stock_min,
@@ -434,10 +450,12 @@ class PurchaseOrderController extends Controller
                 'suggestedQty' => max((int) $r->stock_min * 2 - (int) $r->current_stock, (int) $r->stock_min - (int) $r->current_stock),
             ])->all();
 
-        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name'])
+            ->map(fn ($s) => ['id' => hid($s->id), 'name' => $s->name]);
         $warehouses = Warehouse::where('is_active', true)
             ->when(! empty($allowedIds), fn ($q) => $q->whereIn('id', $allowedIds))
-            ->orderBy('name')->get(['id', 'name']);
+            ->orderBy('name')->get(['id', 'name'])
+            ->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name]);
 
         return Inertia::render('purchase-orders/Suggestions', [
             'suggestions' => $rows,
@@ -448,6 +466,14 @@ class PurchaseOrderController extends Controller
 
     public function createFromSuggestions(Request $request)
     {
+        $decodedItems = collect($request->items ?? [])->map(function ($i) {
+            $i['item_id']      = dhid((string) ($i['item_id']      ?? ''));
+            $i['warehouse_id'] = dhid((string) ($i['warehouse_id'] ?? ''));
+            $i['supplier_id']  = dhid((string) ($i['supplier_id']  ?? ''));
+            return $i;
+        })->toArray();
+        $request->merge(['items' => $decodedItems]);
+
         $validated = $request->validate([
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|integer|exists:items,id',

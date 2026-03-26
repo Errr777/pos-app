@@ -8,11 +8,11 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 interface WarehouseInfo {
-    id: number; code: string; name: string; is_default: boolean;
+    id: string; code: string; name: string; is_default: boolean;
 }
 
 interface PriceRow {
-    item_id: number;
+    item_id: string;
     kode_item: string;
     nama: string;
     kategori: string | null;
@@ -66,11 +66,11 @@ export default function WarehousePrices({ warehouse, items, filters }: Props) {
     }, [search]);
 
     // ── Inline edit state ──────────────────────────────────────────────────────
-    const [editing, setEditing] = useState<Record<number, string>>({}); // itemId → value string
-    const [saving,  setSaving]  = useState<Record<number, boolean>>({});
-    const [syncing, setSyncing] = useState<Record<number, boolean>>({});
+    const [editing, setEditing] = useState<Record<string, string>>({}); // itemId → value string
+    const [saving,  setSaving]  = useState<Record<string, boolean>>({});
+    const [syncing, setSyncing] = useState<Record<string, boolean>>({});
     const [syncingAll, setSyncingAll] = useState(false);
-    const [saved,   setSaved]   = useState<Record<number, boolean>>({});
+    const [saved,   setSaved]   = useState<Record<string, boolean>>({});
 
     function startEdit(row: PriceRow) {
         setEditing(prev => ({ ...prev, [row.item_id]: String(row.outlet_price) }));

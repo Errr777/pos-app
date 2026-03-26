@@ -65,7 +65,7 @@ class ReportController extends Controller
                 $q->whereIn('id', $sortedIds);
             }
 
-            return $q->get(['id', 'name'])->map(fn ($w) => ['id' => $w->id, 'name' => $w->name]);
+            return $q->get(['id', 'name'])->map(fn ($w) => ['id' => hid($w->id), 'name' => $w->name]);
         });
     }
 
@@ -146,7 +146,7 @@ class ReportController extends Controller
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn ($i) => [
-                'id' => $i->id,
+                'id' => hid($i->id),
                 'kode' => $i->kode_item,
                 'name' => $i->nama,
                 'category' => $i->kategori,
@@ -263,7 +263,7 @@ class ReportController extends Controller
         }
         // UI warehouse filter (optional, within allowed)
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $query->where('warehouse_id', $wId);
             }
@@ -285,7 +285,7 @@ class ReportController extends Controller
         $query->orderBy('occurred_at', $sortDir);
 
         $sales = $query->paginate($perPage)->withQueryString()->through(fn ($s) => [
-            'id' => $s->id,
+            'id' => hid($s->id),
             'saleNumber' => $s->sale_number,
             'occurredAt' => $s->occurred_at?->format('d/m/Y H:i'),
             'cashier' => $s->cashier?->name ?? '-',
@@ -304,7 +304,7 @@ class ReportController extends Controller
         }
         // UI warehouse filter (optional, within allowed)
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $summaryQuery->where('warehouse_id', $wId);
             }
@@ -372,7 +372,7 @@ class ReportController extends Controller
             $inQuery->whereIn('warehouse_id', $allowedIds);
         }
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $inQuery->where('warehouse_id', $wId);
             }
@@ -391,7 +391,7 @@ class ReportController extends Controller
             $outQuery->whereIn('warehouse_id', $allowedIds);
         }
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $outQuery->where('warehouse_id', $wId);
             }
@@ -441,7 +441,7 @@ class ReportController extends Controller
 
         $effectiveIds = $allowedIds; // start with user restriction
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $effectiveIds = [$wId]; // narrow to selected warehouse
             }
@@ -545,7 +545,7 @@ class ReportController extends Controller
             'year' => $year,
             'years' => $years,
             'warehouses' => $warehouses,
-            'warehouseId' => $warehouseId !== '' ? (int) $warehouseId : null,
+            'warehouseId' => $warehouseId !== '' ? $warehouseId : null,
         ]);
     }
 
@@ -573,7 +573,7 @@ class ReportController extends Controller
                     $j->whereIn('sale_headers.warehouse_id', $allowedIds);
                 }
                 if ($warehouseId !== '') {
-                    $wId = (int) $warehouseId;
+                    $wId = dhid((string) $warehouseId);
                     if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                         $j->where('sale_headers.warehouse_id', $wId);
                     }
@@ -610,7 +610,7 @@ class ReportController extends Controller
                 : 0;
 
             return [
-                'id' => $item->id,
+                'id' => hid($item->id),
                 'code' => $item->kode_item,
                 'name' => $item->nama,
                 'category' => $item->kategori,
@@ -673,7 +673,7 @@ class ReportController extends Controller
                 ->first();
 
             return [
-                'id' => $w->id,
+                'id' => hid($w->id),
                 'name' => $w->name,
                 'code' => $w->code,
                 'city' => $w->city,
@@ -724,7 +724,7 @@ class ReportController extends Controller
             $query->whereIn('warehouse_id', $allowedIds);
         }
         if ($warehouseId !== '') {
-            $wId = (int) $warehouseId;
+            $wId = dhid((string) $warehouseId);
             if (empty($allowedIds) || in_array($wId, $allowedIds)) {
                 $query->where('warehouse_id', $wId);
             }

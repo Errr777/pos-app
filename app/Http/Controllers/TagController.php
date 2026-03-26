@@ -34,7 +34,14 @@ class TagController extends Controller
 
     public function index()
     {
-        $tags = Tag::withCount('items')->orderBy('name')->get();
+        $tags = Tag::withCount('items')->orderBy('name')->get()
+            ->map(fn ($t) => [
+                'id'          => hid($t->id),
+                'name'        => $t->name,
+                'color'       => $t->color,
+                'slug'        => $t->slug,
+                'items_count' => $t->items_count,
+            ])->values();
 
         return Inertia::render('tags/Index', [
             'tags' => $tags,

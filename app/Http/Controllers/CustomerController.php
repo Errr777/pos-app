@@ -55,7 +55,7 @@ class CustomerController extends Controller
         $query->orderBy($sortColumn, $sortDir);
 
         $customers = $query->paginate($perPage)->withQueryString()->through(fn ($c) => [
-            'id' => $c->id,
+            'id' => hid($c->id),
             'code' => $c->code,
             'name' => $c->name,
             'phone' => $c->phone,
@@ -90,7 +90,7 @@ class CustomerController extends Controller
 
         return Inertia::render('customers/Show', [
             'customer' => [
-                'id' => $customer->id,
+                'id' => hid($customer->id),
                 'name' => $customer->name,
                 'code' => $customer->code,
                 'phone' => $customer->phone,
