@@ -3,18 +3,10 @@ set -e
 
 # Wait for MySQL to be ready
 echo "[start] Waiting for MySQL..."
-until php -r "new PDO('mysql:host=${DB_HOST};port=${DB_PORT:-3306};dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}');" 2>/dev/null; do
+until php -r "new PDO('mysql:host=${DB_HOST:-host.docker.internal};port=${DB_PORT:-3306};dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}');" 2>/dev/null; do
     sleep 2
 done
 echo "[start] MySQL ready."
-
-# Ensure storage subdirs exist (volume mount may be fresh)
-mkdir -p \
-    /var/www/html/storage/app/public \
-    /var/www/html/storage/framework/cache \
-    /var/www/html/storage/framework/sessions \
-    /var/www/html/storage/framework/views \
-    /var/www/html/storage/logs
 
 # Fix permissions
 chown -R www-data:www-data \

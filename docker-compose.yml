@@ -11,20 +11,10 @@ services:
       - ./storage:/var/www/html/storage
     env_file:
       - .env
-    depends_on:
-      - mysql
+    networks:
+      - default
+      - coolify
 
-  mysql:
-    image: mysql:8.0-minimal
-    container_name: laravel_db
-    restart: always
-    environment:
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-
-volumes:
-  mysql_data:
+networks:
+  coolify:
+    external: true

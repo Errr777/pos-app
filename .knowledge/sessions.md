@@ -4,6 +4,65 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-03-28
+
+### Yang dikerjakan
+- **Buat `sync-to-production.sh`** — script rsync dev → production folder, lalu docker build + up
+- **Analisis & fix Docker setup** (semua masalah kritis + medium):
+  - Fix: `start.sh` tidak pernah dipanggil (CMD langsung ke supervisord) — wire ke CMD
+  - Fix: `start.sh` punya blok SQLite padahal DB adalah MySQL — hapus blok itu
+  - Fix: tidak ada MySQL healthcheck → app start sebelum DB siap — ganti dengan wait loop PDO di start.sh
+  - Fix: tidak ada `.dockerignore` → `.env`, `node_modules/`, `.knowledge/` ikut masuk image — buat `.dockerignore`
+  - Fix: tidak ada queue worker di supervisord — tambah `[program:queue-worker]` dengan `queue:work`
+  - Fix: brace expansion `{}` tidak bekerja di Alpine `/bin/sh` — ganti dengan explicit mkdir per path
+  - Fix: `bootstrap/cache` dan `storage/framework/*` dihapus volume mount → `view:cache` crash — buat dir di `start.sh` runtime
+  - Fix: `npm install` → `npm ci` di Dockerfile Stage 1 (reproducible build)
+  - Fix: pin base images ke versi spesifik: `node:22.22.2-alpine`, `php:8.3.30-fpm-alpine`
+  - Fix: install PHP extension `calendar` (dibutuhkan `cal_days_in_month()` di seeder)
+- **Setup Coolify deployment** (MySQL container dihapus, pakai MariaDB di jaringan Coolify):
+  - Remove MySQL service dari docker-compose, tambah `coolify` external network
+  - `DB_HOST` = hostname container MariaDB (`r11dbyuafh32c0kx8ikqh1n9`)
+  - Semua env vars di-set di Coolify dashboard (`.env` excluded dari image via `.dockerignore`)
+- **Fix 419 CSRF error saat login**:
+  - Root cause: `TRUSTED_PROXIES` tidak di-set → Laravel tidak detect HTTPS dari proxy Coolify → session cookie salah
+  - Fix: tambah `TRUSTED_PROXIES=*` di Coolify env vars
+  - Fix: `SESSION_SECURE_COOKIE=false` (container menerima HTTP, SSL di-terminate di Coolify proxy)
+  - Fix: `APP_URL=http://...` (bukan https — container side adalah HTTP)
+
+### Coolify Env Vars yang Wajib Ada
+Lihat bagian Docker di `docs/KNOWLEDGE_BASE.md`
+
+### Plan / Todo Berikutnya
+*(tidak ada)*
+
+---
+
+## 2026-03-27
+
+### Yang dikerjakan
+- **Fix RangeError crash di promo edit** (`PromotionController.php`)
+  - Root cause: Eloquent `'date'` cast menyebabkan `$p->start_date` / `$p->end_date` di-serialize ke ISO 8601 (`"2026-03-15T00:00:00.000000Z"`) saat dikirim via Inertia — bukan `"YYYY-MM-DD"`
+  - DatePickerInput menambahkan `'T00:00:00'` ke string yang sudah ada `T...Z` → invalid Date → react-day-picker crash
+  - Fix: tambah `->format('Y-m-d')` eksplisit di dua tempat (Inertia response ~L62 + JSON API response ~L165)
+- **Fix Beban date filter no data** (`ExpenseController.php`)
+  - First attempt: `whereDate()` — masih tidak bekerja di MariaDB/MySQL production
+  - Final fix: pakai pattern established `>= $dateFrom . ' 00:00:00'` dan `<= $dateTo . ' 23:59:59'` (sama seperti ReturnController / ReportController)
+  - Fix `$request->get('date_from', $default)` tidak handle empty string → pakai `$request->get('date_from') ?: $default`
+- **Fix Beban warehouse/outlet filter no data**
+  - Root cause: `dhid()` return `0` pada input invalid/empty → `WHERE warehouse_id = 0` → no results
+  - Fix: decode dulu, guard `$wId > 0 && (empty($allowedIds) || in_array($wId, $allowedIds))` sebelum apply filter
+- **Fix Beban category filter no effect**
+  - Root cause: `->when($category !== '', fn($q) => ...)` closure pattern bermasalah dengan null/empty edge cases
+  - Fix: ganti dengan explicit `if ($category !== '') { $query->where('category', $category); }`
+- **Perbaiki pagination Beban** (`resources/js/pages/expenses/Index.tsx`)
+  - Ganti flat page buttons dengan windowed pagination (max 10 tombol, ellipsis, Prev/Next, Go-to-page input)
+  - Tidak ada perubahan UI lainnya
+
+### Plan / Todo Berikutnya
+*(tidak ada)*
+
+---
+
 ## 2026-03-26 (hashid implementation — lanjutan multi-sesi)
 
 ### Yang dikerjakan

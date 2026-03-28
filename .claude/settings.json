@@ -13,7 +13,10 @@
       "Bash(done)",
       "Bash(grep -r \"HasHashId\" /Users/errr/Developer/Project/my/pos-app/app/Models/*.php)",
       "Bash(composer require:*)",
-      "Bash(composer dump-autoload:*)"
+      "Bash(composer dump-autoload:*)",
+      "Bash(rsync -av /Users/errr/Developer/Project/my/pos-app-production/docker-compose.yml /Users/errr/Developer/Project/my/pos-app-production/docker/start.sh /Users/errr/Developer/Project/my/pos-app/)",
+      "Bash(rsync -av /Users/errr/Developer/Project/my/pos-app-production/docker/start.sh /Users/errr/Developer/Project/my/pos-app/docker/start.sh)",
+      "Bash(rsync -av /Users/errr/Developer/Project/my/pos-app-production/Dockerfile /Users/errr/Developer/Project/my/pos-app/Dockerfile)"
     ],
     "additionalDirectories": [
       "/Users/errr/Developer/Project/my/pos-app-production/.claude"

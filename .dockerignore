@@ -1,0 +1,49 @@
+# Dependencies — installed inside image
+node_modules/
+vendor/
+
+# Dev environment
+.env
+.env.*
+.git/
+.gitignore
+.worktrees/
+
+# Dev/internal docs
+.knowledge/
+.claude/
+docs/
+sync-to-production.sh
+DEPLOYMENT.md
+
+# Local DB
+database/database.sqlite
+database/*.sqlite
+
+# Build artifacts (rebuilt inside image)
+public/build/
+public/hot
+public/storage
+bootstrap/ssr/
+bootstrap/cache/
+
+# Runtime — generated at startup
+storage/logs/
+storage/pail/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+storage/framework/testing/
+
+# Dev tooling
+npm-debug.log
+yarn-error.log
+.phpunit.cache
+.phpunit.result.cache
+.phpactor.json
+auth.json
+.fleet/
+.idea/
+.nova/
+.vscode/
+.zed/
