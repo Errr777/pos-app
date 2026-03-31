@@ -3,6 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import FlashMessage from '@/components/FlashMessage';
+import LicenseExpiryBanner from '@/components/LicenseExpiryBanner';
 import { OfflineIndicator } from '@/components/offline-indicator';
 import { useNetwork } from '@/hooks/use-network';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -18,6 +19,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
             <AppSidebar />
             <AppContent variant="sidebar" className="overflow-x-hidden">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
+                <LicenseExpiryBanner />
                 {children}
             </AppContent>
             <FlashMessage />

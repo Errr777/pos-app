@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FormEventHandler, useRef } from 'react';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -23,8 +24,17 @@ interface PageProps {
     [key: string]: unknown;
 }
 
+interface License {
+    valid: boolean;
+    status: string;
+    expires_at: string | null;
+    max_users: number;
+    max_outlets: number;
+}
+
 export default function StoreSettings() {
     const { settings } = usePage<PageProps>().props;
+    const license = (usePage().props as { license?: License }).license ?? null;
     const logoRef = useRef<HTMLInputElement>(null);
 
     const { data, setData, post, processing, errors } = useForm({
@@ -120,6 +130,47 @@ export default function StoreSettings() {
                         {processing ? 'Menyimpan...' : 'Simpan Pengaturan'}
                     </Button>
                 </form>
+
+                {/* License Info */}
+                {license && (
+                    <div className="mt-8 pt-6 border-t">
+                        <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+                            {license.valid
+                                ? <ShieldCheck size={16} className="text-green-600" />
+                                : <ShieldAlert size={16} className="text-red-500" />}
+                            Informasi Lisensi
+                        </h2>
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                            <div>
+                                <dt className="text-muted-foreground text-xs">Status</dt>
+                                <dd className="font-medium capitalize mt-0.5">{license.status}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">Berlaku hingga</dt>
+                                <dd className={`font-medium mt-0.5 ${(() => {
+                                    if (!license.expires_at) return '';
+                                    const diff = Math.ceil((new Date(license.expires_at).getTime() - Date.now()) / 86400000);
+                                    return diff <= 7 ? 'text-red-600' : diff <= 14 ? 'text-amber-600' : '';
+                                })()}`}>
+                                    {license.expires_at
+                                        ? new Date(license.expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+                                        : '—'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">Maks. Pengguna</dt>
+                                <dd className="font-medium mt-0.5">{license.max_users}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">Maks. Outlet</dt>
+                                <dd className="font-medium mt-0.5">{license.max_outlets}</dd>
+                            </div>
+                        </dl>
+                        <p className="text-xs text-muted-foreground mt-3">
+                            Untuk perpanjangan lisensi, hubungi administrator.
+                        </p>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );
