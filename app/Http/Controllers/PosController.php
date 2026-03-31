@@ -463,6 +463,12 @@ class PosController extends Controller
                         throw new \RuntimeException("Total jadwal cicilan (Rp {$scheduleTotal}) tidak sesuai dengan total penjualan (Rp {$grandTotal}). Periksa kembali jadwal cicilan.");
                     }
 
+                    // Validate that DP paid matches the first scheduled installment amount
+                    $firstDue = (int) $schedule[0]['amount_due'];
+                    if ($dpPaid !== $firstDue) {
+                        throw new \RuntimeException("Uang muka (Rp {$dpPaid}) harus sama dengan cicilan pertama dalam jadwal (Rp {$firstDue}).");
+                    }
+
                     $plan = InstallmentPlan::create([
                         'sale_header_id' => $sale->id,
                         'customer_id' => $data['customer_id'],
