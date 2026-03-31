@@ -45,7 +45,7 @@ Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.
     Route::post('/', [OnboardingController::class, 'store'])->name('store');
 });
 
-Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(function () {
+Route::middleware(['auth', 'verified', 'onboarding', 'license', 'throttle:300,1'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Items

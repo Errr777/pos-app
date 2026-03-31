@@ -185,14 +185,17 @@ const adminNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
-    const { props } = usePage<{ permissions: Permissions; auth: { user: { role?: string } } }>();
+    const { props } = usePage<{ permissions: Permissions; auth: { user: { role?: string } }; license?: { modules: string[] } | null }>();
     const permissions = props.permissions ?? {} as Permissions;
     const isAdmin = props.auth?.user?.role === 'admin';
+    const licenseModules = props.license?.modules ?? null; // null = no license configured (allow all)
 
     const visibleItems = [
         ...allNavItems
             .filter((item) => {
                 if (!item.module) return true;
+                // Check license module access (skip if no license configured)
+                if (licenseModules !== null && !licenseModules.includes(item.module)) return false;
                 return permissions[item.module as keyof Permissions]?.can_view ?? false;
             })
             .map((item) => ({
