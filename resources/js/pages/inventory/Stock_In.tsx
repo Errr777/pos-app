@@ -6,17 +6,17 @@ export default function Stock_In() {
             direction: 'in',
             breadcrumbs: [
                 { title: 'Dashboard', href: '/dashboard' },
-                { title: 'Stock In', href: '/inventory/stock_in' },
+                { title: 'Stok Masuk', href: '/inventory/stock_in' },
             ],
-            title: 'Stock In',
+            title: 'Stok Masuk',
             routeName: 'Stock_In',
             partyLabel: 'Supplier',
             partyPlaceholder: 'Nama supplier',
-            qtyLabel: 'Qty In',
-            deleteConfirm: 'Hapus data stock-in ini? Stok item akan dikurangi kembali.',
-            csvFilename: 'stock-in',
+            qtyLabel: 'Qty Masuk',
+            deleteConfirm: 'Hapus data stok masuk ini? Stok item akan dikurangi kembali.',
+            csvFilename: 'stok-masuk',
             csvPartyHeader: 'Supplier',
-            addLabel: 'Tambah Stock-In',
+            addLabel: 'Tambah Stok Masuk',
         }} />
     );
 }
