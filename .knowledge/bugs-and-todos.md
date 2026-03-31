@@ -7,16 +7,28 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 ## 🐛 Bug Aktif
 *(tidak ada saat ini)*
 
+## ✅ Bug Selesai (sesi ini)
+- **Settings page crash** — `React.Children.only` error di `Button` component saat `asChild=true`; root cause: `{loading && <Loader2>}` render `false` sebagai child kedua ke Radix `Slot`; fix: wrap dengan kondisi `asChild ? children : <>{loading...}{children}</>` (2026-03-31)
+
 ---
 
 ## ✅ Todo / Plan Aktif
-*(tidak ada saat ini)*
+
+- **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ selesai. Production aktif.
+  - Fase 3 (opsional): email notifikasi expired, webhook, audit log
 
 ---
 
 ## 📋 Backlog (diketahui tapi belum dikerjakan)
 
-*(tidak ada saat ini)*
+- **Multi Payment Split** — bayar 1 transaksi dengan 2+ metode sekaligus (misal 50% cash + 50% transfer). Butuh: kolom baru di `sale_headers`, tabel `sale_payments`, UI split di Terminal.tsx. Kredit cicilan sudah ada tapi ini berbeda.
+
+## ✅ Refactor Selesai (audit 2026-03-31)
+
+- Stock History + Log → sudah di-merge ke `StockViewPage` component
+- Customers + Suppliers Index → sudah di-merge ke `ContactsPage` component
+- InstallmentPlanMapper → sudah ada di `app/Helpers/InstallmentPlanMapper.php`, dipakai di CustomerController + InstallmentController
+- Stock In + Out → sudah di-merge ke `StockMovementPage` component
 
 ## ✅ Sudah Selesai (dari backlog lama)
 

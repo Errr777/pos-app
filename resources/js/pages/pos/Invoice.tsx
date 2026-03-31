@@ -31,6 +31,7 @@ interface InvoiceData {
     paymentAmount: number;
     changeAmount: number;
     note: string | null;
+    paymentSplits: { paymentMethod: string; amount: number }[];
     customer: { name: string; phone: string | null; address: string | null };
     warehouse: { name: string | null; address: string | null; phone: string | null };
     subtotal: number;
@@ -194,10 +195,19 @@ export default function PosInvoice() {
                         <div className="inv-total-row inv-grand-total">
                             <span>Total</span><span>{formatRp(invoice.grandTotal)}</span>
                         </div>
-                        <div className="inv-total-row inv-muted">
-                            <span>Bayar ({METHOD_LABEL[invoice.paymentMethod] ?? invoice.paymentMethod})</span>
-                            <span>{formatRp(invoice.paymentAmount)}</span>
-                        </div>
+                        {invoice.paymentMethod === 'multiple' && invoice.paymentSplits?.length > 0 ? (
+                            invoice.paymentSplits.map((sp, i) => (
+                                <div key={i} className="inv-total-row inv-muted">
+                                    <span>Bayar ({METHOD_LABEL[sp.paymentMethod] ?? sp.paymentMethod})</span>
+                                    <span>{formatRp(sp.amount)}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="inv-total-row inv-muted">
+                                <span>Bayar ({METHOD_LABEL[invoice.paymentMethod] ?? invoice.paymentMethod})</span>
+                                <span>{formatRp(invoice.paymentAmount)}</span>
+                            </div>
+                        )}
                         {invoice.changeAmount > 0 && (
                             <div className="inv-total-row inv-change">
                                 <span>Kembalian</span><span>{formatRp(invoice.changeAmount)}</span>

@@ -4,6 +4,99 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-03-31 (sesi 3)
+
+### Yang dikerjakan
+- **Fix settings page crash** — `React.Children.only` error saat buka `/settings/profile`
+  - Root cause: `Button` component dengan `asChild=true` menggunakan Radix `Slot`; `{loading && <Loader2>}` selalu render (sebagai `false`) sebagai child kedua → `Slot` hanya terima 1 child
+  - Fix: kondisional — jika `asChild`, render `children` saja; jika tidak, render `<>{spinner}{children}</>`
+  - Deploy via git push + Coolify redeploy
+
+### Plan / Todo Berikutnya
+- Phase 3 SaaS (opsional): email notifikasi expired, webhook, audit log
+
+---
+
+## 2026-03-31 (sesi 2)
+
+### Yang dikerjakan
+- Phase 2 SaaS integrasi pos-app ↔ panel — selesai penuh
+  - Migration + Model `LicenseConfig`
+  - `LicenseSyncJob` polling panel API setiap 6 jam
+  - `CheckLicense` middleware — block jika suspended/expired
+  - `license:setup` artisan command
+  - Sidebar filter berdasarkan `license.modules`
+  - Guard `max_users` di UserController, `max_outlets` di WarehouseController
+  - `LicenseInvalid` page
+- Merge `feature/saas-license-integration` → main
+- Sync ke production folder + redeploy Coolify
+- License aktif di production:
+  - Key: 6d76248c-09bd-4338-9271-1b093ac6cd5a
+  - Panel: rb0g3451ec7bg1pici3c9f1z.72.62.125.181.sslip.io
+  - Status: active, semua modul aktif
+
+### Plan / Todo Berikutnya
+- Phase 3 (opsional): email notifikasi expired, webhook, audit log
+
+---
+
+## 2026-03-31 (sesi 1)
+
+### Yang dikerjakan
+- SaaS Control Panel Fase 1 selesai penuh:
+  - Step 10: DemoTenantSeeder (5 tenant demo)
+  - Step 11: Docker setup (start.sh auto-seed on first boot)
+  - Step 12: Deploy ke Coolify (panel_db MariaDB terpisah, coolify network)
+  - Step 13: E2E testing via Playwright — semua 11 test PASS
+- Bug fix: Dashboard.tsx case sensitivity (Linux case-sensitive fs)
+- Bug fix: login input text color (tambah text-gray-900 bg-white)
+- Panel live di: rb0g3451ec7bg1pici3c9f1z.72.62.125.181.sslip.io
+
+### Plan / Todo Berikutnya
+- Fase 2: Modifikasi pos-app untuk integrasi license panel
+
+---
+
+## 2026-03-29 (sesi 2)
+
+### Yang dikerjakan
+- SaaS Control Panel Fase 1, Step 1–9 selesai di `/pos-app-panel/` (repo terpisah)
+  - Stack: Laravel 12 + Inertia v2 + React 19 + TypeScript + Tailwind v4 (mirror pos-app, tanpa Filament)
+  - Step 1-4: project setup, auth, migrasi, Model Tenant (uuid license_key, scopes)
+  - Step 5: PanelLayout, Login page, Dashboard (stats cards, expiring, stale tables)
+  - Step 6: TenantController CRUD + suspend/activate/extend actions
+  - Step 7: tenants/Index, Create, Edit, Show pages
+  - Step 8: DashboardController (stats + expiring + stale queries)
+  - Step 9: Api/LicenseController (GET /api/license/{key}) + throttle
+  - Build `npm run build` sukses, semua routes resolve
+
+### Plan / Todo Berikutnya
+- Step 10: DemoTenantSeeder
+- Step 11: Dockerfile + docker-compose untuk pos-app-panel
+- Step 12: Deploy ke Coolify
+- Step 13: End-to-end testing
+- Fase 2: Modifikasi POS App (license sync middleware, guard limits, sidebar filter)
+
+---
+
+## 2026-03-29 (sesi 1)
+
+### Yang dikerjakan
+- Cek status semua 5 fitur di `docs/plans/2026-03-10-feature-upgrades.md`:
+  - ✅ Export Laporan — sudah selesai
+  - ✅ Auto Draft PO — sudah selesai
+  - ✅ Laporan P&L — sudah selesai
+  - ✅ Diskon & Promo — sudah selesai
+  - ⚠️ Multi Payment Split — sebagian (kredit cicilan ada, split payment belum)
+- Update `docs/plans/2026-03-10-feature-upgrades.md` dengan tabel status implementasi
+- Merge & hapus branch `feature/hash-ids` + `feature/umkm-settings` (main sudah lebih lengkap)
+- Buat plan detail SaaS Control Panel di `docs/plans/2026-03-29-saas-implementation-plan.md`
+
+### Plan / Todo Berikutnya
+- Lanjut SaaS Control Panel Fase 1 step 10+
+
+---
+
 ## 2026-03-28
 
 ### Yang dikerjakan

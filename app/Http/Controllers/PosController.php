@@ -279,8 +279,11 @@ class PosController extends Controller
             'warehouse_id' => 'required|integer|exists:warehouses,id',
             'customer_id' => 'nullable|integer|exists:customers,id|required_if:payment_method,credit',
             'occurred_at' => 'required|date',
-            'payment_method' => 'required|in:cash,transfer,qris,card,credit',
-            'payment_amount' => 'required|integer|min:0',
+            'payment_method' => 'required_without:payments|in:cash,transfer,qris,card,credit',
+            'payment_amount' => 'required_without:payments|integer|min:0',
+            'payments' => 'sometimes|array|min:1|max:5',
+            'payments.*.method' => 'required_with:payments|in:cash,transfer,qris,card',
+            'payments.*.amount' => 'required_with:payments|integer|min:1',
             'credit_schedule' => 'required_if:payment_method,credit|array|min:2',
             'credit_schedule.*.due_date' => 'required_if:payment_method,credit|date',
             'credit_schedule.*.amount_due' => 'required_if:payment_method,credit|integer|min:0',
@@ -391,8 +394,24 @@ class PosController extends Controller
                 }
 
                 $grandTotal = max(0, $subtotal - $discountAmount);
-                $paymentAmount = (int) $data['payment_amount'];
-                $changeAmount = max(0, $paymentAmount - $grandTotal);
+
+                // Determine payment method and amount (split or single)
+                $isSplitPayment = !empty($data['payments']);
+                if ($isSplitPayment) {
+                    $splitPayments = $data['payments'];
+                    $splitTotal = (int) array_sum(array_column($splitPayments, 'amount'));
+                    if ($splitTotal !== $grandTotal) {
+                        throw new \RuntimeException("Total bayar (Rp {$splitTotal}) tidak sesuai dengan total penjualan (Rp {$grandTotal}).");
+                    }
+                    $paymentMethodStored = count($splitPayments) > 1 ? 'multiple' : $splitPayments[0]['method'];
+                    $paymentAmount = $grandTotal;
+                    $changeAmount = 0;
+                } else {
+                    $splitPayments = null;
+                    $paymentAmount = (int) $data['payment_amount'];
+                    $changeAmount = max(0, $paymentAmount - $grandTotal);
+                    $paymentMethodStored = $data['payment_method'];
+                }
 
                 // 2. Generate sale number
                 $date = now()->format('Ymd');
@@ -410,7 +429,7 @@ class PosController extends Controller
                     'discount_amount' => $discountAmount,
                     'tax_amount' => 0,
                     'grand_total' => $grandTotal,
-                    'payment_method' => $data['payment_method'],
+                    'payment_method' => $paymentMethodStored,
                     'payment_amount' => $paymentAmount,
                     'change_amount' => $changeAmount,
                     'status' => 'completed',
@@ -443,6 +462,17 @@ class PosController extends Controller
                     ]);
                 }
 
+                // 5. Create payment splits if multi-method
+                if ($isSplitPayment) {
+                    foreach ($splitPayments as $sp) {
+                        \App\Models\SalePaymentSplit::create([
+                            'sale_header_id' => $sale->id,
+                            'payment_method' => $sp['method'],
+                            'amount' => (int) $sp['amount'],
+                        ]);
+                    }
+                }
+
                 $result = [
                     'saleNumber' => $saleNumber,
                     'grandTotal' => $grandTotal,
@@ -450,8 +480,8 @@ class PosController extends Controller
                     'saleId' => hid($sale->id),
                 ];
 
-                // 5. For credit sales: create installment plan and payment schedule
-                if ($data['payment_method'] === 'credit') {
+                // 6. For credit sales: create installment plan and payment schedule
+                if (isset($data['payment_method']) && $data['payment_method'] === 'credit') {
                     $schedule = $data['credit_schedule'];
                     $interestRate = (float) ($data['credit_interest_rate'] ?? 0);
                     $lateFee = (int) ($data['credit_late_fee'] ?? 0);
@@ -525,7 +555,7 @@ class PosController extends Controller
      */
     public function show(SaleHeader $saleHeader)
     {
-        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item']);
+        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item', 'paymentSplits']);
 
         $saleData = [
             'id' => hid($saleHeader->id),
@@ -546,6 +576,10 @@ class PosController extends Controller
             'changeAmount' => $saleHeader->change_amount,
             'status' => $saleHeader->status,
             'note' => $saleHeader->note,
+            'paymentSplits' => $saleHeader->paymentSplits->map(fn ($ps) => [
+                'paymentMethod' => $ps->payment_method,
+                'amount' => $ps->amount,
+            ]),
             'items' => $saleHeader->saleItems->map(fn ($si) => [
                 'id' => hid($si->id),
                 'itemId' => hid($si->item_id),
@@ -563,7 +597,7 @@ class PosController extends Controller
 
     public function print(SaleHeader $saleHeader)
     {
-        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item']);
+        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item', 'paymentSplits']);
 
         return Inertia::render('pos/Print', [
             'sale' => [
@@ -583,6 +617,10 @@ class PosController extends Controller
                 'changeAmount' => $saleHeader->change_amount,
                 'status' => $saleHeader->status,
                 'note' => $saleHeader->note,
+                'paymentSplits' => $saleHeader->paymentSplits->map(fn ($ps) => [
+                    'paymentMethod' => $ps->payment_method,
+                    'amount' => $ps->amount,
+                ]),
                 'items' => $saleHeader->saleItems->map(fn ($si) => [
                     'id' => hid($si->id),
                     'itemName' => $si->item_name_snapshot,
@@ -600,7 +638,7 @@ class PosController extends Controller
     {
         abort_unless(auth()->user()->hasPermission('pos', 'can_view'), 403);
 
-        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems']);
+        $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems', 'paymentSplits']);
 
         if (! $saleHeader->invoice_number) {
             $saleHeader->update([
@@ -629,6 +667,10 @@ class PosController extends Controller
                 'paymentAmount' => $saleHeader->payment_amount,
                 'changeAmount' => $saleHeader->change_amount,
                 'note' => $saleHeader->note,
+                'paymentSplits' => $saleHeader->paymentSplits->map(fn ($ps) => [
+                    'paymentMethod' => $ps->payment_method,
+                    'amount' => $ps->amount,
+                ]),
                 'customer' => [
                     'name' => $saleHeader->customer?->name ?? 'Walk-in',
                     'phone' => $saleHeader->customer?->phone,

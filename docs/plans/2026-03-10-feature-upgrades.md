@@ -10,6 +10,18 @@
 
 ---
 
+## Status Implementasi (dicek 2026-03-29)
+
+| # | Feature | Impact | Effort | Status |
+|---|---|---|---|---|
+| 1 | Export Laporan (Excel/PDF) | High | Low | ✅ Selesai — `app/Exports/`, `ReportController::exportStockExcel/Csv/exportSalesExcel()`, UI buttons di Report_Sales + Report_Stock + Report_ProfitLoss |
+| 2 | Auto Draft PO dari Stok Minim | High | Medium | ✅ Selesai — `PurchaseOrderController::suggestions()`, halaman `purchase-orders/Suggestions.tsx`, bulk PO creation |
+| 3 | Laporan Laba Rugi (P&L) | High | Low | ✅ Selesai — `ReportController::profitLoss()`, halaman `report/Report_ProfitLoss.tsx`, monthly/quarterly/YoY breakdown |
+| 4 | Diskon & Promo Berbasis Aturan | Medium | High | ✅ Selesai — `Promotion` model dengan applies_to/min_purchase/max_discount, `Terminal.tsx::getBestPromo()`, auto-apply di POS |
+| 5 | Multi Payment Split | Medium | Medium | ⚠️ Sebagian — kredit cicilan sudah ada, tapi split payment (2+ metode dalam 1 transaksi) belum ada. `sale_headers` masih single `payment_method` |
+
+---
+
 ## Priority Order & Rationale
 
 | # | Feature | Impact | Effort | Why First |

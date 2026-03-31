@@ -39,6 +39,7 @@ interface SaleDetail {
   changeAmount: number;
   status: string;
   note: string | null;
+  paymentSplits: { paymentMethod: string; amount: number }[];
   items: SaleItemRow[];
 }
 
@@ -131,7 +132,7 @@ export default function PosShow() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-0.5">Metode Bayar</div>
-              <div className="font-medium">{METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod}</div>
+              <div className="font-medium">{sale.paymentMethod === 'multiple' ? 'Split Payment' : (METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod)}</div>
             </div>
           </div>
 
@@ -176,10 +177,19 @@ export default function PosShow() {
             <div className="flex justify-between font-semibold text-base border-t pt-2">
               <span>Total</span><span className="text-primary">{formatRp(sale.grandTotal)}</span>
             </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Bayar ({METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod})</span>
-              <span>{formatRp(sale.paymentAmount)}</span>
-            </div>
+            {sale.paymentMethod === 'multiple' && sale.paymentSplits.length > 0 ? (
+              sale.paymentSplits.map((sp, i) => (
+                <div key={i} className="flex justify-between text-muted-foreground">
+                  <span>Bayar ({METHOD_LABEL[sp.paymentMethod] ?? sp.paymentMethod})</span>
+                  <span>{formatRp(sp.amount)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Bayar ({METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod})</span>
+                <span>{formatRp(sale.paymentAmount)}</span>
+              </div>
+            )}
             {sale.changeAmount > 0 && (
               <div className="flex justify-between font-medium text-emerald-600">
                 <span>Kembalian</span><span>{formatRp(sale.changeAmount)}</span>

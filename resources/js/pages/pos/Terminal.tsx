@@ -220,6 +220,27 @@ export default function PosTerminal() {
     setCartWarehouseId(warehouseId);
   }, [warehouseId, setCartWarehouseId]);
 
+  // Split payment state (non-credit) — splitTotal/splitRemaining computed after grandTotal below
+  type SplitRow = { method: string; amount: number };
+  const [splitPayments, setSplitPayments] = useState<SplitRow[]>([{ method: 'cash', amount: 0 }]);
+
+  const addSplitRow = () => {
+    if (splitPayments.length >= 4) return;
+    const usedMethods = splitPayments.map(p => p.method);
+    const nextMethod = ['cash', 'transfer', 'qris', 'card'].find(m => !usedMethods.includes(m)) ?? 'transfer';
+    setSplitPayments([...splitPayments, { method: nextMethod, amount: 0 }]);
+  };
+  const removeSplitRow = (idx: number) => {
+    if (splitPayments.length <= 1) return;
+    setSplitPayments(splitPayments.filter((_, i) => i !== idx));
+  };
+  const updateSplitMethod = (idx: number, method: string) => {
+    setSplitPayments(splitPayments.map((p, i) => i === idx ? { ...p, method } : p));
+  };
+  const updateSplitAmount = (idx: number, amount: number) => {
+    setSplitPayments(splitPayments.map((p, i) => i === idx ? { ...p, amount } : p));
+  };
+
   // Credit / installment state
   const [dpAmount, setDpAmount]                 = useState(0);
   const [installmentCount, setInstallmentCount] = useState(2);
@@ -368,6 +389,16 @@ export default function PosTerminal() {
   const grandTotal = Math.max(0, subtotal - discountTotal);
   const paid = parseInt(payAmount) || 0;
   const change = Math.max(0, paid - grandTotal);
+  const splitTotal = splitPayments.reduce((s, p) => s + p.amount, 0);
+  const splitRemaining = grandTotal - splitTotal;
+
+  // Auto-fill single split row amount when grandTotal changes
+  useEffect(() => {
+    if (payMethod !== 'credit' && splitPayments.length === 1) {
+      setSplitPayments([{ ...splitPayments[0], amount: grandTotal }]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grandTotal]);
 
   // Regenerate credit schedule when grand total or credit params change
   useEffect(() => {
@@ -418,12 +449,10 @@ export default function PosTerminal() {
     setSubmitting(true);
 
     const isCreditSale = payMethod === 'credit';
-    const basePayload = {
+    const basePayload: Record<string, unknown> = {
       warehouse_id:    warehouseId!,
       customer_id:     checkoutCustomerId,
       occurred_at:     date + ' ' + new Date().toTimeString().slice(0, 8),
-      payment_method:  payMethod,
-      payment_amount:  isCreditSale ? Math.min(dpAmount, grandTotal) : (paid || grandTotal),
       discount_amount: discountTotal,
       promo_code:      appliedPromo?.code ?? null,
       note,
@@ -436,6 +465,13 @@ export default function PosTerminal() {
         discount_amount: c.discountAmount,
       })),
     };
+
+    if (isCreditSale) {
+      basePayload.payment_method = 'credit';
+      basePayload.payment_amount = Math.min(dpAmount, grandTotal);
+    } else {
+      basePayload.payments = splitPayments.map(p => ({ method: p.method, amount: p.amount }));
+    }
 
     // Recompute schedule at submit time to avoid stale-state mismatch with backend grandTotal.
     const liveSchedule = isCreditSale
@@ -741,14 +777,20 @@ export default function PosTerminal() {
               </div>
             </div>
 
-            {/* Payment method */}
-            <div className="grid grid-cols-5 gap-1">
-              {PAYMENT_METHODS.map(m => (
-                <button key={m} onClick={() => setPayMethod(m)}
-                  className={`text-xs py-1.5 rounded border transition-colors ${payMethod === m ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}>
+            {/* Payment mode toggle: credit vs split */}
+            <div className="grid grid-cols-2 gap-1">
+              {(['cash','transfer','qris','card'] as const).map(m => (
+                <button key={m}
+                  onClick={() => { setPayMethod('cash'); setSplitPayments([{ method: m, amount: grandTotal }]); }}
+                  className={`text-xs py-1.5 rounded border transition-colors ${payMethod !== 'credit' && splitPayments.length === 1 && splitPayments[0].method === m ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}>
                   {METHOD_LABEL[m]}
                 </button>
               ))}
+              <button
+                onClick={() => setPayMethod('credit')}
+                className={`text-xs py-1.5 rounded border transition-colors col-span-2 ${payMethod === 'credit' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}>
+                {METHOD_LABEL['credit']}
+              </button>
             </div>
 
             {/* Credit panel */}
@@ -811,15 +853,41 @@ export default function PosTerminal() {
               );
             })()}
 
-            {/* Payment amount (hidden for credit) */}
+            {/* Split payment rows (hidden for credit) */}
             {payMethod !== 'credit' && (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Bayar</label>
-              <input type="number" min={0} placeholder={String(grandTotal)}
-                className="w-full border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                value={payAmount} onChange={e => setPayAmount(e.target.value)} />
-              {payMethod === 'cash' && paid > 0 && (
-                <div className="mt-1 text-sm font-medium text-emerald-600">Kembalian: {formatRp(change)}</div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground block">Pembayaran</label>
+              {splitPayments.map((sp, idx) => (
+                <div key={idx} className="flex gap-1 items-center">
+                  <select
+                    value={sp.method}
+                    onChange={e => updateSplitMethod(idx, e.target.value)}
+                    className="border border-border rounded px-2 py-1.5 text-xs bg-background focus:outline-none w-28 shrink-0">
+                    {(['cash','transfer','qris','card'] as const).map(m => (
+                      <option key={m} value={m}>{METHOD_LABEL[m]}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number" min={0}
+                    value={sp.amount || ''}
+                    placeholder="0"
+                    onChange={e => updateSplitAmount(idx, parseInt(e.target.value) || 0)}
+                    className="flex-1 border border-border rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
+                  {splitPayments.length > 1 && (
+                    <button onClick={() => removeSplitRow(idx)} className="text-muted-foreground hover:text-red-500 px-1 text-base leading-none">×</button>
+                  )}
+                </div>
+              ))}
+              {splitPayments.length < 4 && (
+                <button onClick={addSplitRow} className="text-xs text-primary hover:underline">+ Tambah Metode Bayar</button>
+              )}
+              {splitPayments.length > 1 && (
+                <div className={`text-xs font-medium mt-0.5 ${splitRemaining === 0 ? 'text-emerald-600' : splitRemaining > 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {splitRemaining === 0 ? 'Pas' : splitRemaining > 0 ? `Kurang ${formatRp(splitRemaining)}` : `Lebih ${formatRp(-splitRemaining)}`}
+                </div>
+              )}
+              {splitPayments.length === 1 && splitPayments[0].method === 'cash' && splitTotal > grandTotal && (
+                <div className="text-sm font-medium text-emerald-600">Kembalian: {formatRp(splitTotal - grandTotal)}</div>
               )}
             </div>
             )}
@@ -856,7 +924,7 @@ export default function PosTerminal() {
                 cart.length === 0 || submitting || cart.some(c => c.unitPrice <= 0) ||
                 (payMethod === 'credit'
                   ? (!selectedCustomer || customers.find(c => c.id === customerId)?.isBlocked || creditSchedule.length < 2)
-                  : (!isOnline ? false : paid < grandTotal))
+                  : (!isOnline ? false : splitRemaining !== 0))
               }
               onClick={handleCheckout}
             >
@@ -866,8 +934,8 @@ export default function PosTerminal() {
                   ? `Proses Transaksi • ${formatRp(grandTotal)}`
                   : `Simpan Offline • ${formatRp(grandTotal)}`}
             </Button>
-            {isOnline && paid > 0 && paid < grandTotal && (
-              <p className="text-xs text-red-500 text-center">Pembayaran kurang {formatRp(grandTotal - paid)}</p>
+            {isOnline && payMethod !== 'credit' && splitRemaining > 0 && (
+              <p className="text-xs text-red-500 text-center">Pembayaran kurang {formatRp(splitRemaining)}</p>
             )}
           </div>
         </div>

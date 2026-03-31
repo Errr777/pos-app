@@ -61,4 +61,9 @@ class SaleHeader extends Model
     {
         return $this->hasMany(SaleItem::class);
     }
+
+    public function paymentSplits()
+    {
+        return $this->hasMany(SalePaymentSplit::class);
+    }
 }

@@ -29,6 +29,7 @@ interface SaleDetail {
   changeAmount: number;
   status: string;
   note: string | null;
+  paymentSplits: { paymentMethod: string; amount: number }[];
   items: SaleItemRow[];
 }
 
@@ -109,7 +110,7 @@ export default function PosPrint() {
           </div>
           <div>
             <div className="nota-label">Metode Bayar</div>
-            <div className="nota-value">{METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod}</div>
+            <div className="nota-value">{sale.paymentMethod === 'multiple' ? 'Split' : (METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod)}</div>
           </div>
         </div>
 
@@ -164,10 +165,19 @@ export default function PosPrint() {
             <span>Total</span>
             <span>{formatRp(sale.grandTotal)}</span>
           </div>
-          <div className="nota-total-row nota-muted">
-            <span>Bayar ({METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod})</span>
-            <span>{formatRp(sale.paymentAmount)}</span>
-          </div>
+          {sale.paymentMethod === 'multiple' && sale.paymentSplits?.length > 0 ? (
+            sale.paymentSplits.map((sp, i) => (
+              <div key={i} className="nota-total-row nota-muted">
+                <span>Bayar ({METHOD_LABEL[sp.paymentMethod] ?? sp.paymentMethod})</span>
+                <span>{formatRp(sp.amount)}</span>
+              </div>
+            ))
+          ) : (
+            <div className="nota-total-row nota-muted">
+              <span>Bayar ({METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod})</span>
+              <span>{formatRp(sale.paymentAmount)}</span>
+            </div>
+          )}
           {sale.changeAmount > 0 && (
             <div className="nota-total-row nota-change">
               <span>Kembalian</span>
