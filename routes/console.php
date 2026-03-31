@@ -18,3 +18,7 @@ Schedule::command('installments:mark-overdue')
     ->appendOutputTo(storage_path('logs/installments.log'));
 
 Schedule::job(new LicenseSyncJob)->everySixHours();
+
+Schedule::command('app:push-usage-metrics')
+    ->dailyAt('23:50')
+    ->appendOutputTo(storage_path('logs/metrics.log'));
