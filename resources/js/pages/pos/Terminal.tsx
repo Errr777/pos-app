@@ -423,7 +423,7 @@ export default function PosTerminal() {
       customer_id:     checkoutCustomerId,
       occurred_at:     date + ' ' + new Date().toTimeString().slice(0, 8),
       payment_method:  payMethod,
-      payment_amount:  isCreditSale ? dpAmount : (paid || grandTotal),
+      payment_amount:  isCreditSale ? Math.min(dpAmount, grandTotal) : (paid || grandTotal),
       discount_amount: discountTotal,
       promo_code:      appliedPromo?.code ?? null,
       note,
