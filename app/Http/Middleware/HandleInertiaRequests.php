@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\AppSetting;
 use App\Models\Item;
+use App\Models\LicenseConfig;
 use App\Models\PurchaseOrder;
 use App\Models\RolePermission;
 use App\Models\UserPermission;
@@ -97,6 +98,21 @@ class HandleInertiaRequests extends Middleware
             ],
 
             'storeSettings' => fn () => AppSetting::allAsArray(),
+
+            'license' => fn () => \Illuminate\Support\Facades\Cache::remember('license_config', 300, function () {
+                $l = LicenseConfig::current();
+                if (! $l) {
+                    return null;
+                }
+                return [
+                    'valid'       => $l->valid,
+                    'status'      => $l->status,
+                    'modules'     => $l->modules ?? [],
+                    'max_users'   => $l->max_users,
+                    'max_outlets' => $l->max_outlets,
+                    'expires_at'  => $l->expires_at?->toIso8601String(),
+                ];
+            }),
 
             'notifications' => function () use ($request) {
                 $user = $request->user();

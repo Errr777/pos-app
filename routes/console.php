@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\LicenseSyncJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -15,3 +16,5 @@ Schedule::command('backup:database --keep=7')
 Schedule::command('installments:mark-overdue')
     ->dailyAt('01:00')
     ->appendOutputTo(storage_path('logs/installments.log'));
+
+Schedule::job(new LicenseSyncJob)->everySixHours();

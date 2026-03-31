@@ -125,6 +125,18 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        // License max_users guard
+        $license = \App\Models\LicenseConfig::current();
+        if ($license) {
+            $currentCount = User::count();
+            if ($currentCount >= $license->max_users) {
+                $msg = "Batas maksimal pengguna ({$license->max_users}) telah tercapai.";
+                return $request->wantsJson()
+                    ? response()->json(['message' => $msg], 403)
+                    : back()->with('error', $msg);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',

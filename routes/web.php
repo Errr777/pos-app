@@ -36,13 +36,16 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+// License invalid page (accessible without auth)
+Route::get('/license-invalid', fn () => Inertia::render('LicenseInvalid'))->name('license.invalid');
+
 // Onboarding (separate group without the onboarding middleware)
 Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.')->group(function () {
     Route::get('/', [OnboardingController::class, 'index'])->name('index');
     Route::post('/', [OnboardingController::class, 'store'])->name('store');
 });
 
-Route::middleware(['auth', 'verified', 'onboarding', 'throttle:300,1'])->group(function () {
+Route::middleware(['auth', 'verified', 'onboarding', 'license', 'throttle:300,1'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Items

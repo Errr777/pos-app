@@ -260,6 +260,18 @@ class WarehouseController extends Controller
 
     public function store(Request $request)
     {
+        // License max_outlets guard
+        $license = \App\Models\LicenseConfig::current();
+        if ($license) {
+            $currentCount = \App\Models\Warehouse::count();
+            if ($currentCount >= $license->max_outlets) {
+                $msg = "Batas maksimal outlet ({$license->max_outlets}) telah tercapai.";
+                return $request->wantsJson()
+                    ? response()->json(['message' => $msg], 403)
+                    : back()->with('error', $msg);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'code'        => ['required', 'string', 'max:20', 'unique:warehouses,code', 'regex:/^[A-Z0-9\-]+$/'],
             'name'        => 'required|string|max:100',
