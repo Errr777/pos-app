@@ -36,6 +36,9 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+// License invalid page (accessible without auth)
+Route::get('/license-invalid', fn () => Inertia::render('LicenseInvalid'))->name('license.invalid');
+
 // Onboarding (separate group without the onboarding middleware)
 Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.')->group(function () {
     Route::get('/', [OnboardingController::class, 'index'])->name('index');
