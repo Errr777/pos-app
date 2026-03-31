@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +33,12 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        try {
+            Auth::user()->update(['last_login_at' => now()]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to update last_login_at: ' . $e->getMessage());
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
