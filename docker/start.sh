@@ -30,6 +30,9 @@ php artisan migrate --force --ansi
 # Create storage symlink (idempotent)
 php artisan storage:link --force 2>/dev/null || true
 
+# Record deploy timestamp for health endpoint
+php artisan app:set-deploy-timestamp --ansi
+
 # Cache config/routes/views for performance
 php artisan config:cache --ansi
 php artisan route:cache --ansi
