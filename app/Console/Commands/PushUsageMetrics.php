@@ -16,6 +16,14 @@ class PushUsageMetrics extends Command
 
     protected $description = 'Push daily usage metrics to the SaaS panel';
 
+    private function bearerToken(string $licenseKey): string
+    {
+        $timestamp = time();
+        $hmac      = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+
+        return $licenseKey . '.' . $timestamp . '.' . $hmac;
+    }
+
     public function handle(): int
     {
         $license = LicenseConfig::current();
@@ -23,6 +31,12 @@ class PushUsageMetrics extends Command
         if (! $license || ! $license->license_key || ! $license->panel_url) {
             $this->warn('License not configured — skipping metrics push.');
             return 0;
+        }
+
+        if (! str_starts_with((string) $license->panel_url, 'https://')) {
+            $this->error('panel_url bukan HTTPS. Metrics push dibatalkan demi keamanan.');
+            Log::error('PushUsageMetrics: panel_url bukan HTTPS. Dibatalkan.');
+            return 1;
         }
 
         $today = now()->toDateString();
@@ -38,10 +52,12 @@ class PushUsageMetrics extends Command
 
         $outletCount = Warehouse::where('is_active', true)->count();
 
-        $url = rtrim($license->panel_url, '/') . '/api/metrics/' . $license->license_key;
+        $url = rtrim($license->panel_url, '/') . '/api/metrics';
 
         try {
-            $response = Http::timeout(10)->post($url, [
+            $response = Http::timeout(10)
+                ->withToken($this->bearerToken($license->license_key))
+                ->post($url, [
                 'metric_date'        => $today,
                 'transactions_count' => $transactionsCount,
                 'active_users_count' => $activeUsersCount,

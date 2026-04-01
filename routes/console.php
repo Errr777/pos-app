@@ -22,3 +22,5 @@ Schedule::job(new LicenseSyncJob)->everySixHours();
 Schedule::command('app:push-usage-metrics')
     ->dailyAt('23:50')
     ->appendOutputTo(storage_path('logs/metrics.log'));
+
+Schedule::command('app:queue-heartbeat')->everyMinute();

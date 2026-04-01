@@ -14,11 +14,9 @@ class HealthController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        // Authenticate via X-License-Key header
-        $key = $request->header('X-License-Key');
         $config = LicenseConfig::current();
 
-        if (! $key || ! $config || $key !== $config->license_key) {
+        if (! $config || ! $this->validateBearerToken($request, $config->license_key)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -31,6 +29,35 @@ class HealthController extends Controller
             'disk_free_mb'       => $this->diskFreeMb(),
             'timestamp'          => now()->toIso8601String(),
         ]);
+    }
+
+    private function validateBearerToken(Request $request, string $licenseKey): bool
+    {
+        $header = $request->header('Authorization', '');
+
+        if (! str_starts_with($header, 'Bearer ')) {
+            return false;
+        }
+
+        $parts = explode('.', substr($header, 7), 3);
+
+        if (count($parts) !== 3) {
+            return false;
+        }
+
+        [$tokenKey, $timestamp, $hmac] = $parts;
+
+        if ($tokenKey !== $licenseKey) {
+            return false;
+        }
+
+        if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > 300) {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+
+        return hash_equals($expected, $hmac);
     }
 
     private function checkDatabase(): bool

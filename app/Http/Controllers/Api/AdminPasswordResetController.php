@@ -14,10 +14,9 @@ class AdminPasswordResetController extends Controller
 {
     public function reset(Request $request): JsonResponse
     {
-        $key = $request->header('X-License-Key');
         $license = LicenseConfig::current();
 
-        if (! $license || ! $key || $key !== $license->license_key) {
+        if (! $license || ! $this->validateBearerToken($request, $license->license_key)) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
 
@@ -36,5 +35,34 @@ class AdminPasswordResetController extends Controller
             'admin_email'   => $admin->email,
             'temp_password' => $tempPassword,
         ]);
+    }
+
+    private function validateBearerToken(Request $request, string $licenseKey): bool
+    {
+        $header = $request->header('Authorization', '');
+
+        if (! str_starts_with($header, 'Bearer ')) {
+            return false;
+        }
+
+        $parts = explode('.', substr($header, 7), 3);
+
+        if (count($parts) !== 3) {
+            return false;
+        }
+
+        [$tokenKey, $timestamp, $hmac] = $parts;
+
+        if ($tokenKey !== $licenseKey) {
+            return false;
+        }
+
+        if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > 300) {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+
+        return hash_equals($expected, $hmac);
     }
 }

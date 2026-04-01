@@ -19,6 +19,7 @@ class LicenseConfig extends Model
         'expires_at',
         'last_reason',
         'last_synced_at',
+        'webhook_secret',
     ];
 
     protected $casts = [

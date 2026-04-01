@@ -18,6 +18,14 @@ class LicenseSyncJob implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 30;
 
+    private function bearerToken(string $licenseKey): string
+    {
+        $timestamp = time();
+        $hmac      = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+
+        return $licenseKey . '.' . $timestamp . '.' . $hmac;
+    }
+
     public function handle(): void
     {
         $config = LicenseConfig::current();
@@ -27,9 +35,15 @@ class LicenseSyncJob implements ShouldQueue
             return;
         }
 
+        if (! str_starts_with((string) $config->panel_url, 'https://')) {
+            Log::error('[LicenseSync] panel_url bukan HTTPS. Sync dibatalkan demi keamanan.');
+            return;
+        }
+
         try {
             $response = Http::timeout(10)
-                ->get("{$config->panel_url}/api/license/{$config->license_key}");
+                ->withToken($this->bearerToken($config->license_key))
+                ->get(rtrim($config->panel_url, '/') . '/api/license');
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -54,6 +68,7 @@ class LicenseSyncJob implements ShouldQueue
                     'expires_at'     => $data['expires_at'] ?? null,
                     'last_reason'    => null,
                     'last_synced_at' => now(),
+                    'webhook_secret' => $data['webhook_secret'] ?? null,
                 ]);
 
                 Log::info('[LicenseSync] License valid. Status: ' . $status);
