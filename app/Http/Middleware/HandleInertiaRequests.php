@@ -104,13 +104,20 @@ class HandleInertiaRequests extends Middleware
                 if (! $l) {
                     return null;
                 }
+                $staleHours = $l->last_synced_at
+                    ? now()->diffInHours($l->last_synced_at)
+                    : null;
                 return [
-                    'valid'       => $l->valid,
-                    'status'      => $l->status,
-                    'modules'     => $l->modules ?? [],
-                    'max_users'   => $l->max_users,
-                    'max_outlets' => $l->max_outlets,
-                    'expires_at'  => $l->expires_at?->toIso8601String(),
+                    'valid'            => $l->valid,
+                    'status'           => $l->status,
+                    'modules'          => $l->modules ?? [],
+                    'max_users'        => $l->max_users,
+                    'max_outlets'      => $l->max_outlets,
+                    'expires_at'       => $l->expires_at?->toIso8601String(),
+                    'last_synced_at'   => $l->last_synced_at?->toIso8601String(),
+                    'sync_stale'       => $staleHours !== null && $staleHours > 24,
+                    'current_users'    => \App\Models\User::count(),
+                    'current_outlets'  => \App\Models\Warehouse::where('is_active', true)->count(),
                 ];
             }),
 

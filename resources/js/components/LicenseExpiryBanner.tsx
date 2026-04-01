@@ -5,6 +5,8 @@ interface License {
     valid: boolean;
     status: string;
     expires_at: string | null;
+    sync_stale: boolean;
+    last_synced_at: string | null;
 }
 
 interface SharedData {
@@ -16,7 +18,19 @@ interface SharedData {
 export default function LicenseExpiryBanner() {
     const { auth, license } = usePage<SharedData>().props;
 
-    if (!license?.expires_at || auth.user?.role !== 'admin') return null;
+    if (auth.user?.role !== 'admin' || !license) return null;
+
+    // Stale sync banner (independent of expiry)
+    if (license.sync_stale) {
+        return (
+            <div className="flex items-center gap-3 px-4 py-2.5 text-sm bg-orange-50 border-b border-orange-200 text-orange-900">
+                <AlertTriangle size={15} className="shrink-0" />
+                <span className="flex-1">Sinkronisasi lisensi gagal lebih dari 24 jam. Periksa koneksi ke server panel.</span>
+            </div>
+        );
+    }
+
+    if (!license.expires_at) return null;
 
     const expiresAt = new Date(license.expires_at);
     const now = new Date();

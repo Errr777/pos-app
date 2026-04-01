@@ -32,6 +32,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function WarehouseIndex() {
     const { warehouses, flash, errors } = usePage<PageProps>().props;
+    const license = (usePage().props as unknown as Record<string, unknown>).license as { max_outlets: number; current_outlets: number } | null | undefined;
 
     const [showAdd, setShowAdd] = useState(false);
     const [addForm, setAddForm] = useState({ code: '', name: '', location: '', description: '', phone: '', city: '' });
@@ -83,12 +84,20 @@ export default function WarehouseIndex() {
                         <h1 className="text-xl font-semibold">Manajemen Outlet</h1>
                         <p className="text-sm text-muted-foreground">Kelola outlet dan stok per lokasi</p>
                     </div>
-                    <button
-                        onClick={() => setShowAdd(true)}
-                        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                    >
-                        <Plus className="h-4 w-4" /> Tambah Outlet
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {license && (
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${license.current_outlets >= license.max_outlets ? 'bg-red-100 text-red-700' : license.current_outlets >= license.max_outlets * 0.8 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                                {license.current_outlets}/{license.max_outlets} outlet
+                            </span>
+                        )}
+                        <button
+                            onClick={() => setShowAdd(true)}
+                            disabled={!!(license && license.current_outlets >= license.max_outlets)}
+                            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Plus className="h-4 w-4" /> Tambah Outlet
+                        </button>
+                    </div>
                 </div>
 
                 {/* Flash */}

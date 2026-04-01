@@ -84,6 +84,7 @@ const actionColor: Record<string, string> = {
 export default function UsersIndex() {
   const { props } = usePage<PageProps>();
   const { users, roles, modules, filters, warehouses = [] } = props;
+  const license = (props as unknown as Record<string, unknown>).license as { max_users: number; current_users: number } | null | undefined;
 
   const [query, setQuery] = useState<string>(filters.search ?? '');
   const [sortBy, setSortBy] = useState<string>(filters.sort_by ?? 'name');
@@ -296,10 +297,15 @@ export default function UsersIndex() {
             </div>
           </form>
           <div className="flex items-center gap-2">
+            {license && (
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${license.current_users >= license.max_users ? 'bg-red-100 text-red-700' : license.current_users >= license.max_users * 0.8 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {license.current_users}/{license.max_users} pengguna
+                </span>
+            )}
             <Button variant="outline" className="gap-2" onClick={exportCSV} disabled={users.data.length === 0}>
               <Download size={16} /> Export CSV
             </Button>
-            <Button onClick={openAdd} className="gap-2">
+            <Button onClick={openAdd} className="gap-2" disabled={!!(license && license.current_users >= license.max_users)}>
               <Plus size={16} /> Tambah Pengguna
             </Button>
           </div>
