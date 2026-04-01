@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
             'license'    => \App\Http\Middleware\CheckLicense::class,
+            'module'     => \App\Http\Middleware\RequireModule::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
