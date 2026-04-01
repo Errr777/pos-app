@@ -34,18 +34,29 @@ class LicenseSyncJob implements ShouldQueue
             if ($response->successful()) {
                 $data = $response->json();
 
+                $allowedStatuses = ['active', 'trial', 'suspended', 'expired'];
+                $allowedModules  = [
+                    'dashboard', 'pos', 'items', 'inventory', 'warehouses',
+                    'purchase_orders', 'customers', 'suppliers', 'reports', 'returns', 'users',
+                ];
+
+                $status   = in_array($data['status'] ?? '', $allowedStatuses) ? $data['status'] : 'active';
+                $modules  = array_values(array_intersect($data['modules'] ?? [], $allowedModules));
+                $maxUsers = max(1, (int) ($data['max_users'] ?? 1));
+                $maxOutlets = max(1, (int) ($data['max_outlets'] ?? 1));
+
                 $config->update([
                     'valid'          => true,
-                    'status'         => $data['status'],
-                    'modules'        => $data['modules'],
-                    'max_users'      => $data['max_users'],
-                    'max_outlets'    => $data['max_outlets'],
-                    'expires_at'     => $data['expires_at'],
+                    'status'         => $status,
+                    'modules'        => $modules,
+                    'max_users'      => $maxUsers,
+                    'max_outlets'    => $maxOutlets,
+                    'expires_at'     => $data['expires_at'] ?? null,
                     'last_reason'    => null,
                     'last_synced_at' => now(),
                 ]);
 
-                Log::info('[LicenseSync] License valid. Status: ' . $data['status']);
+                Log::info('[LicenseSync] License valid. Status: ' . $status);
                 return;
             }
 
