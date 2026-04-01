@@ -14,14 +14,14 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 
 ## ✅ Todo / Plan Aktif
 
-- **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ selesai. Production aktif.
-  - Fase 3 (opsional): email notifikasi expired, webhook, audit log
+- **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ + Fase 3 ✅ selesai. Production aktif.
+- **Multi Payment Split** ✅ selesai (2026-03-31)
 
 ---
 
 ## 📋 Backlog (diketahui tapi belum dikerjakan)
 
-- **Multi Payment Split** — bayar 1 transaksi dengan 2+ metode sekaligus (misal 50% cash + 50% transfer). Butuh: kolom baru di `sale_headers`, tabel `sale_payments`, UI split di Terminal.tsx. Kredit cicilan sudah ada tapi ini berbeda.
+*(tidak ada)*
 
 ## ✅ Refactor Selesai (audit 2026-03-31)
 

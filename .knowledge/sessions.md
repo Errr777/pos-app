@@ -4,6 +4,27 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-03-31 (sesi 4)
+
+### Yang dikerjakan
+- **Multi Payment Split** (pos-app) — selesai penuh
+  - Migration `sale_payment_splits`, Model `SalePaymentSplit`, `SaleHeader::paymentSplits()` hasMany
+  - `PosController::store()`: terima `payments[]` array, validasi `sum === grandTotal`, set `payment_method='multiple'`, buat split rows
+  - `show()` / `print()` / `invoice()`: eager-load paymentSplits, kirim ke props
+  - `Terminal.tsx`: state `splitPayments[]`, UI split rows, `splitRemaining` counter, auto-fill single row
+  - `Show.tsx`, `Print.tsx`, `Invoice.tsx`: conditional display jika `paymentMethod === 'multiple'`
+- **Phase 3 SaaS** (pos-app-panel) — selesai penuh
+  - **Audit Log**: migration `audit_logs`, `AuditLog` model, `Auditable` trait (model events + explicit `audit()`), Dashboard section 50 entries terbaru
+  - **Email Notifications**: `TenantNotificationMail`, blade template untuk semua event, `CheckExpiringLicenses` command, schedule `dailyAt('08:00')`, dispatch di suspend/activate/extend/auto-expire
+  - **Webhooks**: `WebhookDispatcher` service, `SendWebhookJob` (3 retries, HMAC-SHA256), `WebhookLog` model, migrations (webhook_logs, webhook_url/secret di tenants), field di Edit form
+- Fix dpAmount clamp di Terminal.tsx (`Math.min(dpAmount, grandTotal)`)
+- Indonesianize breadcrumbs Stock_In.tsx + Stock_Out.tsx
+
+### Plan / Todo Berikutnya
+- Tidak ada. Semua plan selesai.
+
+---
+
 ## 2026-03-31 (sesi 3)
 
 ### Yang dikerjakan
