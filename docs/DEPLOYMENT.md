@@ -1,195 +1,353 @@
-# Deployment Guide — POS App Production
+# Deployment Guide — POS App
 
-## Overview
-
-POS App (Laravel 12 + Inertia.js + React 19) dikemas dalam Docker untuk production deployment.
-Panduan ini mencakup dua opsi: **Coolify** (rekomendasi) dan **Manual VPS**.
+Panduan ini mencakup deployment **POS App** (client) dan **Panel SaaS** (control panel).
 
 ---
 
-## File Structure
+## Arsitektur Production
 
 ```
-pos-app-production/
-├── Dockerfile.prod              # Multi-stage production build (node → composer → php-fpm)
-├── docker-compose.prod.yml      # Deploy manual ke VPS
-├── docker-compose.coolify.yml   # Deploy via Coolify
-├── .env.production              # Template environment variables
-├── .dockerignore
-└── docker/
-    ├── nginx/default.conf       # Nginx config (Laravel)
-    ├── supervisord.prod.conf    # Supervisord: php-fpm + nginx + queue-worker
-    └── start.prod.sh            # Entrypoint: migrate, cache, start supervisord
+┌─────────────────────────────────────────────────────────┐
+│  VPS / Server (Coolify)                                  │
+│                                                          │
+│  ┌─────────────────────┐   ┌─────────────────────────┐  │
+│  │  pos-app-production │   │  pos-app-panel          │  │
+│  │  (Laravel + Docker) │   │  (Laravel + Docker)     │  │
+│  │  port 80            │   │  port 80                │  │
+│  └──────────┬──────────┘   └───────────┬─────────────┘  │
+│             │                          │                 │
+│  ┌──────────▼──────────────────────────▼─────────────┐  │
+│  │  MariaDB (Coolify managed)                        │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Opsi A: Deploy via Coolify (Rekomendasi)
+## Repo & Folder Structure
 
-Coolify adalah self-hosted PaaS yang menangani SSL, domain routing (Traefik), dan auto-deploy dari GitHub secara otomatis.
+| Folder | Repo GitHub | Keterangan |
+|---|---|---|
+| `pos-app/` | `Errr777/pos-app` | Source dev utama |
+| `pos-app-production/` | `Errr777/pos-app-production` | Repo yang di-deploy Coolify |
+| `pos-app-panel/` | `Errr777/pos-app-panel` | Source + deploy panel |
 
-### Tahap 1: Install Coolify di VPS
+---
+
+## Bagian 1: Deploy POS App (Client)
+
+### Workflow Harian
+
+```
+Edit kode di pos-app/
+      ↓
+./sync-to-production.sh   ← sync + build asset di pos-app-production/
+      ↓
+git push pos-app-production ke GitHub
+      ↓
+Coolify auto-deploy (jika webhook aktif)
+atau
+Trigger manual di Coolify dashboard
+```
+
+### Langkah Detail
+
+**1. Sync dari dev ke production folder**
 
 ```bash
-# SSH ke VPS Niagahoster
-ssh root@ip-vps
-
-# Install Coolify
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+cd /Users/errr/Developer/Project/my/pos-app
+./sync-to-production.sh
 ```
 
-Akses panel Coolify di `http://ip-vps:8000` → buat akun admin.
+Script ini melakukan:
+- `rsync` file dari `pos-app/` ke `pos-app-production/` (mengabaikan `.env`, `vendor/`, `node_modules/`, dll.)
+- `composer install`
+- `npm ci && npm run build`
+- `docker compose build` *(perlu Docker Desktop aktif di Mac)*
+- `docker compose up -d` *(hanya berjalan lokal — di server ditangani Coolify)*
 
-### Tahap 2: Push kode ke GitHub
+> **Catatan:** Langkah `docker compose up -d` akan gagal di Mac karena network `coolify` hanya ada di VPS. Ini normal — file sudah tersync dan siap di-push.
+
+**Flag opsional:**
+```bash
+./sync-to-production.sh --dry-run   # preview, tidak ada perubahan
+./sync-to-production.sh --files     # sync file saja, skip build
+```
+
+**2. Commit dan push ke GitHub**
 
 ```bash
-cd pos-app-production
-
-# Buat repo baru di GitHub (github.com/new) → pos-app-production (bisa private)
-git remote remove origin
-git remote add origin https://github.com/USERNAME/pos-app-production.git
-git push -u origin main
+cd /Users/errr/Developer/Project/my/pos-app-production
+git add -A
+git commit -m "sync: update dari main"
+git push
 ```
 
-### Tahap 3: Konfigurasi di Panel Coolify
+**3. Coolify auto-deploy**
 
-1. **Settings → Sources → GitHub** → Install GitHub App → pilih repo `pos-app-production`
-2. **Projects → New Project** → beri nama "POS App"
-3. **New Resource → Docker Compose** → pilih repo dari GitHub
-4. **Compose File Path**: `docker-compose.coolify.yml`
-5. **Port**: `80`
-6. **Domain**: masukkan domain (misal: `pos.namadomain.com`)
-7. Centang **SSL/HTTPS** → Coolify generate Let's Encrypt otomatis
+Coolify mendeteksi push ke branch `main` dan otomatis rebuild + restart container.
+Pantau progress di: Coolify dashboard → aplikasi POS → Deployments.
 
-### Tahap 4: Set Environment Variables di Coolify UI
+**4. Verifikasi**
+
+```bash
+curl http://fgp9mk55i3e2q4k31hyi27re.72.62.125.181.sslip.io/up
+# Response: {"status":"ok","..."}
+```
+
+---
+
+### Setup Pertama Kali (POS App)
+
+**1. Buat project di Coolify**
+
+1. Login ke Coolify dashboard
+2. **New Resource → Docker Compose** → pilih repo `pos-app-production`
+3. **Compose File**: `docker-compose.yml`
+4. **Port**: `80`
+5. **Domain**: masukkan domain atau biarkan pakai sslip.io
+
+**2. Environment Variables di Coolify**
 
 ```
-APP_KEY=base64:xxxx              # generate: php artisan key:generate --show
-APP_URL=https://pos.namadomain.com
+APP_NAME=POS App
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-domain.com
+APP_KEY=base64:xxxx              # php artisan key:generate --show
+
+DB_CONNECTION=mysql
+DB_HOST=<container-hostname-mariadb>
+DB_PORT=3306
 DB_DATABASE=pos_db
 DB_USERNAME=pos_user
-DB_PASSWORD=password_aman_123
-DB_ROOT_PASSWORD=root_password_aman_456
-HASH_ID_SALT=your-random-32-char-string   # Jangan pernah diubah setelah deploy pertama
+DB_PASSWORD=<password>
+
+HASH_ID_SALT=<random-32-chars>   # JANGAN DIUBAH setelah deploy pertama
+
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+QUEUE_CONNECTION=database
+
+TRUSTED_PROXIES=*
+SESSION_SECURE_COOKIE=false      # true jika domain pakai HTTPS
+
+# License (isi setelah panel aktif)
+# Diisi via: php artisan license:setup
 ```
 
-### Tahap 5: Deploy
+**3. Deploy pertama**
 
-Klik **Deploy** → Coolify build image, jalankan container, setup SSL otomatis.
+Klik **Deploy** di Coolify. Container akan:
+- Menunggu MariaDB siap
+- Menjalankan `php artisan migrate --force`
+- Membuat storage symlink
+- Cache config/routes/views
+- Start nginx + php-fpm + queue worker
 
-### Tahap 6: Seed Data (pertama kali saja)
+**4. Seed data awal (pertama kali saja)**
+
+Via Coolify Terminal atau SSH:
+```bash
+docker exec -it laravel_app php artisan db:seed
+```
+
+Credentials default setelah seed:
+
+| Email | Password | Role |
+|---|---|---|
+| admin@admin.com | 12345678 | Admin |
+| staff@pos.com | 12345678 | Staff |
+| kasir1@pos.com | 12345678 | Kasir |
+
+> **Ganti semua password setelah login pertama.**
+
+**5. Setup lisensi**
 
 ```bash
-# Via Coolify terminal (Resources → app → Terminal)
-php artisan db:seed
-
-# Atau via SSH ke VPS
-docker exec -it <container-id> php artisan db:seed
+docker exec -it laravel_app php artisan license:setup
 ```
 
-### Auto-deploy (opsional)
-
-> Resource → Settings → Webhook → aktifkan auto-deploy on push
-
-Workflow: edit di `pos-app` → `sync-from-main.sh` → `git push` di `pos-app-production` → Coolify otomatis rebuild.
+Masukkan:
+- License Key (dari panel)
+- Panel URL (URL pos-app-panel)
 
 ---
 
-## Opsi B: Deploy Manual ke VPS
+## Bagian 2: Deploy Panel SaaS
 
-### Tahap 1: Upload kode ke VPS
+### Workflow Harian
 
-```bash
-# Dari Mac
-rsync -avz --exclude='node_modules/' --exclude='vendor/' --exclude='.env' \
-  /Users/errr/Developer/Project/my/pos-app-production/ \
-  root@ip-vps:/var/www/pos-app/
+Panel di-deploy langsung dari repo `pos-app-panel` — tidak perlu sync script terpisah.
+
+```
+Edit kode di pos-app-panel/
+      ↓
+npm run build  (build frontend)
+      ↓
+git add + git commit + git push
+      ↓
+Coolify auto-deploy
 ```
 
-### Tahap 2: Setup `.env` di VPS
+### Setup Pertama Kali (Panel)
 
-```bash
-cd /var/www/pos-app
-cp .env.production .env
-nano .env   # isi APP_URL, DB_PASSWORD, APP_KEY, HASH_ID_SALT
-```
+**1. Buat project di Coolify**
 
-Variabel wajib yang harus diisi:
+1. **New Resource → Docker Compose** → pilih repo `pos-app-panel`
+2. **Compose File**: `docker-compose.yml`
+3. **Port**: `80`
+4. **Domain**: masukkan domain panel
+
+**2. Environment Variables di Coolify**
+
 ```
+APP_NAME="POS Panel"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-panel-domain.com
 APP_KEY=base64:xxxx
-APP_URL=https://your-domain.com
-DB_PASSWORD=password_aman
-HASH_ID_SALT=your-random-32-char-string   # Jangan pernah diubah setelah deploy pertama
+
+DB_CONNECTION=mysql
+DB_HOST=<container-hostname-mariadb>
+DB_PORT=3306
+DB_DATABASE=panel_db
+DB_USERNAME=panel_user
+DB_PASSWORD=<password>
+
+SESSION_DRIVER=database
+QUEUE_CONNECTION=database
+MAIL_MAILER=smtp                 # opsional, untuk notifikasi email
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_FROM_ADDRESS=noreply@panel.com
+
+TRUSTED_PROXIES=*
+SESSION_SECURE_COOKIE=false
 ```
 
-Generate APP_KEY (jalankan di Mac dulu):
-```bash
-php artisan key:generate --show
-# Paste hasilnya ke .env di VPS
-```
-
-### Tahap 3: Build dan jalankan
-
-```bash
-cd /var/www/pos-app
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-### Tahap 4: Seed data (pertama kali saja)
-
-```bash
-docker compose -f docker-compose.prod.yml exec app php artisan db:seed
-```
-
-### Verifikasi
+**3. Deploy dan seed**
 
 ```bash
-curl http://your-domain.com/up   # → {"status":"ok"}
-docker compose -f docker-compose.prod.yml logs -f app
+docker exec -it panel_app php artisan db:seed
 ```
+
+Credentials default panel:
+
+| Email | Password |
+|---|---|
+| admin@panel.com | password |
+
+> **Ganti password setelah login pertama.**
 
 ---
 
-## Workflow Update Kode
+## Bagian 3: Koneksi Panel ↔ POS App
+
+Setelah kedua app aktif, sambungkan:
+
+**1. Buat tenant di panel**
+
+1. Login ke panel
+2. **Tenants → Tambah Tenant**
+3. Isi: nama bisnis, email, status `active`, modul, batas user/outlet
+4. Salin **License Key** yang ter-generate otomatis
+
+**2. Setup lisensi di POS App**
 
 ```bash
-# 1. Edit di pos-app (main project)
-# 2. Sync ke production folder
-cd /Users/errr/Developer/Project/my/pos-app-production
-./sync-from-main.sh
+docker exec -it laravel_app php artisan license:setup
+# Masukkan License Key dan Panel URL
+```
+
+**3. Verifikasi koneksi**
+
+Setelah setup, app akan sync otomatis dalam beberapa detik. Cek:
+- Halaman **Pengaturan → Lisensi** di POS App → status harus `active`
+- Di panel → **Tenants → Show** → kolom `Last Synced` harus terisi
+
+**4. App URL otomatis tersimpan di panel**
+
+Saat POS App sync ke panel, `app_url` dan `webhook_url` tersimpan otomatis di data tenant. Tidak perlu input manual.
+
+---
+
+## Bagian 4: Troubleshooting
+
+### Container restart loop
+
+```bash
+docker logs laravel_app --tail=50
+```
+
+Penyebab umum:
+- **"Nothing to migrate"** → normal, bukan error
+- **DB_HOST salah** → cek nama container MariaDB di Coolify network
+- **APP_KEY kosong** → generate dan set di Coolify env vars
+
+### Lisensi tidak sync
+
+1. Cek `APP_URL` di POS App — harus bisa diakses dari luar (bukan localhost)
+2. Cek `PANEL_URL` di lisensi config — harus URL panel yang aktif
+3. Trigger sync manual:
+   ```bash
+   docker exec -it laravel_app php artisan schedule:run
+   ```
+
+### Queue worker tidak berjalan
+
+Cek di POS App → **Pengaturan → Lisensi** → field `queue_running`:
+- `true` → worker aktif
+- `false/null` → worker mati, restart container
+
+### Reset password admin POS App
+
+Via panel: **Tenants → Show → Reset Admin Password**
+Password sementara tampil selama 30 menit, lalu hilang otomatis.
+
+---
+
+## Bagian 5: Variabel Penting yang Tidak Boleh Diubah
+
+| Variabel | Alasan |
+|---|---|
+| `HASH_ID_SALT` | Mengubah ini membuat semua ID lama tidak bisa di-decode → data rusak |
+| `APP_KEY` | Mengubah ini invalidate semua session, cookie, dan data terenkripsi |
+| `DB_DATABASE` / `DB_USERNAME` | Mengubah ini memutus koneksi ke database yang sudah ada |
+
+---
+
+## Bagian 6: Update Kode Rutin
+
+### POS App
+
+```bash
+# 1. Edit di pos-app/
+# 2. Commit ke pos-app repo
+git add -A && git commit -m "feat: ..." && git push   # di folder pos-app
+
+# 3. Sync ke production folder
+cd pos-app && ./sync-to-production.sh --files   # jika hanya sync file
+# atau
+./sync-to-production.sh                          # full sync + build
+
+# 4. Push ke pos-app-production repo
+cd pos-app-production && git add -A && git commit -m "sync" && git push
+
+# 5. Coolify auto-deploy
+```
+
+### Panel
+
+```bash
+# 1. Edit di pos-app-panel/
+# 2. Build frontend
+cd pos-app-panel && npm run build
 
 # 3. Commit dan push
-git add -A
-git commit -m "sync: update from main"
-git push
+git add -A && git commit -m "feat: ..." && git push
 
-# 4. Jika pakai Coolify: auto-deploy via webhook
-# Jika manual: rebuild di VPS
-docker compose -f docker-compose.prod.yml up -d --build
+# 4. Coolify auto-deploy
 ```
-
----
-
-## Perbandingan Coolify vs Manual
-
-| Fitur | Manual VPS | Coolify |
-|---|---|---|
-| SSL/HTTPS | Setup manual (certbot) | Otomatis |
-| Domain routing | Manual nginx | Otomatis Traefik |
-| Auto-deploy | Tidak | Ya (via webhook) |
-| Monitoring | Manual | Dashboard built-in |
-| Rollback | Manual | 1 klik |
-| Repo | Bisa private | Bisa private |
-
----
-
-## Credentials Default (setelah db:seed)
-
-| User | Email | Password | Role |
-|---|---|---|---|
-| Admin | admin@admin.com | 12345678 | admin |
-| Staff | staff@pos.com | 12345678 | staff |
-| Kasir 1 | kasir1@pos.com | 12345678 | kasir |
-| Kasir 2 | kasir2@pos.com | 12345678 | kasir |
-
-> **Ganti password setelah login pertama kali.**

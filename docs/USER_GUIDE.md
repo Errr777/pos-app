@@ -817,6 +817,52 @@ Klik **Simpan Pengaturan** setelah mengubah data.
 
 ---
 
+## 19. Lisensi & Paket
+
+Menu: **Pengaturan → Lisensi** *(hanya Admin)*
+
+Menampilkan status lisensi aplikasi yang terhubung ke SaaS control panel.
+
+### 19.1 Informasi Lisensi
+
+| Field | Keterangan |
+|---|---|
+| **Status** | `active` / `trial` / `suspended` / `expired` |
+| **Paket Modul** | Daftar modul yang diaktifkan dalam lisensi |
+| **Max Pengguna** | Batas jumlah user yang boleh dibuat |
+| **Max Outlet** | Batas jumlah gudang/outlet |
+| **Berlaku Hingga** | Tanggal kedaluwarsa lisensi |
+| **Terakhir Sync** | Waktu terakhir aplikasi sinkronisasi dengan panel |
+
+### 19.2 Banner Peringatan
+
+Aplikasi menampilkan banner otomatis di bagian atas halaman sesuai kondisi lisensi:
+
+| Warna Banner | Kondisi | Tindakan |
+|---|---|---|
+| **Oranye** | Sinkronisasi belum dilakukan >24 jam | Pastikan koneksi internet aktif; sync terjadi otomatis setiap 6 jam |
+| **Kuning** | Lisensi akan berakhir dalam 7 hari | Hubungi administrator/vendor untuk perpanjangan |
+| **Merah** | Lisensi kedaluwarsa atau disuspend | Hubungi administrator/vendor |
+
+> Banner hanya tampil untuk pengguna dengan role **admin** dan **staff**.
+
+### 19.3 Modul Terkunci
+
+Jika paket lisensi tidak menyertakan modul tertentu (misalnya modul Laporan atau Purchase Order), menu tersebut tetap tampil di sidebar namun akan dialihkan ke dashboard dengan pesan:
+
+> *"Modul ini tidak termasuk dalam paket lisensi Anda. Hubungi administrator."*
+
+### 19.4 Batas Pengguna & Outlet
+
+- Tombol **Tambah Pengguna** dinonaktifkan otomatis jika jumlah user sudah mencapai batas lisensi
+- Tombol **Tambah Outlet** dinonaktifkan otomatis jika jumlah gudang sudah mencapai batas lisensi
+- Badge indikator berwarna muncul di halaman Users dan Warehouse:
+  - **Abu-abu** — penggunaan normal
+  - **Oranye** — penggunaan ≥80% dari batas
+  - **Merah** — sudah mencapai batas maksimum
+
+---
+
 ## Tips & Catatan Penting
 
 ### Date Picker
