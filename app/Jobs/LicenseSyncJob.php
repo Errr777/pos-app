@@ -43,6 +43,7 @@ class LicenseSyncJob implements ShouldQueue
         try {
             $response = Http::timeout(10)
                 ->withToken($this->bearerToken($config->license_key))
+                ->withHeaders(['X-App-Url' => rtrim(config('app.url'), '/')])
                 ->get(rtrim($config->panel_url, '/') . '/api/license');
 
             if ($response->successful()) {
