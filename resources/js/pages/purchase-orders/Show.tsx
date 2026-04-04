@@ -2,7 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, XCircle, CheckCircle, Printer } from 'lucide-react';
+import { ArrowLeft, CheckCircle, FileDown, Printer, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -109,6 +109,11 @@ export default function PurchaseOrderShow() {
               'width=900,height=700,toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes'
             )}>
               Invoice
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              window.location.href = route('po.invoice.pdf', { purchaseOrder: po.id });
+            }}>
+              <FileDown size={15} className="mr-1" /> PDF
             </Button>
             {canOrder && (
               <Button size="sm" variant="outline" onClick={() => handleStatusChange('ordered')}>

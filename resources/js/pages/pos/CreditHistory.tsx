@@ -3,7 +3,7 @@ import { formatRp, fmtDate, STATUS_LABEL, METHOD_LABEL, decodePaginatorLabel } f
 import { type BreadcrumbItem } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { Search, ChevronDown, ChevronRight, AlertCircle, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, AlertCircle, FileDown, FileText } from 'lucide-react';
 
 interface PaymentRow {
     id: string; dueDate: string; amountDue: number; interestAmount: number;
@@ -230,6 +230,13 @@ export default function CreditHistoryPage() {
                                                         title="Cetak Invoice"
                                                         className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border hover:bg-muted transition-colors">
                                                         <FileText size={12} /> Invoice
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { window.location.href = route('installments.invoice.pdf', { plan: plan.id }); }}
+                                                        title="Download PDF Invoice"
+                                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border hover:bg-muted transition-colors">
+                                                        <FileDown size={12} /> PDF
                                                     </button>
                                                     {plan.remainingAmount > 0 && (
                                                         <a href={route('pos.installments')}

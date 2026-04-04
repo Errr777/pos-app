@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatRp, fmtDate, METHOD_LABEL } from '@/lib/formats';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Ban, Printer } from 'lucide-react';
+import { ArrowLeft, Ban, FileDown, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -93,6 +93,11 @@ export default function PosShow() {
               if (!w) alert('Popup diblokir oleh browser. Izinkan popup untuk halaman ini agar bisa membuka invoice.');
             }}>
               <Printer size={15} className="mr-1" /> Invoice
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => {
+              window.location.href = route('pos.invoice.pdf', { saleHeader: sale.id });
+            }}>
+              <FileDown size={15} className="mr-1" /> PDF
             </Button>
             {sale.status === 'completed' && (
               <Button variant="destructive" size="sm" onClick={handleVoid}>
