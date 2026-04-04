@@ -127,7 +127,7 @@ class UserController extends Controller
     {
         // License max_users guard
         $license = \App\Models\LicenseConfig::current();
-        if ($license) {
+        if ($license && $license->valid) {
             $currentCount = User::count();
             if ($currentCount >= $license->max_users) {
                 $msg = "Batas maksimal pengguna ({$license->max_users}) telah tercapai.";

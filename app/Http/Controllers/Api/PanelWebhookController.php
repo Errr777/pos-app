@@ -28,10 +28,11 @@ class PanelWebhookController extends Controller
         Log::info("[PanelWebhook] Event received: {$event}", ['payload' => $payload]);
 
         match ($event) {
-            'license.suspended', 'license.expired' => $this->handleLicenseInactive($event, $payload),
-            'license.activated', 'license.extended' => $this->handleLicenseActive($event, $payload),
-            'monitor.down'                          => $this->handleMonitorDown($payload),
-            default                                 => Log::info("[PanelWebhook] Unhandled event: {$event}"),
+            'license.suspended', 'license.expired'  => $this->handleLicenseInactive($event, $payload),
+            'license.activated', 'license.extended'  => $this->handleLicenseActive($event, $payload),
+            'monitor.down'                           => $this->handleMonitorDown($payload),
+            'test'                                   => Log::info("[PanelWebhook] Test event received"),
+            default                                  => Log::info("[PanelWebhook] Unhandled event: {$event}"),
         };
 
         return response()->json(['ok' => true]);

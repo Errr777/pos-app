@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\AppSetting;
 use App\Models\LicenseConfig;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -72,6 +73,14 @@ class LicenseSyncJob implements ShouldQueue
                     'last_synced_at' => now(),
                     'webhook_secret' => $data['webhook_secret'] ?? null,
                 ]);
+
+                // Sync business info ke app_settings
+                if (! empty($data['business_name'])) {
+                    AppSetting::set('store_name', $data['business_name']);
+                }
+                if (! empty($data['contact_phone'])) {
+                    AppSetting::set('store_phone', $data['contact_phone']);
+                }
 
                 Log::info('[LicenseSync] License valid. Status: ' . $status);
                 return;

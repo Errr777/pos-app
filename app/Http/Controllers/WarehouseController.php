@@ -262,7 +262,7 @@ class WarehouseController extends Controller
     {
         // License max_outlets guard
         $license = \App\Models\LicenseConfig::current();
-        if ($license) {
+        if ($license && $license->valid) {
             $currentCount = \App\Models\Warehouse::count();
             if ($currentCount >= $license->max_outlets) {
                 $msg = "Batas maksimal outlet ({$license->max_outlets}) telah tercapai.";
