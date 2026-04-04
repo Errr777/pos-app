@@ -35,8 +35,9 @@ class LicenseSyncJob implements ShouldQueue
             return;
         }
 
-        if (! str_starts_with((string) $config->panel_url, 'https://')) {
-            Log::error('[LicenseSync] panel_url bukan HTTPS. Sync dibatalkan demi keamanan.');
+        if (! str_starts_with((string) $config->panel_url, 'http://') && ! str_starts_with((string) $config->panel_url, 'https://')) {
+            Log::error('[LicenseSync] panel_url tidak valid (harus http:// atau https://).');
+            $config->update(['valid' => false, 'last_reason' => 'panel_url_invalid']);
             return;
         }
 
