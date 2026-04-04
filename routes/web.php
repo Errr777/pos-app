@@ -146,6 +146,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'license', 'throttle:300,1'
         Route::post('pos/installments/{plan}/add-installment', [InstallmentController::class, 'addInstallment'])->middleware('throttle:30,1')->name('installments.add_installment');
         Route::post('installments/{plan}/payments/{payment}/pay', [InstallmentController::class, 'pay'])->middleware('throttle:30,1')->name('installments.pay');
         Route::get('pos/installments/{plan}/invoice', [InstallmentController::class, 'invoice'])->name('installments.invoice');
+        Route::get('pos/installments/{plan}/invoice/pdf', [InstallmentController::class, 'invoicePdf'])->name('installments.invoice.pdf');
         Route::get('pos/installments', fn () => redirect()->route('installments.history'))->name('pos.installments');
         Route::get('pos/kredit', [InstallmentController::class, 'kreditPelangganPage'])->name('installments.history');
         Route::get('pos/terminal', [PosController::class, 'terminal'])->name('pos.terminal');
@@ -157,6 +158,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'license', 'throttle:300,1'
         Route::get('pos/{saleHeader}', [PosController::class, 'show'])->name('pos.show');
         Route::get('pos/{saleHeader}/print', [PosController::class, 'print'])->name('pos.print');
         Route::get('pos/{saleHeader}/invoice', [PosController::class, 'invoice'])->name('pos.invoice');
+        Route::get('pos/{saleHeader}/invoice/pdf', [PosController::class, 'invoicePdf'])->name('pos.invoice.pdf');
         Route::post('pos/{saleHeader}/void', [PosController::class, 'void'])->name('pos.void');
         Route::get('/promotions/active', [PromotionController::class, 'active'])->name('promotions.active');
     });
@@ -202,6 +204,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'license', 'throttle:300,1'
         Route::post('purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('po.status');
         Route::post('purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->middleware('throttle:30,1')->name('po.receive');
         Route::get('purchase-orders/{purchaseOrder}/invoice', [PurchaseOrderController::class, 'invoice'])->name('po.invoice');
+        Route::get('purchase-orders/{purchaseOrder}/invoice/pdf', [PurchaseOrderController::class, 'invoicePdf'])->name('po.invoice.pdf');
         Route::delete('purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
         Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
         Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
