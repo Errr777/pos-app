@@ -82,6 +82,21 @@ class LicenseSyncJob implements ShouldQueue
                     AppSetting::set('store_phone', $data['contact_phone']);
                 }
 
+                // Disable excess users (beyond max_users, sorted by id desc — newest first)
+                $allUserIds = \App\Models\User::where('role', '!=', 'admin')->orderBy('id')->pluck('id');
+                if ($allUserIds->count() > $maxUsers) {
+                    $excessIds = $allUserIds->slice($maxUsers);
+                    \App\Models\User::whereIn('id', $excessIds)->update(['is_active' => false]);
+                    \App\Models\User::whereIn('id', $allUserIds->slice(0, $maxUsers))->update(['is_active' => true]);
+                }
+
+                // Disable excess outlets (beyond max_outlets, sorted by id desc — newest first)
+                $allWarehouseIds = \App\Models\Warehouse::orderBy('is_default', 'desc')->orderBy('id')->pluck('id');
+                if ($allWarehouseIds->count() > $maxOutlets) {
+                    $excessIds = $allWarehouseIds->slice($maxOutlets);
+                    \App\Models\Warehouse::whereIn('id', $excessIds)->update(['is_active' => false]);
+                }
+
                 Log::info('[LicenseSync] License valid. Status: ' . $status);
                 return;
             }

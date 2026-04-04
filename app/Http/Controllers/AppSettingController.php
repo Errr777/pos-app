@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\PushSettingsToPanelJob;
 use App\Models\AppSetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -39,6 +40,8 @@ class AppSettingController extends Controller
                 AppSetting::set($key, $validated[$key]);
             }
         }
+
+        PushSettingsToPanelJob::dispatch();
 
         return back()->with('success', 'Pengaturan toko berhasil disimpan.');
     }

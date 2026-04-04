@@ -123,7 +123,7 @@ const allNavItems: NavItem[] = [
         icon: Tag,
         iconColor: 'text-pink-400',
         single: true,
-        module: 'items',
+        module: 'pos',
     },
     {
         title: 'Beban',
