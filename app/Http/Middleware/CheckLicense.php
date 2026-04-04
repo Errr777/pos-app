@@ -11,6 +11,11 @@ class CheckLicense
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Dev bypass — set LICENSE_BYPASS=true in .env to skip all license checks
+        if (config('app.license_bypass')) {
+            return $next($request);
+        }
+
         $license = LicenseConfig::current();
 
         // No license configured — allow access (not yet set up)

@@ -4,6 +4,73 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-03 (sesi 7)
+
+### Yang dikerjakan (pos-app-panel)
+- **Tenant Create/Edit — Subscription section**: tambah plan selector (auto-fill expires_at), field `monthly_price`, `discount_pct`, `billing_cycle_days`, live effective price preview — `TenantController::create()/edit()/store()/update()` diupdate
+- **PanelExpense module**: migration `panel_expenses`, Model `PanelExpense`, `PanelExpenseController` (index/store/update/destroy, filter year/month, monthly summary, category breakdown), halaman `expenses/Index.tsx` (3-col layout, modal CRUD, category autocomplete)
+- **Subscription P&L Report**: `ReportController::subscriptions()` — MRR via `effectivePrice()`, expiry calendar 3 bucket (30/60/90d), monthly P&L vs beban, lifecycle funnel; halaman `reports/Subscriptions.tsx` (4 top cards, PnlBar SVG, expiry list badge, funnel, MRR breakdown table)
+- Sidebar: tambah "Subscription P&L" di section Laporan + section "Keuangan" (Beban Operasional)
+- Build sukses — commit `874bc02`
+
+### Deploy Status
+- pos-app-panel: commit `874bc02` — perlu Coolify redeploy + `php artisan migrate` (3 migration baru)
+- pos-app-production: tidak ada perubahan sesi ini
+
+### Plan / Todo Berikutnya
+- Coolify redeploy pos-app-panel dengan `php artisan migrate`
+- Edge case: tenant tanpa plan assigned → effective price 0 di MRR breakdown (UI nudge opsional)
+- Future: email notifikasi saat tenant expires, CSV export subscription P&L
+
+---
+
+## 2026-04-03 (sesi 6)
+
+### Yang dikerjakan (pos-app-panel)
+- **Priority #1 Dashboard Health Overview**: sparkline 24 jam (hijau/kuning/merah per jam), uptime rate %, avg response ms, tenant online count — commit `3c5e522`
+- **Priority #2 `/reports/tenants`** — Tenant Overview table: 8 summary cards, filter status+uptime, tabel semua tenant (uptime rate 7d bar, avg RT, trx kemarin, last sync), export CSV — commit `4fcc60e`
+- **Priority #3 `/reports/uptime`** — Uptime & SLA: platform aggregate cards, period 7/14/30d, tabel sorted uptime terendah, incident count, baris merah <95%, export CSV — commit `4fcc60e`
+- **Priority #4 `/reports/usage`** — Usage Trends: SVG line chart (no lib), churn risk detection (<50% reporting days), per-tenant trend vs prior period, export CSV — commit `a17fbf7`
+- **Priority #5 Dashboard Growth + Usage Aggregate**: Growth card (new tenants, converted, expiring 30d) + Usage Aggregate (trx 7d delta %) — commit `a17fbf7`
+- **Subscription Plans feature**: migration `subscription_plans` + kolom di tenants (`plan_id`, `monthly_price`, `discount_pct`, `billing_cycle_days`), Model `SubscriptionPlan`, `Tenant::effectivePrice()` + `effectiveDurationDays()`, `SubscriptionPlanController` CRUD, halaman `/plans` dengan card grid + modal, MRR estimate — commit `ef4f1ad`
+
+### Deploy Status
+- pos-app-panel: 4 commits baru (3c5e522, 4fcc60e, a17fbf7, ef4f1ad) — perlu Coolify redeploy + `php artisan migrate`
+- pos-app-production: belum di-sync sesi ini (tidak ada perubahan di pos-app)
+
+### Plan / Todo Berikutnya (sesi 7)
+1. Update `Create.tsx` + `Edit.tsx` tenant — tambah plan selector (auto-fill harga/durasi) + discount_pct field
+2. `ReportController::subscriptions()` — MRR aktual (pakai `effectivePrice()`), expiry calendar 30/60/90d, lifecycle funnel
+3. `reports/Subscriptions.tsx` — halaman subscription report
+4. `PanelExpenseController` + migration `panel_expenses` + `expenses/Index.tsx`
+5. Laporan P&L panel (pendapatan dari subscription - beban operasional)
+
+---
+
+## 2026-04-01 (sesi 5)
+
+### Yang dikerjakan (pos-app-panel)
+- **Auto-save webhook_url saat tenant sync**: `LicenseSyncJob` mengirim `X-App-Url` header; `LicenseController` membaca header, validasi, simpan `app_url` + derive `webhook_url` = `app_url + /api/panel-webhook`
+- **Fix "An option named 'version' already exists"**: `SetDeployTimestamp.php` rename `{--version=}` → `{--app-version=}`; `start.sh` tambah `|| true` agar container tidak crash
+- **Fix input text tidak terlihat** di panel Edit/Create tenant: tambah `text-gray-900` via shared `INPUT` constant
+- **Fix app_url accept `http://`**: backend regex `^https://` → `^https?://`; frontend hint update ke `http://` atau `https://`
+- **Fix webhook_url paste tidak berfungsi**: tambah `onPaste` handler eksplisit di Edit.tsx
+- **Fix webhook_url tidak tersimpan saat edit**: `webhook_url` tidak ada di `update()` validate rules — tambah ke rules
+- **Fix monitoring tidak berjalan**: `supervisord.conf` panel tidak punya scheduler — tambah `[program:scheduler]` process
+- **Tombol Ping Manual**: `pingNow()` di TenantController + route `POST /tenants/{tenant}/ping`; Show.tsx ping button dengan 15-menit cooldown, result card, countdown timer
+- **Update docs**: `DEPLOYMENT.md` rewrite, `USER_GUIDE.md` pos-app tambah Section 19, `USER_GUIDE.md` panel baru, `setup-guide.html` + PDF via puppeteer
+- **Max outlet/user enforcement**: lewati — sudah ada di `WarehouseController` + `UserController` dari sesi sebelumnya
+
+### Deploy Status
+- pos-app-panel: commit `9099a8e` (build sukses) — perlu Coolify redeploy untuk supervisord + ping button
+- pos-app-production: mass commit `ec9e933` (SetDeployTimestamp fix)
+
+### Plan / Todo Berikutnya
+- Coolify redeploy: pos-app-panel (scheduler + ping) + pos-app-production (start.sh fix)
+- Setelah redeploy: monitoring uptime check otomatis berjalan setiap 15 menit
+
+---
+
 ## 2026-03-31 (sesi 4)
 
 ### Yang dikerjakan

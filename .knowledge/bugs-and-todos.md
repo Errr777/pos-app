@@ -8,14 +8,25 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 *(tidak ada saat ini)*
 
 ## ✅ Bug Selesai (sesi ini)
-- **Settings page crash** — `React.Children.only` error di `Button` component saat `asChild=true`; root cause: `{loading && <Loader2>}` render `false` sebagai child kedua ke Radix `Slot`; fix: wrap dengan kondisi `asChild ? children : <>{loading...}{children}</>` (2026-03-31)
+- **Settings page crash** — `React.Children.only` error di `Button` component saat `asChild=true`; fix: wrap kondisional (2026-03-31)
+- **Panel: input text tidak terlihat** — tambah `text-gray-900` di Edit.tsx via `INPUT` constant (2026-04-01)
+- **Panel: webhook_url tidak tersimpan** — `webhook_url` hilang dari `update()` validate rules; fix: tambah ke rules (2026-04-01)
+- **Panel: monitoring tidak jalan** — `supervisord.conf` tidak punya scheduler; fix: tambah `[program:scheduler]` (2026-04-01)
+- **Panel: app_url tolak `http://`** — regex `^https://` terlalu ketat; fix: `^https?://` (2026-04-01)
+- **Container crash: "An option named 'version' already exists"** — `{--version=}` konflik dengan Artisan built-in; fix: rename ke `{--app-version=}` + `|| true` di start.sh (2026-04-01)
 
 ---
 
 ## ✅ Todo / Plan Aktif
 
-- **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ + Fase 3 ✅ selesai. Production aktif.
+- **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ + Fase 3 ✅ + Laporan/Analytics ✅ selesai.
 - **Multi Payment Split** ✅ selesai (2026-03-31)
+- **Subscription Plans** ✅ selesai (2026-04-03)
+
+## 📋 Backlog Panel (post-sesi 7)
+- Coolify redeploy pos-app-panel + `php artisan migrate` (3 migration: subscription_plans, add_subscription_fields_to_tenants, panel_expenses)
+- Edge case: tenant tanpa plan → effective price 0 di Subscription P&L (opsional: UI nudge)
+- Future: email notifikasi expired tenant, CSV export P&L
 
 ---
 

@@ -11,6 +11,11 @@ class RequireModule
 {
     public function handle(Request $request, Closure $next, string $module): Response
     {
+        // Dev bypass
+        if (config('app.license_bypass')) {
+            return $next($request);
+        }
+
         $license = LicenseConfig::current();
 
         // No license configured — allow everything (not yet set up)

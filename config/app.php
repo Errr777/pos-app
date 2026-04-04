@@ -40,6 +40,7 @@ return [
     */
 
     'debug' => (bool) env('APP_DEBUG', false),
+    'license_bypass' => (bool) env('LICENSE_BYPASS', false),
 
     /*
     |--------------------------------------------------------------------------
