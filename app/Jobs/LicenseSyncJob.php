@@ -90,6 +90,7 @@ class LicenseSyncJob implements ShouldQueue
         } catch (\Exception $e) {
             // Network error — keep existing valid state, don't invalidate
             Log::error('[LicenseSync] Failed to reach panel: ' . $e->getMessage());
+            $config->update(['last_reason' => 'network_error: ' . $e->getMessage()]);
         }
     }
 }

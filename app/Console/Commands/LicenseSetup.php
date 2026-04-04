@@ -33,11 +33,14 @@ class LicenseSetup extends Command
 
         $config = LicenseConfig::current();
 
+        $config->refresh();
+
         if ($config->valid) {
             $this->info('✓ License valid! Status: ' . $config->status);
             $this->info('✓ Modules: ' . implode(', ', $config->modules ?? []));
         } else {
-            $this->error('✗ License invalid. Reason: ' . $config->last_reason);
+            $this->error('✗ License invalid. Reason: ' . ($config->last_reason ?? 'unknown'));
+            $this->error('  Last synced: ' . $config->last_synced_at);
         }
 
         return self::SUCCESS;
