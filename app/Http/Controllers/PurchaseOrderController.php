@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
 use App\Helpers\InvoiceNumber;
+use App\Models\AppSetting;
 use App\Models\Item;
 use App\Models\PurchaseOrder;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\PurchaseOrderItem;
 use App\Models\Supplier;
 use App\Models\Warehouse;
@@ -403,6 +405,61 @@ class PurchaseOrderController extends Controller
                 ]),
             ],
         ]);
+    }
+
+    public function invoicePdf(PurchaseOrder $purchaseOrder)
+    {
+        abort_unless(auth()->user()->hasPermission('purchase_orders', 'can_view'), 403);
+
+        $purchaseOrder->load(['supplier', 'warehouse', 'items']);
+
+        if (! $purchaseOrder->invoice_number) {
+            $purchaseOrder->update([
+                'invoice_number'    => InvoiceNumber::generate(),
+                'invoice_issued_at' => now(),
+            ]);
+            $purchaseOrder->refresh();
+        }
+
+        $invoice = [
+            'invoiceNumber' => $purchaseOrder->invoice_number,
+            'issuedAt'      => $purchaseOrder->invoice_issued_at->toISOString(),
+            'poNumber'      => $purchaseOrder->po_number,
+            'date'          => $purchaseOrder->ordered_at->toISOString(),
+            'expectedDate'  => $purchaseOrder->expected_at?->toDateString(),
+            'status'        => $purchaseOrder->status,
+            'supplier'      => [
+                'name'    => $purchaseOrder->supplier?->name,
+                'phone'   => $purchaseOrder->supplier?->phone,
+                'address' => $purchaseOrder->supplier?->address,
+            ],
+            'warehouse'     => [
+                'name'    => $purchaseOrder->warehouse?->name,
+                'address' => $purchaseOrder->warehouse?->location,
+                'phone'   => $purchaseOrder->warehouse?->phone,
+            ],
+            'subtotal'      => $purchaseOrder->subtotal,
+            'taxAmount'     => $purchaseOrder->tax_amount,
+            'grandTotal'    => $purchaseOrder->grand_total,
+            'items'         => $purchaseOrder->items->map(fn ($i) => [
+                'name'      => $i->item_name_snapshot,
+                'code'      => null,
+                'unitPrice' => $i->unit_price,
+                'quantity'  => $i->ordered_qty,
+                'lineTotal' => $i->line_total,
+            ])->toArray(),
+        ];
+
+        $pdf = Pdf::loadView('invoices.purchase-order', [
+            'invoice'       => $invoice,
+            'storeSettings' => AppSetting::allAsArray(),
+        ])->setPaper('a4');
+
+        return response()->streamDownload(
+            fn () => print($pdf->output()),
+            $purchaseOrder->invoice_number . '.pdf',
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     // ── Reorder Suggestions ──────────────────────────────────────────────────

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLogger;
 use App\Helpers\InvoiceNumber;
+use App\Models\AppSetting;
 use App\Models\Customer;
 use App\Models\InstallmentPayment;
 use App\Models\InstallmentPlan;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -552,6 +554,77 @@ class InstallmentController extends Controller
                 ]),
             ],
         ]);
+    }
+
+    public function invoicePdf(InstallmentPlan $plan)
+    {
+        // Permission enforced by constructor middleware (pos / can_view for GET).
+        $plan->load(['payments', 'saleHeader.saleItems', 'customer', 'saleHeader.warehouse']);
+
+        abort_if(! $plan->saleHeader, 404);
+
+        if (! $plan->invoice_number) {
+            $plan->update([
+                'invoice_number'    => InvoiceNumber::generate(),
+                'invoice_issued_at' => now(),
+            ]);
+            $plan->refresh();
+        }
+
+        $invoice = [
+            'invoiceNumber'  => $plan->invoice_number,
+            'issuedAt'       => $plan->invoice_issued_at->toISOString(),
+            'saleNumber'     => $plan->saleHeader->sale_number,
+            'date'           => $plan->created_at->toISOString(),
+            'cashier'        => null,
+            'status'         => $plan->status,
+            'paymentMethod'  => 'credit',
+            'paymentAmount'  => $plan->paid_amount,
+            'changeAmount'   => 0,
+            'note'           => $plan->note,
+            'paymentSplits'  => [],
+            'customer'       => [
+                'name'    => $plan->customer->name,
+                'phone'   => $plan->customer->phone,
+                'address' => $plan->customer->address,
+            ],
+            'warehouse'      => [
+                'name'    => $plan->saleHeader->warehouse?->name,
+                'address' => $plan->saleHeader->warehouse?->location,
+                'phone'   => $plan->saleHeader->warehouse?->phone,
+            ],
+            'subtotal'       => $plan->total_amount,
+            'discountAmount' => 0,
+            'taxAmount'      => 0,
+            'grandTotal'     => $plan->total_amount,
+            'items'          => $plan->saleHeader->saleItems->map(fn ($si) => [
+                'name'           => $si->item_name_snapshot,
+                'code'           => $si->item_code_snapshot,
+                'unitPrice'      => $si->unit_price,
+                'quantity'       => $si->quantity,
+                'discountAmount' => $si->discount_amount,
+                'lineTotal'      => $si->line_total,
+            ])->toArray(),
+            'schedule'       => $plan->payments->map(fn ($p) => [
+                'dueDate'        => $p->due_date->toDateString(),
+                'amountDue'      => $p->amount_due,
+                'interestAmount' => $p->interest_amount,
+                'lateFeeApplied' => $p->late_fee_applied,
+                'totalDue'       => $p->totalDue(),
+                'status'         => $p->status,
+            ])->toArray(),
+        ];
+
+        $pdf = Pdf::loadView('invoices.sale', [
+            'invoice'       => $invoice,
+            'storeSettings' => AppSetting::allAsArray(),
+        ])->setPaper('a4');
+
+        return response()->streamDownload(
+            fn () => print($pdf->output()),
+            $plan->invoice_number . '.pdf',
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     /**
