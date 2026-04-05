@@ -53,9 +53,9 @@ class AppSettingController extends Controller
         }
 
         $warehouse = Warehouse::where('is_default', true)->first();
-        if ($warehouse && $request->has('outlet_name')) {
+        if ($warehouse && $request->filled('outlet_name')) {
             $warehouse->update([
-                'name'  => $validated['outlet_name'] ?? $warehouse->name,
+                'name'  => $validated['outlet_name'],
                 'city'  => $validated['outlet_city'] ?? null,
                 'phone' => $validated['outlet_phone'] ?? null,
             ]);

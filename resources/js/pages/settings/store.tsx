@@ -124,7 +124,7 @@ export default function StoreSettings() {
                         )}
                     </div>
 
-                    {outlet !== null && (
+                    {outlet != null && (
                         <>
                             <div className="border-t pt-5">
                                 <h2 className="text-base font-semibold mb-4">Outlet Utama</h2>
@@ -150,6 +150,9 @@ export default function StoreSettings() {
                                     onChange={(e) => setData('outlet_city', e.target.value)}
                                     placeholder="Jakarta"
                                 />
+                                {errors.outlet_city && (
+                                    <p className="text-sm text-destructive">{errors.outlet_city}</p>
+                                )}
                             </div>
 
                             <div className="space-y-1.5">
@@ -160,6 +163,9 @@ export default function StoreSettings() {
                                     onChange={(e) => setData('outlet_phone', e.target.value)}
                                     placeholder="021-123-4567"
                                 />
+                                {errors.outlet_phone && (
+                                    <p className="text-sm text-destructive">{errors.outlet_phone}</p>
+                                )}
                             </div>
                         </>
                     )}
