@@ -22,8 +22,18 @@ class PanelWebhookController extends Controller
             return response()->json(['error' => 'invalid_signature'], 401);
         }
 
-        $event   = $request->input('event');
-        $payload = $request->all();
+        // Decrypt payload if encrypted
+        $raw = $request->all();
+        if (isset($raw['enc'], $raw['iv'])) {
+            $payload = $this->decryptPayload($raw, $config->webhook_secret);
+            if ($payload === null) {
+                return response()->json(['error' => 'decryption_failed'], 400);
+            }
+        } else {
+            $payload = $raw;
+        }
+
+        $event = $payload['event'] ?? null;
 
         Log::info("[PanelWebhook] Event received: {$event}", ['payload' => $payload]);
 
@@ -36,6 +46,23 @@ class PanelWebhookController extends Controller
         };
 
         return response()->json(['ok' => true]);
+    }
+
+    private function decryptPayload(array $body, string $secret): ?array
+    {
+        try {
+            $key       = hash('sha256', $secret, true);
+            $decrypted = openssl_decrypt(
+                base64_decode($body['enc']),
+                'aes-256-cbc',
+                $key,
+                OPENSSL_RAW_DATA,
+                base64_decode($body['iv'])
+            );
+            return $decrypted !== false ? json_decode($decrypted, true) : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function verifySignature(Request $request, string $secret): bool
