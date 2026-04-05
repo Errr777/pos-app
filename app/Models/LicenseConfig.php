@@ -20,6 +20,7 @@ class LicenseConfig extends Model
         'last_reason',
         'last_synced_at',
         'webhook_secret',
+        'tenant_pushed_at',
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class LicenseConfig extends Model
         'modules'         => 'array',
         'expires_at'      => 'datetime',
         'last_synced_at'  => 'datetime',
+        'tenant_pushed_at' => 'datetime',
     ];
 
     /**
