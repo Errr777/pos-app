@@ -9,6 +9,7 @@ interface LogoUploadProps {
 export default function LogoUpload({ currentUrl, onChange }: LogoUploadProps) {
     const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
     const [isDragging, setIsDragging] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const objectUrlRef = useRef<string | null>(null);
 
@@ -25,6 +26,7 @@ export default function LogoUpload({ currentUrl, onChange }: LogoUploadProps) {
         }
         const url = URL.createObjectURL(file);
         objectUrlRef.current = url;
+        setValidationError(null);
         setPreview(url);
         onChange(file);
     }
@@ -34,6 +36,7 @@ export default function LogoUpload({ currentUrl, onChange }: LogoUploadProps) {
             URL.revokeObjectURL(objectUrlRef.current);
             objectUrlRef.current = null;
         }
+        setValidationError(null);
         setPreview(null);
         onChange(null);
         if (inputRef.current) inputRef.current.value = '';
@@ -69,8 +72,15 @@ export default function LogoUpload({ currentUrl, onChange }: LogoUploadProps) {
                         setIsDragging(false);
                         const file = e.dataTransfer.files[0];
                         if (!file) return;
-                        if (!file.type.startsWith('image/')) return;
-                        if (file.size > 2 * 1024 * 1024) return;
+                        if (!file.type.startsWith('image/')) {
+                            setValidationError('File harus berupa gambar (PNG, JPG, SVG).');
+                            return;
+                        }
+                        if (file.size > 2 * 1024 * 1024) {
+                            setValidationError('Ukuran file maks. 2MB.');
+                            return;
+                        }
+                        setValidationError(null);
                         handleFile(file);
                     }}
                 >
@@ -88,6 +98,9 @@ export default function LogoUpload({ currentUrl, onChange }: LogoUploadProps) {
                 className="hidden"
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
             />
+            {validationError && (
+                <p className="text-sm text-destructive mt-1">{validationError}</p>
+            )}
         </div>
     );
 }
