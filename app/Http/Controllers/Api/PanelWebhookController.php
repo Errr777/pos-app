@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\LicenseConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class PanelWebhookController extends Controller
         match ($event) {
             'license.suspended', 'license.expired'  => $this->handleLicenseInactive($event, $payload),
             'license.activated', 'license.extended'  => $this->handleLicenseActive($event, $payload),
+            'license.modules_updated'                => $this->handleModulesUpdated($payload),
             'monitor.down'                           => $this->handleMonitorDown($payload),
             'test'                                   => Log::info("[PanelWebhook] Test event received"),
             default                                  => Log::info("[PanelWebhook] Unhandled event: {$event}"),
@@ -94,6 +96,30 @@ class PanelWebhookController extends Controller
         \App\Jobs\LicenseSyncJob::dispatch();
 
         Log::info("[PanelWebhook] License reactivated via webhook: {$event}");
+    }
+
+    private function handleModulesUpdated(array $payload): void
+    {
+        $license = LicenseConfig::current();
+        if (! $license) return;
+
+        $allowedModules = [
+            'dashboard', 'pos', 'items', 'inventory', 'warehouses',
+            'purchase_orders', 'customers', 'suppliers', 'reports', 'returns', 'users',
+        ];
+        $modules = array_values(array_intersect($payload['modules'] ?? [], $allowedModules));
+        $license->update(['modules' => $modules]);
+
+        $tenantPushedTs = $license->tenant_pushed_at?->timestamp ?? 0;
+        $payloadTs      = (int) ($payload['timestamp'] ?? 0);
+
+        if ($payloadTs > $tenantPushedTs) {
+            if (! empty($payload['business_name']))   AppSetting::set('store_name',    $payload['business_name']);
+            if (! empty($payload['contact_address'])) AppSetting::set('store_address', $payload['contact_address']);
+            if (! empty($payload['contact_email']))   AppSetting::set('store_email',   $payload['contact_email']);
+        }
+
+        Log::info('[PanelWebhook] Modules updated: ' . implode(', ', $modules));
     }
 
     private function handleMonitorDown(array $payload): void
