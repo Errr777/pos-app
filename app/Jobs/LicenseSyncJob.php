@@ -81,6 +81,12 @@ class LicenseSyncJob implements ShouldQueue
                 if (! empty($data['contact_phone'])) {
                     AppSetting::set('store_phone', $data['contact_phone']);
                 }
+                if (! empty($data['contact_email'])) {
+                    AppSetting::set('store_email', $data['contact_email']);
+                }
+                if (! empty($data['contact_address'])) {
+                    AppSetting::set('store_address', $data['contact_address']);
+                }
 
                 // Disable excess users (beyond max_users, sorted by id desc — newest first)
                 $allUserIds = \App\Models\User::where('role', '!=', 'admin')->orderBy('id')->pluck('id');

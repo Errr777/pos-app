@@ -31,8 +31,10 @@ class PushSettingsToPanelJob implements ShouldQueue
         $token     = $config->license_key . '.' . $timestamp . '.' . $hmac;
 
         $payload = array_filter([
-            'business_name' => AppSetting::get('store_name'),
-            'contact_phone' => AppSetting::get('store_phone'),
+            'business_name'   => AppSetting::get('store_name'),
+            'contact_phone'   => AppSetting::get('store_phone'),
+            'contact_email'   => AppSetting::get('store_email'),
+            'contact_address' => AppSetting::get('store_address'),
         ]);
 
         if (empty($payload)) {
@@ -40,10 +42,14 @@ class PushSettingsToPanelJob implements ShouldQueue
         }
 
         try {
-            Http::timeout(8)
+            $response = Http::timeout(8)
                 ->withToken($token)
                 ->withHeaders(['X-App-Url' => rtrim(config('app.url'), '/')])
                 ->patch(rtrim($config->panel_url, '/') . '/api/license', $payload);
+
+            if ($response->successful()) {
+                $config->update(['tenant_pushed_at' => now()]);
+            }
         } catch (\Throwable $e) {
             Log::warning('[PushSettings] Failed to push settings to panel: ' . $e->getMessage());
         }
