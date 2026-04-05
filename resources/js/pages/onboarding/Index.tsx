@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FormEventHandler, useState } from 'react';
 import { Store, MapPin, CheckCircle2 } from 'lucide-react';
+import LogoUpload from '@/components/logo-upload';
 
 const STEPS = [
     { id: 1, label: 'Info Toko', icon: Store },
@@ -33,35 +34,54 @@ export default function OnboardingIndex() {
     };
 
     return (
+        <>
+        <style>{`
+            @keyframes slideIn {
+                from { opacity: 0; transform: translateX(16px); }
+                to   { opacity: 1; transform: translateX(0); }
+            }
+            .step-animate { animation: slideIn 200ms ease-out; }
+        `}</style>
         <div className="min-h-screen bg-muted/40 flex items-center justify-center p-4">
             <Head title="Setup Toko" />
             <div className="bg-background rounded-2xl shadow-lg w-full max-w-lg p-8">
 
                 {/* Step indicator */}
-                <div className="flex items-center justify-center gap-2 mb-8">
-                    {STEPS.map((s, i) => {
-                        const Icon = s.icon;
-                        const active = step === s.id;
-                        const done = step > s.id;
-                        return (
-                            <div key={s.id} className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold
-                                    ${done || active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                                    {done ? <CheckCircle2 size={16} /> : <Icon size={16} />}
+                <div className="mb-8">
+                    <div className="flex items-center justify-center gap-2">
+                        {STEPS.map((s, i) => {
+                            const Icon = s.icon;
+                            const active = step === s.id;
+                            const done = step > s.id;
+                            return (
+                                <div key={s.id} className="flex items-center gap-2">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
+                                        ${done  ? 'bg-primary text-primary-foreground' : ''}
+                                        ${active && !done ? 'border-2 border-primary bg-background text-primary' : ''}
+                                        ${!active && !done ? 'bg-muted text-muted-foreground' : ''}`}>
+                                        {done ? <CheckCircle2 size={16} /> : <Icon size={16} />}
+                                    </div>
+                                    <span className={`text-sm ${active ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                                        {s.label}
+                                    </span>
+                                    {i < STEPS.length - 1 && (
+                                        <div className={`w-8 h-0.5 mx-1 transition-colors ${step > s.id ? 'bg-primary' : 'bg-border'}`} />
+                                    )}
                                 </div>
-                                <span className={`text-sm ${active ? 'font-semibold' : 'text-muted-foreground'}`}>
-                                    {s.label}
-                                </span>
-                                {i < STEPS.length - 1 && <div className="w-8 h-px bg-border mx-1" />}
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
+                    {step <= 2 && (
+                        <p className="text-center text-xs text-muted-foreground mt-3">
+                            Langkah {step} dari 2
+                        </p>
+                    )}
                 </div>
 
                 <form onSubmit={submit}>
                     {/* Step 1: Store info */}
                     {step === 1 && (
-                        <div className="space-y-4">
+                        <div key="step-1" className="step-animate space-y-4">
                             <h2 className="text-xl font-semibold">Informasi Toko</h2>
                             <p className="text-sm text-muted-foreground">
                                 Masukkan detail toko Anda yang akan tampil di struk dan dashboard.
@@ -113,13 +133,8 @@ export default function OnboardingIndex() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>Logo Toko (opsional)</Label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="text-sm"
-                                    onChange={(e) => setData('store_logo', e.target.files?.[0] ?? null)}
-                                />
+                                <Label>Logo Toko <span className="text-muted-foreground text-xs">(opsional)</span></Label>
+                                <LogoUpload onChange={(f) => setData('store_logo', f)} />
                             </div>
 
                             {stepError && <p className="text-sm text-destructive">{stepError}</p>}
@@ -142,7 +157,7 @@ export default function OnboardingIndex() {
 
                     {/* Step 2: First outlet */}
                     {step === 2 && (
-                        <div className="space-y-4">
+                        <div key="step-2" className="step-animate space-y-4">
                             <h2 className="text-xl font-semibold">Outlet Pertama</h2>
                             <p className="text-sm text-muted-foreground">
                                 Setup outlet / gudang utama Anda.
@@ -213,7 +228,7 @@ export default function OnboardingIndex() {
 
                     {/* Step 3: Confirm */}
                     {step === 3 && (
-                        <div className="space-y-4 text-center">
+                        <div key="step-3" className="step-animate space-y-4 text-center">
                             <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                                 <CheckCircle2 size={36} className="text-primary" />
                             </div>
@@ -247,5 +262,6 @@ export default function OnboardingIndex() {
                 </form>
             </div>
         </div>
+        </>
     );
 }
