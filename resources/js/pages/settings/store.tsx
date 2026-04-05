@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FormEventHandler, useRef } from 'react';
+import { FormEventHandler } from 'react';
+import LogoUpload from '@/components/logo-upload';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -21,6 +22,11 @@ interface PageProps {
         store_logo: string | null;
         receipt_footer: string | null;
     };
+    outlet: {
+        name: string;
+        city: string | null;
+        phone: string | null;
+    } | null;
     [key: string]: unknown;
 }
 
@@ -33,16 +39,18 @@ interface License {
 }
 
 export default function StoreSettings() {
-    const { settings } = usePage<PageProps>().props;
+    const { settings, outlet } = usePage<PageProps>().props;
     const license = (usePage().props as { license?: License }).license ?? null;
-    const logoRef = useRef<HTMLInputElement>(null);
 
     const { data, setData, post, processing, errors } = useForm({
-        store_name: settings.store_name ?? '',
-        store_address: settings.store_address ?? '',
-        store_phone: settings.store_phone ?? '',
+        store_name:     settings.store_name ?? '',
+        store_address:  settings.store_address ?? '',
+        store_phone:    settings.store_phone ?? '',
         receipt_footer: settings.receipt_footer ?? '',
-        store_logo: null as File | null,
+        store_logo:     null as File | null,
+        outlet_name:    outlet?.name ?? '',
+        outlet_city:    outlet?.city ?? '',
+        outlet_phone:   outlet?.phone ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -107,24 +115,54 @@ export default function StoreSettings() {
 
                     <div className="space-y-1.5">
                         <Label>Logo Toko</Label>
-                        {settings.store_logo && (
-                            <img
-                                src={`/storage/${settings.store_logo}`}
-                                alt="Logo toko"
-                                className="h-16 w-auto rounded border mb-2"
-                            />
-                        )}
-                        <input
-                            ref={logoRef}
-                            type="file"
-                            accept="image/*"
-                            className="text-sm"
-                            onChange={(e) => setData('store_logo', e.target.files?.[0] ?? null)}
+                        <LogoUpload
+                            currentUrl={settings.store_logo ? `/storage/${settings.store_logo}` : undefined}
+                            onChange={(f) => setData('store_logo', f)}
                         />
                         {errors.store_logo && (
                             <p className="text-sm text-destructive">{errors.store_logo}</p>
                         )}
                     </div>
+
+                    {outlet !== null && (
+                        <>
+                            <div className="border-t pt-5">
+                                <h2 className="text-base font-semibold mb-4">Outlet Utama</h2>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="outlet_name">Nama Outlet</Label>
+                                <Input
+                                    id="outlet_name"
+                                    value={data.outlet_name}
+                                    onChange={(e) => setData('outlet_name', e.target.value)}
+                                />
+                                {errors.outlet_name && (
+                                    <p className="text-sm text-destructive">{errors.outlet_name}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="outlet_city">Kota</Label>
+                                <Input
+                                    id="outlet_city"
+                                    value={data.outlet_city}
+                                    onChange={(e) => setData('outlet_city', e.target.value)}
+                                    placeholder="Jakarta"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="outlet_phone">Telepon Outlet</Label>
+                                <Input
+                                    id="outlet_phone"
+                                    value={data.outlet_phone}
+                                    onChange={(e) => setData('outlet_phone', e.target.value)}
+                                    placeholder="021-123-4567"
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <Button type="submit" disabled={processing}>
                         {processing ? 'Menyimpan...' : 'Simpan Pengaturan'}
