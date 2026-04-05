@@ -81,7 +81,7 @@ export default function OnboardingIndex() {
                 <form onSubmit={submit}>
                     {/* Step 1: Store info */}
                     {step === 1 && (
-                        <div key="step-1" className="step-animate space-y-4">
+                        <div key={step} className="step-animate space-y-4">
                             <h2 className="text-xl font-semibold">Informasi Toko</h2>
                             <p className="text-sm text-muted-foreground">
                                 Masukkan detail toko Anda yang akan tampil di struk dan dashboard.
@@ -157,7 +157,7 @@ export default function OnboardingIndex() {
 
                     {/* Step 2: First outlet */}
                     {step === 2 && (
-                        <div key="step-2" className="step-animate space-y-4">
+                        <div key={step} className="step-animate space-y-4">
                             <h2 className="text-xl font-semibold">Outlet Pertama</h2>
                             <p className="text-sm text-muted-foreground">
                                 Setup outlet / gudang utama Anda.
@@ -228,7 +228,7 @@ export default function OnboardingIndex() {
 
                     {/* Step 3: Confirm */}
                     {step === 3 && (
-                        <div key="step-3" className="step-animate space-y-4 text-center">
+                        <div key={step} className="step-animate space-y-4 text-center">
                             <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                                 <CheckCircle2 size={36} className="text-primary" />
                             </div>
