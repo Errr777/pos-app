@@ -58,7 +58,7 @@ class StoreSettingsTest extends TestCase
             'outlet_name'  => 'Outlet Baru',
             'outlet_city'  => 'Bandung',
             'outlet_phone' => '022-222',
-        ]);
+        ])->assertSessionHasNoErrors();
 
         $warehouse = Warehouse::where('is_default', true)->first();
         $this->assertEquals('Outlet Baru', $warehouse->name);
