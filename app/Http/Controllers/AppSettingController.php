@@ -13,8 +13,15 @@ class AppSettingController extends Controller
     {
         abort_unless(auth()->user()->role === 'admin', 403);
 
+        $defaultWarehouse = \App\Models\Warehouse::where('is_default', true)->first();
+
         return Inertia::render('settings/store', [
             'settings' => AppSetting::allAsArray(),
+            'outlet'   => $defaultWarehouse ? [
+                'name'  => $defaultWarehouse->name,
+                'city'  => $defaultWarehouse->city,
+                'phone' => $defaultWarehouse->phone,
+            ] : null,
         ]);
     }
 
@@ -28,6 +35,9 @@ class AppSettingController extends Controller
             'store_phone'    => ['nullable', 'string', 'max:30'],
             'receipt_footer' => ['nullable', 'string', 'max:255'],
             'store_logo'     => ['nullable', 'image', 'max:2048'],
+            'outlet_name'    => ['nullable', 'string', 'max:100'],
+            'outlet_city'    => ['nullable', 'string', 'max:100'],
+            'outlet_phone'   => ['nullable', 'string', 'max:30'],
         ]);
 
         if ($request->hasFile('store_logo')) {
@@ -39,6 +49,15 @@ class AppSettingController extends Controller
             if (array_key_exists($key, $validated)) {
                 AppSetting::set($key, $validated[$key]);
             }
+        }
+
+        $warehouse = \App\Models\Warehouse::where('is_default', true)->first();
+        if ($warehouse && $request->filled('outlet_name')) {
+            $warehouse->update([
+                'name'  => $validated['outlet_name'],
+                'city'  => $validated['outlet_city'] ?? null,
+                'phone' => $validated['outlet_phone'] ?? null,
+            ]);
         }
 
         PushSettingsToPanelJob::dispatch();
