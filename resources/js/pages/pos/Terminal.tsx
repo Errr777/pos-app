@@ -177,12 +177,9 @@ export default function PosTerminal() {
   const { addToQueue } = useSyncQueue(isOnline);
 
   // Warehouse selection (local — initialized from props)
-  const [warehouseId, setWarehouseId] = useState<string | null>(
-    autoWarehouseId
-    ?? warehouses.find(w => w.isDefault)?.id
-    ?? warehouses[0]?.id
-    ?? null
-  );
+  const defaultWarehouseId = autoWarehouseId ?? warehouses.find(w => w.isDefault)?.id ?? warehouses[0]?.id ?? null;
+  const [warehouseId, setWarehouseId]           = useState<string | null>(defaultWarehouseId);
+  const [pendingWarehouseId, setPendingWarehouseId] = useState<string | null>(defaultWarehouseId);
 
   // Persistent cart (IndexedDB-backed)
   const {
@@ -249,31 +246,27 @@ export default function PosTerminal() {
   const [creditLateFee, setCreditLateFee]       = useState(0);
   const [creditSchedule, setCreditSchedule]     = useState<ScheduleRow[]>([]);
 
-  // Outlet-resolved prices: itemId → price override
-  const [outletPrices, setOutletPrices] = useState<Record<string, number>>({});
+  // Outlet-resolved data: itemId → { price, stock }
+  const [outletData, setOutletData] = useState<Record<string, { price: number; stock: number }>>({});
 
   useEffect(() => {
-    if (!warehouseId) { setOutletPrices({}); return; }
+    if (!warehouseId) { setOutletData({}); return; }
     fetch(`/pos/items?warehouse_id=${warehouseId}`, {
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     })
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then((data: Record<string, number>) => {
-        const parsed: Record<number, number> = {};
-        for (const [k, v] of Object.entries(data)) parsed[Number(k)] = v;
-        setOutletPrices(parsed);
-      })
-      .catch(() => setOutletPrices({}));
+      .then((data: Record<string, { price: number; stock: number }>) => setOutletData(data))
+      .catch(() => setOutletData({}));
   }, [warehouseId]);
 
-  // Resolve item price: outlet override if available, else global price
-  const resolvePrice = (item: ItemOption) =>
-    outletPrices[item.id] !== undefined ? outletPrices[item.id] : item.price;
-
-  // Items with resolved prices
+  // Items with resolved price and stock per outlet
   const resolvedItems = useMemo(
-    () => items.map(i => ({ ...i, price: resolvePrice(i) })),
-    [items, outletPrices]
+    () => items.map(i => ({
+      ...i,
+      price: outletData[i.id]?.price ?? i.price,
+      stock: outletData[i.id]?.stock ?? i.stock,
+    })),
+    [items, outletData]
   );
 
   const { toast } = useToast();
@@ -549,16 +542,25 @@ export default function PosTerminal() {
                   }
                 }} />
             </div>
-            {warehouses.length > 1 ? (
-              <select className="text-sm border border-border rounded px-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                value={warehouseId ?? ''} onChange={e => setWarehouseId(e.target.value || null)}>
+            <div className="flex items-center gap-2">
+              <select
+                value={pendingWarehouseId ?? ''}
+                onChange={e => setPendingWarehouseId(e.target.value || null)}
+                className="text-sm border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+              >
                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
-            ) : (
-              <div className="px-3 py-2 text-sm font-medium rounded-lg bg-muted border">
-                {warehouses[0]?.name ?? 'Outlet'}
-              </div>
-            )}
+              <button
+                onClick={() => setWarehouseId(pendingWarehouseId)}
+                disabled={pendingWarehouseId === warehouseId}
+                className="px-3 py-1.5 text-sm rounded-lg border font-medium transition-colors bg-primary text-primary-foreground border-primary disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90"
+              >
+                Pilih
+              </button>
+              {warehouseId && warehouseId !== pendingWarehouseId && (
+                <span className="text-xs text-amber-600">Belum diterapkan</span>
+              )}
+            </div>
             <div className="flex gap-1">
               <button
                 onClick={() => setDensity('grid')}
