@@ -364,12 +364,14 @@ function PromoForm({ form, categories, items, tags }: {
                 <Field label="Min. Pembelian (Rp)">
                     <input className={input} type="number" min={0}
                         value={form.data.min_purchase as string}
-                        onChange={e => form.setData('min_purchase', e.target.value)} />
+                        onChange={e => form.setData('min_purchase', parseInt(e.target.value) || 0)} />
+                    {form.errors.min_purchase && <Err>{form.errors.min_purchase}</Err>}
                 </Field>
                 <Field label="Maks. Diskon (Rp, 0=∞)">
                     <input className={input} type="number" min={0}
                         value={form.data.max_discount as string}
-                        onChange={e => form.setData('max_discount', e.target.value)} />
+                        onChange={e => form.setData('max_discount', parseInt(e.target.value) || 0)} />
+                    {form.errors.max_discount && <Err>{form.errors.max_discount}</Err>}
                 </Field>
             </div>
 
