@@ -371,7 +371,7 @@ export default function ShowDeliveryOrder({ order, addableItems = [] }: Props) {
                                                 >
                                                     <div>
                                                         <div className="font-medium">{it.name}</div>
-                                                        <div className="text-xs text-muted-foreground">{it.code} · Stok: {it.main_stock}</div>
+                                                        <div className="text-xs text-muted-foreground">{it.code} · Stok tersedia: <span className="font-medium text-foreground">{it.main_stock}</span></div>
                                                     </div>
                                                     <span className="text-xs text-muted-foreground whitespace-nowrap">{fmt(it.global_price)}</span>
                                                 </button>
@@ -389,7 +389,9 @@ export default function ShowDeliveryOrder({ order, addableItems = [] }: Props) {
                                 {addSelected && (
                                     <div className="flex items-end gap-3">
                                         <div>
-                                            <label className="block text-xs font-medium mb-1 text-muted-foreground">Jumlah</label>
+                                            <label className="block text-xs font-medium mb-1 text-muted-foreground">
+                                                Jumlah <span className="text-muted-foreground font-normal">(maks. {addSelected.main_stock})</span>
+                                            </label>
                                             <input
                                                 type="number" min={1} max={addSelected.main_stock}
                                                 value={addQty}
