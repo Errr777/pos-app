@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\Kategori;
 use App\Models\SaleItem;
 use App\Models\Supplier;
+use App\Models\Warehouse;
 use App\Models\WarehouseItem;
 use App\Traits\FiltersWarehouseByUser;
 use Illuminate\Http\Request;
@@ -268,6 +269,21 @@ class ItemController extends Controller
             'kategori'     => $validated['kategori'] ?? null,
             'id_kategori'  => $validated['id_kategori'] ?? null,
         ]);
+
+        // Sync stok awal ke semua gudang aktif (default warehouse dapat stok penuh, lainnya 0)
+        if (! $isJasa) {
+            $defaultWarehouse = Warehouse::where('is_default', true)->where('is_active', true)->first();
+            $allWarehouses    = Warehouse::where('is_active', true)->get();
+
+            foreach ($allWarehouses as $wh) {
+                WarehouseItem::create([
+                    'item_id'      => $item->id,
+                    'warehouse_id' => $wh->id,
+                    'stok'         => $wh->is_default ? ($validated['stok'] ?? 0) : 0,
+                    'stok_minimal' => $wh->is_default ? ($validated['stok_minimal'] ?? 0) : 0,
+                ]);
+            }
+        }
 
         // ✅ Redirect with Inertia flash message
         return redirect()
