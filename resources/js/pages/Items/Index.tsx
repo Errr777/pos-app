@@ -721,8 +721,15 @@ export default function Items() {
             {form.data.type === 'barang' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium">Stok</label>
-                  <input type="number" value={form.data.stock} onChange={(e) => form.setData('stock', Number(e.target.value))} className="w-full border rounded px-2 py-1" />
+                  <label className="block text-sm font-medium">
+                    Stok {form.data.id && <span className="text-xs font-normal text-muted-foreground">(ubah via Stok Opname)</span>}
+                  </label>
+                  <input
+                    type="number" value={form.data.stock}
+                    onChange={(e) => form.setData('stock', Number(e.target.value))}
+                    disabled={!!form.data.id}
+                    className="w-full border rounded px-2 py-1 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+                  />
                   {form.errors.stock && <div className="text-destructive text-sm">{form.errors.stock}</div>}
                 </div>
                 <div>
