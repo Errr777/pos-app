@@ -151,12 +151,20 @@ class PosController extends Controller
                 $join->on('wip.item_id', '=', 'items.id')
                     ->where('wip.warehouse_id', $warehouseId);
             })
+            ->leftJoin('warehouse_items as wi', function ($join) use ($warehouseId) {
+                $join->on('wi.item_id', '=', 'items.id')
+                    ->where('wi.warehouse_id', $warehouseId);
+            })
             ->select([
                 'items.id',
                 DB::raw('COALESCE(wip.harga_jual, items.harga_jual) as resolved_price'),
+                DB::raw('COALESCE(wi.stok, 0) as resolved_stock'),
             ])
             ->get()
-            ->mapWithKeys(fn ($r) => [hid($r->id) => (int) $r->resolved_price]);
+            ->mapWithKeys(fn ($r) => [hid($r->id) => [
+                'price' => (int) $r->resolved_price,
+                'stock' => (int) $r->resolved_stock,
+            ]]);
 
         return response()->json($result);
     }
@@ -179,16 +187,24 @@ class PosController extends Controller
         // Auto-select: if user can only access one warehouse, lock them to it
         $autoWarehouseId = $warehouses->count() === 1 ? $warehouses->first()['id'] : null;
 
-        $items = Item::with(['tags', 'variants'])->select('id', 'nama', 'kode_item', 'kategori', 'id_kategori', 'stok', 'harga_jual', 'image_path')
-            ->where('harga_jual', '>', 0)
-            ->orderBy('nama')->get()->map(fn ($i) => [
+        // Default warehouse for initial stock/price
+        $defaultWarehouseId = Warehouse::where('is_default', true)->where('is_active', true)->value('id');
+
+        $items = Item::with(['tags', 'variants'])
+            ->select('items.id', 'items.nama', 'items.kode_item', 'items.kategori', 'items.id_kategori', 'items.stok', 'items.harga_jual', 'items.image_path')
+            ->leftJoin('warehouse_items as wi', fn ($j) => $j->on('wi.item_id', '=', 'items.id')->where('wi.warehouse_id', $defaultWarehouseId))
+            ->leftJoin('warehouse_item_prices as wip', fn ($j) => $j->on('wip.item_id', '=', 'items.id')->where('wip.warehouse_id', $defaultWarehouseId))
+            ->addSelect(DB::raw('COALESCE(wi.stok, items.stok) as resolved_stock'))
+            ->addSelect(DB::raw('COALESCE(wip.harga_jual, items.harga_jual) as resolved_price'))
+            ->where('items.harga_jual', '>', 0)
+            ->orderBy('items.nama')->get()->map(fn ($i) => [
                 'id' => hid($i->id),
                 'name' => $i->nama,
                 'code' => $i->kode_item,
                 'category' => $i->kategori,
                 'categoryId' => hid($i->id_kategori),
-                'stock' => $i->stok,
-                'price' => $i->harga_jual,
+                'stock' => (int) $i->resolved_stock,
+                'price' => (int) $i->resolved_price,
                 'imageUrl' => $i->image_path ? Storage::url($i->image_path) : null,
                 'tagIds' => $i->tags->map(fn ($t) => hid($t->id))->values()->all(),
                 'variants' => $i->variants->map(fn ($v) => [
