@@ -47,7 +47,7 @@ const today = new Date().toISOString().split('T')[0];
 const emptyForm = {
     name: '', code: '', type: 'percentage' as 'percentage' | 'fixed',
     value: '', applies_to: 'all' as 'all' | 'category' | 'item' | 'tag',
-    applies_id: '', min_purchase: '0', max_discount: '0',
+    applies_id: '', min_purchase: 0, max_discount: 0,
     start_date: today, end_date: today, is_active: true,
 };
 
@@ -100,7 +100,7 @@ export default function PromotionsIndex() {
             name: promo.name, code: promo.code ?? '',
             type: promo.type, value: String(promo.value),
             applies_to: promo.applies_to, applies_id: String(promo.applies_id ?? ''),
-            min_purchase: String(promo.min_purchase), max_discount: String(promo.max_discount),
+            min_purchase: promo.min_purchase, max_discount: promo.max_discount,
             start_date: promo.start_date, end_date: promo.end_date,
             is_active: promo.is_active,
         });
