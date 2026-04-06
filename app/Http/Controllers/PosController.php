@@ -335,7 +335,7 @@ class PosController extends Controller
         }
 
         // Block overdue customers from new credit purchases
-        if ($data['payment_method'] === 'credit') {
+        if (($data['payment_method'] ?? null) === 'credit') {
             $creditCustomer = Customer::findOrFail($data['customer_id']);
             if ($creditCustomer->isBlockedForCredit()) {
                 return back()->withErrors([
