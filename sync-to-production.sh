@@ -12,7 +12,7 @@
 set -euo pipefail
 
 DEV_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROD_DIR="/Users/errr/Developer/Project/my/pos-app-production"
+PROD_DIR="/Users/errr/Developer/Project/my/pos/pos-app-production"
 
 DRY_RUN=false
 FILES_ONLY=false

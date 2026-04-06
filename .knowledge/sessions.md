@@ -4,6 +4,30 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-05 (sesi 9)
+
+### Yang dikerjakan
+
+**Sub-project B: Onboarding Wizard Polish**
+- `resources/js/components/logo-upload.tsx` — baru; drag-and-drop + preview, objectUrlRef cleanup, keyboard accessible, drop validation inline
+- `resources/js/pages/onboarding/Index.tsx` — step indicator polish (Langkah N dari 2), `key={step}` slide animation, LogoUpload
+- `resources/js/pages/settings/store.tsx` — LogoUpload, outlet section (name/city/phone), `outlet != null` guard
+- `resources/js/pages/auth/register.tsx` — 9 copy Indonesia
+- `app/Http/Controllers/AppSettingController.php` — edit() load warehouse default, update() validasi outlet fields
+
+**Module Sync (dari panel)**
+- `database/migrations/2026_04_05_000001_add_tenant_pushed_at_to_license_configs.php` — baru
+- `app/Models/LicenseConfig.php` — `tenant_pushed_at` di `$fillable` + `$casts`
+- `app/Http/Controllers/Api/PanelWebhookController.php` — decrypt AES-256-CBC payload; handle `license.modules_updated` (modules selalu update, business info hanya jika panel lebih baru dari `tenant_pushed_at`)
+- `app/Jobs/LicenseSyncJob.php` — tambah sync `contact_email` → `store_email`, `contact_address` → `store_address`
+- `app/Jobs/PushSettingsToPanelJob.php` — push `store_email` + `store_address`; set `tenant_pushed_at` setelah sukses
+
+### Deploy Status
+- Perlu `php artisan migrate` di production (migration `add_tenant_pushed_at_to_license_configs`)
+- Setelah deploy: webhook dari panel akan terenkripsi AES-256-CBC — pastikan panel juga sudah di-deploy
+
+---
+
 ## 2026-04-03 (sesi 7)
 
 ### Yang dikerjakan (pos-app-panel)

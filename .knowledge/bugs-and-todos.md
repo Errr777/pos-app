@@ -22,9 +22,15 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 - **SaaS Control Panel** — Fase 1 ✅ + Fase 2 ✅ + Fase 3 ✅ + Laporan/Analytics ✅ selesai.
 - **Multi Payment Split** ✅ selesai (2026-03-31)
 - **Subscription Plans** ✅ selesai (2026-04-03)
+- **Onboarding Wizard Polish** ✅ selesai (2026-04-05)
+- **Module Sync (webhook enkripsi + auto-push)** ✅ selesai (2026-04-05)
 
-## 📋 Backlog Panel (post-sesi 7)
-- Coolify redeploy pos-app-panel + `php artisan migrate` (3 migration: subscription_plans, add_subscription_fields_to_tenants, panel_expenses)
+## 📋 Pending Deploy
+- `php artisan migrate` di production pos-app (`add_tenant_pushed_at_to_license_configs`)
+- Deploy pos-app-panel bersamaan agar webhook encryption sinkron
+
+## 📋 Backlog
+- DashboardTest pre-existing failure (factory user tanpa role → 403) — perlu fix terpisah
 - Edge case: tenant tanpa plan → effective price 0 di Subscription P&L (opsional: UI nudge)
 - Future: email notifikasi expired tenant, CSV export P&L
 

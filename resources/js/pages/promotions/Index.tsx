@@ -282,7 +282,7 @@ export default function PromotionsIndex() {
 }
 
 // ── Shared form fields ──────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function PromoForm({ form, categories, items, tags }: {
     form: any;
     categories: { id: string; nama: string }[];
