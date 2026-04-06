@@ -4,6 +4,33 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-06 (sesi 10)
+
+### Yang dikerjakan
+
+**Bug fix: timestamp mismatch di webhook**
+- `WebhookDispatcher` kirim `timestamp` sebagai ISO string → tenant cast ke int selalu dapat 0 → business info tidak pernah terupdate via webhook
+- Fix: `now()->toISOString()` → `now()->timestamp` di `app/Services/WebhookDispatcher.php` (panel)
+
+**HTTPS fix (Mixed Content errors di production)**
+- `bootstrap/app.php` — tambah `$middleware->trustProxies(at: '*')` (kedua repo)
+- `app/Providers/AppServiceProvider.php` — tambah `URL::forceScheme('https')` saat production (kedua repo)
+- Root cause: Traefik terminate SSL, forward ke container via HTTP → Laravel generate `http://` URLs
+
+**AdminSeeder (pos-app)**
+- `database/seeders/AdminSeeder.php` — baru; interaktif (prompt email/name/password), idempotent (skip jika email sudah ada)
+- Command: `php artisan db:seed --class=AdminSeeder`
+
+**Git & Deploy**
+- Semua commit dari sesi 9 di-push ke `pos-app`, `pos-app-panel`, `pos-app-production`
+- Coolify: panel.posku.online sudah online (DNS ✅, Traefik routing ✅)
+
+### Commits
+- `fd32baf` fix(tenant): force HTTPS scheme and trust all proxies behind Traefik
+- `b3e5aff` chore(tenant): update knowledge base and minor dev file updates
+
+---
+
 ## 2026-04-05 (sesi 9)
 
 ### Yang dikerjakan
