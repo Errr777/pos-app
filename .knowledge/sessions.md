@@ -4,30 +4,75 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-07 (sesi 11)
+
+### Yang dikerjakan
+
+**Fix item delete FK constraint violation**
+- `ItemController::destroy()` sebelumnya langsung `$item->delete()` → SQL FK error tanpa pesan jelas
+- Sekarang cek 2 level: **transaksi historis** (saleItems, purchaseOrderItems, returnItems) dan **operasional gudang** (deliveryOrderItems, stockTransfers)
+- Transaksi historis → pesan: "sudah pernah digunakan dalam transaksi X. Data historis harus tetap terjaga. Nonaktifkan item jika tidak ingin ditampilkan."
+- Operasional → pesan: "terdapat data surat jalan/transfer stok yang masih terkait"
+- Tambah 5 relasi baru ke `Item` model: `saleItems()`, `purchaseOrderItems()`, `returnItems()`, `deliveryOrderItems()`, `stockTransfers()`
+- Frontend: ganti `alert()` dengan dialog modal styled (ikon warning, judul, tombol Mengerti)
+- Inertia flash.error dibaca dari `page.props` di `onSuccess` callback (bukan `onError`) karena backend return redirect
+
+### Commits
+- `9340c4d` fix: block item delete when linked to delivery orders or stock transfers
+- `4528818` fix: block item delete with clear error when linked to transactions
+
+---
+
 ## 2026-04-06 (sesi 10)
 
 ### Yang dikerjakan
 
-**Bug fix: timestamp mismatch di webhook**
+**Bug fix: timestamp mismatch di webhook** (panel)
 - `WebhookDispatcher` kirim `timestamp` sebagai ISO string → tenant cast ke int selalu dapat 0 → business info tidak pernah terupdate via webhook
-- Fix: `now()->toISOString()` → `now()->timestamp` di `app/Services/WebhookDispatcher.php` (panel)
+- Fix: `now()->toISOString()` → `now()->timestamp` di `app/Services/WebhookDispatcher.php`
 
 **HTTPS fix (Mixed Content errors di production)**
 - `bootstrap/app.php` — tambah `$middleware->trustProxies(at: '*')` (kedua repo)
-- `app/Providers/AppServiceProvider.php` — tambah `URL::forceScheme('https')` saat production (kedua repo)
+- `app/Providers/AppServiceProvider.php` — tambah `URL::forceScheme('https')` saat production
 - Root cause: Traefik terminate SSL, forward ke container via HTTP → Laravel generate `http://` URLs
 
-**AdminSeeder (pos-app)**
-- `database/seeders/AdminSeeder.php` — baru; interaktif (prompt email/name/password), idempotent (skip jika email sudah ada)
-- Command: `php artisan db:seed --class=AdminSeeder`
+**Fix test webhook 500**
+- `TenantController::testWebhook()` pakai `Http::post($url, $array)` → PHP re-encode JSON berbeda → HMAC mismatch + body tidak terenkripsi
+- Fix: encrypt dulu dengan AES-256-CBC, sign dengan HMAC-SHA256, kirim via `withBody($body, 'application/json')`
 
-**Git & Deploy**
-- Semua commit dari sesi 9 di-push ke `pos-app`, `pos-app-panel`, `pos-app-production`
-- Coolify: panel.posku.online sudah online (DNS ✅, Traefik routing ✅)
+**Fix delivery order / stok opname 404**
+- URL pakai hashid tapi implicit model binding expect integer
+- Fix: tambah `Route::bind('deliveryOrder', ...)` + `Route::bind('opname', ...)` di `AppServiceProvider::boot()`
+
+**Fix stok tidak masuk warehouse saat tambah barang**
+- `ItemController::store()` hanya simpan ke `items.stok`, tidak buat `warehouse_items` records
+- Fix: loop semua active warehouses, buat `WarehouseItem` per warehouse (default warehouse dapat stok dari form, lainnya 0)
+- Backfill existing items via tinker
+
+**Fix promotions integer validation error**
+- `min_purchase`/`max_discount` dikirim sebagai string `'0'` → gagal validasi `integer`
+- Fix: `emptyForm` pakai integer `0`, onChange pakai `parseInt()`, hapus `String()` cast di edit mode
+
+**Fix POS 500 Undefined array key payment_method**
+- Split payment tidak kirim field `payment_method` → `$data['payment_method']` undefined
+- Fix: `($data['payment_method'] ?? null) === 'credit'`
+
+**POS Terminal: outlet dropdown**
+- Ganti tombol-tombol outlet dengan `<select>` dropdown + tombol "Pilih"
+- Two-state: `warehouseId` (aktif) + `pendingWarehouseId` (dipilih tapi belum apply)
+- Warning "Belum diterapkan" jika pending ≠ active
+- `outletData` state: `Record<string, {price: number; stock: number}>` — resolved dari `/pos/items?warehouse_id=X`
+
+**Disable stock input saat edit item**
+- Stock field disabled jika `form.data.id` ada (edit mode), tampilkan hint "(ubah via Stok Opname)"
+
+**AdminSeeder**
+- `database/seeders/AdminSeeder.php` — interaktif, idempotent
+- Command: `php artisan db:seed --class=AdminSeeder`
 
 ### Commits
 - `fd32baf` fix(tenant): force HTTPS scheme and trust all proxies behind Traefik
-- `b3e5aff` chore(tenant): update knowledge base and minor dev file updates
+- `b3e5aff` chore(tenant): update knowledge base
 
 ---
 

@@ -8,8 +8,17 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 *(tidak ada saat ini)*
 
 ## ✅ Bug Selesai (sesi ini)
+- **Item delete FK constraint** — `destroy()` lempar SQL error tanpa pesan jelas; fix: cek relasi transaksi dulu, tampilkan dialog error informatif (2026-04-07)
+- **Item delete: transaksi penjualan/PO/retur tidak di-blok** — item yg sudah dipakai bisa dihapus padahal data historis rusak; fix: cek `saleItems`, `purchaseOrderItems`, `returnItems` + pesan "Nonaktifkan item" (2026-04-07)
+
+## ✅ Bug Selesai (sesi sebelumnya)
 - **Mixed Content / HTTPS** — Laravel generate `http://` URL di belakang Traefik; fix: `trustProxies(at: '*')` + `URL::forceScheme('https')` (2026-04-06)
 - **Webhook timestamp mismatch** — `WebhookDispatcher` kirim ISO string, tenant cast ke int → 0; fix: `now()->timestamp` di panel (2026-04-06)
+- **Test webhook 500 (HMAC mismatch)** — `Http::post($url, $array)` re-encode JSON → HMAC mismatch + body tidak terenkripsi; fix: `withBody($body, 'application/json')` + AES-256-CBC sebelum sign (2026-04-06)
+- **Delivery order 404** — route pakai hashid tapi implicit model binding expect integer; fix: `Route::bind('deliveryOrder', fn($v) => DeliveryOrder::findOrFail(dhid($v)))` di AppServiceProvider (2026-04-06)
+- **Stok tidak masuk warehouse** — `ItemController::store()` hanya simpan ke `items.stok`, tidak ke `warehouse_items`; fix: loop semua active warehouses, buat `WarehouseItem` per warehouse setelah item dibuat (2026-04-06)
+- **Promotions integer validation error** — `min_purchase`/`max_discount` dikirim sebagai string `'0'`; fix: `emptyForm` pakai `0` integer, `onChange` pakai `parseInt()` (2026-04-06)
+- **POS 500 Undefined array key payment_method** — split payment tidak kirim `payment_method`; fix: `($data['payment_method'] ?? null) === 'credit'` (2026-04-06)
 
 ## ✅ Bug Selesai (sesi sebelumnya)
 - **Settings page crash** — `React.Children.only` error di `Button` component saat `asChild=true`; fix: wrap kondisional (2026-03-31)
@@ -30,8 +39,8 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 - **Module Sync (webhook enkripsi + auto-push)** ✅ selesai (2026-04-05)
 
 ## 📋 Pending Deploy
-- `php artisan migrate` di production pos-app (`add_tenant_pushed_at_to_license_configs`) — Coolify redeploy akan auto-run via start.sh
-- pos-app-panel: 6 migrations pending, jalankan setelah Coolify redeploy panel
+- Coolify redeploy production (`pos-app-production`) untuk apply semua fix sesi 10-11
+- `php artisan migrate` otomatis jalan via `start.sh` saat redeploy
 
 ## 📋 Backlog
 - DashboardTest pre-existing failure (factory user tanpa role → 403) — perlu fix terpisah
