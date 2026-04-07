@@ -519,9 +519,25 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
+        $blockers = [];
+
+        if ($item->deliveryOrderItems()->exists()) {
+            $blockers[] = 'surat jalan';
+        }
+        if ($item->stockTransfers()->exists()) {
+            $blockers[] = 'transfer stok';
+        }
+
+        if (!empty($blockers)) {
+            $msg = 'Item tidak dapat dihapus karena terdapat data ' . implode(' dan ', $blockers) . ' yang terkait.';
+            if (request()->wantsJson()) {
+                return response()->json(['error' => $msg], 422);
+            }
+            return redirect()->back()->with('error', $msg);
+        }
+
         $item->delete();
 
-        // Return JSON for axios calls if requested
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Item deleted'], 200);
         }

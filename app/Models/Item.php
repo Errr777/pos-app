@@ -63,4 +63,14 @@ class Item extends Model
     {
         return $this->hasMany(WarehouseItemPrice::class);
     }
+
+    public function deliveryOrderItems()
+    {
+        return $this->hasMany(\App\Models\DeliveryOrderItem::class, 'item_id');
+    }
+
+    public function stockTransfers()
+    {
+        return $this->hasMany(\App\Models\StockTransfer::class, 'item_id');
+    }
 }

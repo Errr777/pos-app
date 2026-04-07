@@ -226,7 +226,15 @@ export default function Items() {
 
     router.delete(route('item.destroy', id), {
       preserveState: true,
-      onSuccess: () => alert('Item berhasil dihapus'),
+      onSuccess: (page) => {
+        const flash = (page.props as Record<string, unknown> & { flash?: { error?: string; success?: string } }).flash;
+        if (flash?.error) {
+          setLocalItems(snapshot);
+          alert(flash.error);
+        } else {
+          alert('Item berhasil dihapus');
+        }
+      },
       onError: () => {
         setLocalItems(snapshot);
         alert('Gagal menghapus item. Coba lagi.');
