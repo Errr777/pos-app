@@ -76,6 +76,8 @@ export default function Items() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewItem, setViewItem] = useState<Item | null>(null);
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // edit modal state handled by Inertia useForm
   const form = useForm<{
     id: string | null;
@@ -230,14 +232,12 @@ export default function Items() {
         const flash = (page.props as Record<string, unknown> & { flash?: { error?: string; success?: string } }).flash;
         if (flash?.error) {
           setLocalItems(snapshot);
-          alert(flash.error);
-        } else {
-          alert('Item berhasil dihapus');
+          setDeleteError(flash.error);
         }
       },
       onError: () => {
         setLocalItems(snapshot);
-        alert('Gagal menghapus item. Coba lagi.');
+        setDeleteError('Gagal menghapus item. Silakan coba lagi.');
       },
     });
   };
@@ -327,6 +327,33 @@ export default function Items() {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Items" />
+
+      {/* Delete error dialog */}
+      {deleteError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-background rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-base mb-1">Item Tidak Dapat Dihapus</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{deleteError}</p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDeleteError(null)}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="relative min-h-[100vh] flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border bg-white dark:bg-background p-4">
         <div className="flex flex-wrap justify-between mb-4 gap-2">
           <div className="flex flex-wrap items-center gap-2 flex-1">

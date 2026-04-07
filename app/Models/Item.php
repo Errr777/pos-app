@@ -64,6 +64,21 @@ class Item extends Model
         return $this->hasMany(WarehouseItemPrice::class);
     }
 
+    public function saleItems()
+    {
+        return $this->hasMany(\App\Models\SaleItem::class, 'item_id');
+    }
+
+    public function purchaseOrderItems()
+    {
+        return $this->hasMany(\App\Models\PurchaseOrderItem::class, 'item_id');
+    }
+
+    public function returnItems()
+    {
+        return $this->hasMany(\App\Models\ReturnItem::class, 'item_id');
+    }
+
     public function deliveryOrderItems()
     {
         return $this->hasMany(\App\Models\DeliveryOrderItem::class, 'item_id');

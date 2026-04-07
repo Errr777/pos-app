@@ -519,17 +519,41 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
-        $blockers = [];
+        $transactionBlockers = [];
+        $operationalBlockers = [];
 
+        // Item pernah masuk transaksi penjualan / pembelian / retur
+        if ($item->saleItems()->exists()) {
+            $transactionBlockers[] = 'penjualan';
+        }
+        if ($item->purchaseOrderItems()->exists()) {
+            $transactionBlockers[] = 'pembelian';
+        }
+        if ($item->returnItems()->exists()) {
+            $transactionBlockers[] = 'retur';
+        }
+
+        // Item terkait operasional gudang
         if ($item->deliveryOrderItems()->exists()) {
-            $blockers[] = 'surat jalan';
+            $operationalBlockers[] = 'surat jalan';
         }
         if ($item->stockTransfers()->exists()) {
-            $blockers[] = 'transfer stok';
+            $operationalBlockers[] = 'transfer stok';
         }
 
-        if (!empty($blockers)) {
-            $msg = 'Item tidak dapat dihapus karena terdapat data ' . implode(' dan ', $blockers) . ' yang terkait.';
+        if (!empty($transactionBlockers)) {
+            $list = implode(', ', $transactionBlockers);
+            $msg = "Item \"{$item->nama}\" tidak dapat dihapus karena sudah pernah digunakan dalam transaksi {$list}. "
+                 . 'Data transaksi historis harus tetap terjaga. Nonaktifkan item jika tidak ingin ditampilkan.';
+            if (request()->wantsJson()) {
+                return response()->json(['error' => $msg], 422);
+            }
+            return redirect()->back()->with('error', $msg);
+        }
+
+        if (!empty($operationalBlockers)) {
+            $list = implode(' dan ', $operationalBlockers);
+            $msg = "Item \"{$item->nama}\" tidak dapat dihapus karena terdapat data {$list} yang masih terkait.";
             if (request()->wantsJson()) {
                 return response()->json(['error' => $msg], 422);
             }
@@ -539,10 +563,10 @@ class ItemController extends Controller
         $item->delete();
 
         if (request()->wantsJson()) {
-            return response()->json(['message' => 'Item deleted'], 200);
+            return response()->json(['message' => 'Item berhasil dihapus'], 200);
         }
 
-        return redirect()->back()->with('success', 'Item deleted');
+        return redirect()->back()->with('success', 'Item berhasil dihapus');
     }
 
     public function syncTags(Request $request, Item $item)
