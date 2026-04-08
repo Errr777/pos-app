@@ -123,24 +123,28 @@
 .dark {
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
-    --card: oklch(0.175 0.01 260);
+    /* Elevated from bg (0.145) so cards are distinguishable */
+    --card: oklch(0.22 0.015 260);
     --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.175 0.01 260);
+    --popover: oklch(0.22 0.015 260);
     --popover-foreground: oklch(0.985 0 0);
     /* Indigo 400 — lighter for dark bg */
     --primary: oklch(0.673 0.182 277);
     --primary-foreground: oklch(0.13 0.028 261);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.225 0.015 260);
-    --muted-foreground: oklch(0.708 0 0);
+    /* Elevated for subtle but visible muted areas */
+    --muted: oklch(0.255 0.015 260);
+    --muted-foreground: oklch(0.72 0 0);
     /* Gold slightly brighter on dark */
     --accent: oklch(0.82 0.15 70);
     --accent-foreground: oklch(0.2 0.04 70);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.985 0 0);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
+    /* Brighter red — old 0.396 was too dark; button uses /60 so needs brightness headroom */
+    --destructive: oklch(0.62 0.22 25);
+    --destructive-foreground: oklch(1 0 0);
+    /* Visible borders — old 0.269 gave ~1.5:1 contrast on bg, barely perceptible */
+    --border: oklch(0.40 0.01 260);
+    --input: oklch(0.38 0.01 260);
     --ring: oklch(0.673 0.182 277);
     --chart-1: oklch(0.488 0.243 264.376);
     --chart-2: oklch(0.696 0.17 162.48);
