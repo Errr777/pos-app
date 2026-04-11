@@ -31,14 +31,18 @@ class AppSettingController extends Controller
         abort_unless(auth()->user()->role === 'admin', 403);
 
         $validated = $request->validate([
-            'store_name'     => ['required', 'string', 'max:100'],
-            'store_address'  => ['nullable', 'string', 'max:255'],
-            'store_phone'    => ['nullable', 'string', 'max:30'],
-            'receipt_footer' => ['nullable', 'string', 'max:255'],
-            'store_logo'     => ['nullable', 'image', 'max:2048'],
-            'outlet_name'    => ['nullable', 'string', 'max:100'],
-            'outlet_city'    => ['nullable', 'string', 'max:100'],
-            'outlet_phone'   => ['nullable', 'string', 'max:20'],
+            'store_name'              => ['required', 'string', 'max:100'],
+            'store_address'           => ['nullable', 'string', 'max:255'],
+            'store_phone'             => ['nullable', 'string', 'max:30'],
+            'receipt_footer'          => ['nullable', 'string', 'max:255'],
+            'store_logo'              => ['nullable', 'image', 'max:2048'],
+            'outlet_name'             => ['nullable', 'string', 'max:100'],
+            'outlet_city'             => ['nullable', 'string', 'max:100'],
+            'outlet_phone'            => ['nullable', 'string', 'max:20'],
+            'receipt_paper_width'     => ['nullable', 'in:58,80'],
+            'receipt_show_cashier'    => ['nullable', 'in:0,1'],
+            'receipt_show_outlet'     => ['nullable', 'in:0,1'],
+            'receipt_show_item_code'  => ['nullable', 'in:0,1'],
         ]);
 
         if ($request->hasFile('store_logo')) {
@@ -46,7 +50,7 @@ class AppSettingController extends Controller
             AppSetting::set('store_logo', $path);
         }
 
-        foreach (['store_name', 'store_address', 'store_phone', 'receipt_footer'] as $key) {
+        foreach (['store_name', 'store_address', 'store_phone', 'receipt_footer', 'receipt_paper_width', 'receipt_show_cashier', 'receipt_show_outlet', 'receipt_show_item_code'] as $key) {
             if (array_key_exists($key, $validated)) {
                 AppSetting::set($key, $validated[$key]);
             }
