@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InstallmentPayment;
 use App\Models\Item;
 use App\Models\Kategori;
 use App\Models\PurchaseOrder;
@@ -293,20 +294,19 @@ class DashboardController extends Controller
         }
 
         // ── Cicilan jatuh tempo (due today + overdue) ────────────────────
-        $dueTodayCount = \App\Models\InstallmentPayment::with('installmentPlan.customer')
-            ->whereIn('status', ['pending', 'overdue'])
-            ->where('due_date', '<=', $now->copy()->endOfDay())
+        $dueTodayCount = InstallmentPayment::whereIn('status', ['pending', 'overdue'])
+            ->where('due_date', '<=', $todayEnd)
             ->count();
 
-        $installmentsDue = \App\Models\InstallmentPayment::with('installmentPlan.customer')
+        $installmentsDue = InstallmentPayment::with('plan.customer')
             ->whereIn('status', ['pending', 'overdue'])
-            ->where('due_date', '<=', $now->copy()->endOfDay())
+            ->where('due_date', '<=', $todayEnd)
             ->orderBy('due_date')
             ->limit(5)
             ->get()
             ->map(fn ($p) => [
-                'planId'       => hid($p->installmentPlan->id),
-                'customerName' => $p->installmentPlan->customer?->name ?? '-',
+                'planId'       => hid($p->plan->id),
+                'customerName' => $p->plan->customer?->name ?? '-',
                 'dueDate'      => $p->due_date->format('d/m/Y'),
                 'amountDue'    => (int) $p->remainingDue(),
                 'isOverdue'    => $p->status === 'overdue',
