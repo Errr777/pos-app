@@ -37,7 +37,12 @@ interface StoreSettings {
   store_name?: string;
   store_address?: string;
   store_phone?: string;
+  store_logo?: string;
   receipt_footer?: string;
+  receipt_paper_width?: string;
+  receipt_show_cashier?: string;
+  receipt_show_outlet?: string;
+  receipt_show_item_code?: string;
 }
 
 interface PageProps {
@@ -58,6 +63,11 @@ function formatDate(iso: string | null) {
 export default function PosPrint() {
   const { sale, storeSettings } = usePage<PageProps>().props;
 
+  const paperWidth    = storeSettings?.receipt_paper_width === '58' ? 58 : 80;
+  const showCashier   = storeSettings?.receipt_show_cashier   !== '0';
+  const showOutlet    = storeSettings?.receipt_show_outlet    !== '0';
+  const showItemCode  = storeSettings?.receipt_show_item_code !== '0';
+
   useEffect(() => {
     const root = document.querySelector('.nota-root') as HTMLElement | null;
     let style: HTMLStyleElement | null = null;
@@ -65,7 +75,7 @@ export default function PosPrint() {
       const heightMm = Math.ceil(root.offsetHeight * 25.4 / 96) + 8;
       style = document.createElement('style');
       style.id = 'dynamic-page-size';
-      style.textContent = `@page { size: 80mm ${heightMm}mm; margin: 0; }`;
+      style.textContent = `@page { size: ${paperWidth}mm ${heightMm}mm; margin: 0; }`;
       document.head.appendChild(style);
     }
     const timeout = setTimeout(() => window.print(), 400);
@@ -79,6 +89,9 @@ export default function PosPrint() {
         {/* Store header */}
         {storeSettings?.store_name && (
           <div className="nota-header">
+            {storeSettings.store_logo && (
+              <img src={`/storage/${storeSettings.store_logo}`} alt="" className="nota-logo" />
+            )}
             <div className="nota-store-name">{storeSettings.store_name}</div>
             {storeSettings.store_address && <div className="nota-small">{storeSettings.store_address}</div>}
             {storeSettings.store_phone && <div className="nota-small">{storeSettings.store_phone}</div>}
@@ -100,14 +113,18 @@ export default function PosPrint() {
             <div className="nota-value">{sale.customerName}</div>
             {sale.customerPhone && <div className="nota-small nota-muted">{sale.customerPhone}</div>}
           </div>
+          {showCashier && (
           <div>
             <div className="nota-label">Kasir</div>
             <div className="nota-value">{sale.cashier}</div>
           </div>
+          )}
+          {showOutlet && (
           <div>
             <div className="nota-label">Outlet</div>
             <div className="nota-value">{sale.warehouseName}</div>
           </div>
+          )}
           <div>
             <div className="nota-label">Metode Bayar</div>
             <div className="nota-value">{sale.paymentMethod === 'multiple' ? 'Split' : (METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod)}</div>
@@ -130,7 +147,7 @@ export default function PosPrint() {
               <tr key={si.id} className="nota-tr">
                 <td className="nota-td">
                   <div>{si.itemName}</div>
-                  {si.itemCode && <div className="nota-small nota-muted">{si.itemCode}</div>}
+                  {showItemCode && si.itemCode && <div className="nota-small nota-muted">{si.itemCode}</div>}
                   {si.discountAmount > 0 && (
                     <div className="nota-small nota-discount">Diskon: -{formatRp(si.discountAmount)}</div>
                   )}
@@ -296,13 +313,15 @@ export default function PosPrint() {
           white-space: pre-wrap;
         }
 
+        .nota-logo { display: block; max-height: 48px; max-width: 100%; margin: 0 auto 6px; object-fit: contain; }
+
         @page {
-          size: 80mm auto;
+          size: ${paperWidth}mm auto;
           margin: 0;
         }
         @media print {
-          html, body { width: 80mm; margin: 0; }
-          .nota-root { width: 72mm; padding: 4mm; max-width: 100%; }
+          html, body { width: ${paperWidth}mm; margin: 0; }
+          .nota-root { width: ${paperWidth - 8}mm; padding: 4mm; max-width: 100%; }
         }
       `}</style>
     </>
