@@ -80,7 +80,7 @@ export default function PosPrint() {
     }
     const timeout = setTimeout(() => window.print(), 400);
     return () => { clearTimeout(timeout); style?.remove(); };
-  }, []);
+  }, [paperWidth]);
 
   return (
     <>
