@@ -414,7 +414,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* ── Cicilan Jatuh Tempo (tampil jika ada) ── */}
-                {dueTodayCount > 0 && (
+                {installmentsDue.length > 0 && (
                     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-3 border-b">
                             <div className="flex items-center gap-2">
