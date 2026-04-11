@@ -37,15 +37,18 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 - **Subscription Plans** ✅ selesai (2026-04-03)
 - **Onboarding Wizard Polish** ✅ selesai (2026-04-05)
 - **Module Sync (webhook enkripsi + auto-push)** ✅ selesai (2026-04-05)
+- **Dashboard Cicilan Widget** ✅ selesai (2026-04-11)
+- **Notifikasi Cicilan di Bell Icon** ✅ selesai (2026-04-11)
+- **Template Struk Kustom** ✅ selesai (2026-04-11) — logo, paper width, field toggles
 
 ## 📋 Pending Deploy
-- Coolify redeploy production (`pos-app-production`) untuk apply semua fix sesi 10-11
-- `php artisan migrate` otomatis jalan via `start.sh` saat redeploy
+- Coolify redeploy production untuk apply sesi 12 (sudah di-push ke `pos-app-production`, tinggal trigger Coolify)
 
 ## 📋 Backlog
 - DashboardTest pre-existing failure (factory user tanpa role → 403) — perlu fix terpisah
 - Edge case: tenant tanpa plan → effective price 0 di Subscription P&L (opsional: UI nudge)
 - Future: email notifikasi expired tenant, CSV export P&L
+- Future (prioritas menengah-rendah): QRIS QR code di struk, laporan custom date range, multi-bahasa
 
 ---
 

@@ -4,6 +4,43 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-11 (sesi 12)
+
+### Yang dikerjakan
+
+**Dark mode theme contrast fix**
+- `resources/css/app.css` — naikkan lightness token dark mode agar kontrast:
+  - `--border`: 0.269 → 0.40, `--input`: 0.269 → 0.38
+  - `--card`/`--popover`: 0.175 → 0.22, `--muted`: 0.225 → 0.255
+  - `--destructive`: 0.396 → 0.62
+
+**Feature audit tenant app**
+- Audit semua fitur, hasilkan rekomendasi prioritas tinggi/menengah/rendah
+
+**Dashboard: Widget Cicilan Jatuh Tempo** (prioritas tinggi)
+- `DashboardController::index()` — tambah `$dueTodayCount` + `$installmentsDue` (limit 5, order by due_date, map ke planId/customerName/dueDate/amountDue/isOverdue)
+- `dashboard.tsx` — tambah interface `InstallmentDue`, widget kondisional antara Row 2 dan Row 3
+- Bug fix: `route('pos.kredit')` → `route('installments.history')` (route tidak ada)
+
+**Notifikasi Cicilan Overdue di Bell Icon** (prioritas tinggi)
+- `HandleInertiaRequests.php` — tambah `overdueInstallmentCount` ke notifications cache (query: status pending/overdue AND due_date <= today)
+- `notification-bell.tsx` — tambah `CreditCard` icon, entry "X cicilan jatuh tempo", dark mode pada icon container yang ada
+- Bug fix: route → `installments.history` di notification-bell juga
+
+**Template Struk & Invoice Kustom** (prioritas menengah)
+- `AppSettingController.php` — tambah 4 setting baru ke validasi + save loop: `receipt_paper_width` (in:58,80), `receipt_show_cashier` (in:0,1), `receipt_show_outlet` (in:0,1), `receipt_show_item_code` (in:0,1)
+- `settings/store.tsx` — seksi "Kustomisasi Struk" antara footer dan logo: `<select>` paper width + 3 checkbox field visibility
+- `Print.tsx` — tambah `store_logo` + 4 setting baru ke `StoreSettings` interface; variabel `paperWidth`/`showCashier`/`showOutlet`/`showItemCode`; logo render; dynamic `@page` dan `@media print` CSS (58mm/80mm); conditional kasir, outlet, kode item
+
+### Commits
+- `369a5e1` feat(settings): add receipt customization settings (paper width, field toggles)
+- `ccb8980` feat(settings): add receipt paper width and field visibility toggles UI
+- feat(receipt): logo, dynamic paper width, field visibility toggles
+- fix(receipt): add paperWidth to useEffect dependency array
+- Production pushed: `7814e2d`
+
+---
+
 ## 2026-04-07 (sesi 11)
 
 ### Yang dikerjakan
