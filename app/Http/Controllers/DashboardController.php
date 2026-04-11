@@ -292,6 +292,26 @@ class DashboardController extends Controller
             ])->all();
         }
 
+        // ── Cicilan jatuh tempo (due today + overdue) ────────────────────
+        $dueTodayCount = \App\Models\InstallmentPayment::with('installmentPlan.customer')
+            ->whereIn('status', ['pending', 'overdue'])
+            ->where('due_date', '<=', $now->copy()->endOfDay())
+            ->count();
+
+        $installmentsDue = \App\Models\InstallmentPayment::with('installmentPlan.customer')
+            ->whereIn('status', ['pending', 'overdue'])
+            ->where('due_date', '<=', $now->copy()->endOfDay())
+            ->orderBy('due_date')
+            ->limit(5)
+            ->get()
+            ->map(fn ($p) => [
+                'planId'       => hid($p->installmentPlan->id),
+                'customerName' => $p->installmentPlan->customer?->name ?? '-',
+                'dueDate'      => $p->due_date->format('d/m/Y'),
+                'amountDue'    => (int) $p->remainingDue(),
+                'isOverdue'    => $p->status === 'overdue',
+            ]);
+
         return Inertia::render('dashboard', [
             'stats' => [
                 'totalItems' => $totalItems,
@@ -312,6 +332,8 @@ class DashboardController extends Controller
             'topProducts' => $topProducts,
             'recentTransactions' => $recentTransactions,
             'stockAlerts' => $stockAlerts,
+            'installmentsDue'   => $installmentsDue,
+            'dueTodayCount'     => $dueTodayCount,
             'warehouseContext' => ! empty($allowedIds)
                 ? \App\Models\Warehouse::whereIn('id', $allowedIds)->pluck('name')->implode(', ')
                 : null,
