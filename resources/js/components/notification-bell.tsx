@@ -1,18 +1,19 @@
 import { router, usePage } from '@inertiajs/react';
-import { Bell, Package, AlertTriangle } from 'lucide-react';
+import { Bell, Package, AlertTriangle, CreditCard } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 
 interface SharedData {
-    notifications?: { lowStockCount: number; pendingPoCount: number };
+    notifications?: { lowStockCount: number; pendingPoCount: number; overdueInstallmentCount: number };
     [key: string]: unknown;
 }
 
 export function NotificationBell() {
     const { notifications } = usePage<SharedData>().props;
-    const lowStock   = notifications?.lowStockCount  ?? 0;
-    const pendingPo  = notifications?.pendingPoCount ?? 0;
-    const total      = lowStock + pendingPo;
+    const lowStock       = notifications?.lowStockCount         ?? 0;
+    const pendingPo      = notifications?.pendingPoCount        ?? 0;
+    const overdueCicilan = notifications?.overdueInstallmentCount ?? 0;
+    const total          = lowStock + pendingPo + overdueCicilan;
 
     return (
         <Popover>
@@ -59,6 +60,20 @@ export function NotificationBell() {
                                 <div>
                                     <p className="text-sm font-medium">{pendingPo} PO menunggu</p>
                                     <p className="text-xs text-muted-foreground">Draft / dipesan / sebagian diterima</p>
+                                </div>
+                            </button>
+                        )}
+                        {overdueCicilan > 0 && (
+                            <button
+                                onClick={() => router.visit(route('pos.kredit'))}
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
+                            >
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400">
+                                    <CreditCard size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">{overdueCicilan} cicilan jatuh tempo</p>
+                                    <p className="text-xs text-muted-foreground">Pembayaran menunggu atau lewat jatuh tempo</p>
                                 </div>
                             </button>
                         )}
