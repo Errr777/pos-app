@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\AppSetting;
+use App\Models\InstallmentPayment;
 use App\Models\Item;
 use App\Models\LicenseConfig;
 use App\Models\PurchaseOrder;
@@ -131,8 +132,8 @@ class HandleInertiaRequests extends Middleware
                     return [
                         'lowStockCount'           => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
                         'pendingPoCount'          => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
-                        'overdueInstallmentCount' => \App\Models\InstallmentPayment::whereIn('status', ['pending', 'overdue'])
-                            ->where('due_date', '<=', now()->endOfDay())
+                        'overdueInstallmentCount' => InstallmentPayment::whereIn('status', ['pending', 'overdue'])
+                            ->where('due_date', '<=', now()->toDateString())
                             ->count(),
                     ];
                 });
