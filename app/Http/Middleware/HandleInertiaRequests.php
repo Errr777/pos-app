@@ -124,13 +124,16 @@ class HandleInertiaRequests extends Middleware
             'notifications' => function () use ($request) {
                 $user = $request->user();
                 if (! $user) {
-                    return ['lowStockCount' => 0, 'pendingPoCount' => 0];
+                    return ['lowStockCount' => 0, 'pendingPoCount' => 0, 'overdueInstallmentCount' => 0];
                 }
 
                 return \Illuminate\Support\Facades\Cache::remember('notifications_counts', 120, function () {
                     return [
-                        'lowStockCount' => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
-                        'pendingPoCount' => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
+                        'lowStockCount'           => Item::where('type', 'barang')->whereColumn('stok', '<', 'stok_minimal')->count(),
+                        'pendingPoCount'          => PurchaseOrder::whereIn('status', ['draft', 'ordered', 'partial'])->count(),
+                        'overdueInstallmentCount' => \App\Models\InstallmentPayment::whereIn('status', ['pending', 'overdue'])
+                            ->where('due_date', '<=', now()->endOfDay())
+                            ->count(),
                     ];
                 });
             },
