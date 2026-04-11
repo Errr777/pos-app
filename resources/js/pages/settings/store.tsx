@@ -21,6 +21,10 @@ interface PageProps {
         store_phone: string | null;
         store_logo: string | null;
         receipt_footer: string | null;
+        receipt_paper_width: string | null;
+        receipt_show_cashier: string | null;
+        receipt_show_outlet: string | null;
+        receipt_show_item_code: string | null;
     };
     outlet: {
         name: string;
@@ -43,14 +47,18 @@ export default function StoreSettings() {
     const license = (usePage().props as { license?: License }).license ?? null;
 
     const { data, setData, post, processing, errors } = useForm({
-        store_name:     settings.store_name ?? '',
-        store_address:  settings.store_address ?? '',
-        store_phone:    settings.store_phone ?? '',
-        receipt_footer: settings.receipt_footer ?? '',
-        store_logo:     null as File | null,
-        outlet_name:    outlet?.name ?? '',
-        outlet_city:    outlet?.city ?? '',
-        outlet_phone:   outlet?.phone ?? '',
+        store_name:             settings.store_name ?? '',
+        store_address:          settings.store_address ?? '',
+        store_phone:            settings.store_phone ?? '',
+        receipt_footer:         settings.receipt_footer ?? '',
+        store_logo:             null as File | null,
+        receipt_paper_width:    settings.receipt_paper_width ?? '80',
+        receipt_show_cashier:   settings.receipt_show_cashier ?? '1',
+        receipt_show_outlet:    settings.receipt_show_outlet ?? '1',
+        receipt_show_item_code: settings.receipt_show_item_code ?? '1',
+        outlet_name:            outlet?.name ?? '',
+        outlet_city:            outlet?.city ?? '',
+        outlet_phone:           outlet?.phone ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -111,6 +119,43 @@ export default function StoreSettings() {
                         <p className="text-xs text-muted-foreground">
                             Teks yang muncul di bawah struk penjualan.
                         </p>
+                    </div>
+
+                    <div className="border-t pt-5">
+                        <h2 className="text-base font-semibold mb-4">Kustomisasi Struk</h2>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label htmlFor="receipt_paper_width">Lebar Kertas</Label>
+                        <select
+                            id="receipt_paper_width"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                            value={data.receipt_paper_width}
+                            onChange={(e) => setData('receipt_paper_width', e.target.value)}
+                        >
+                            <option value="80">80mm (Standar)</option>
+                            <option value="58">58mm (Mini)</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">Sesuaikan dengan ukuran printer termal yang digunakan.</p>
+                    </div>
+
+                    <div className="space-y-3">
+                        <Label>Tampilkan di Struk</Label>
+                        {([
+                            { key: 'receipt_show_cashier',    label: 'Nama Kasir' },
+                            { key: 'receipt_show_outlet',     label: 'Nama Outlet' },
+                            { key: 'receipt_show_item_code',  label: 'Kode Item' },
+                        ] as { key: 'receipt_show_cashier' | 'receipt_show_outlet' | 'receipt_show_item_code'; label: string }[]).map(({ key, label }) => (
+                            <label key={key} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-input"
+                                    checked={data[key] === '1'}
+                                    onChange={(e) => setData(key, e.target.checked ? '1' : '0')}
+                                />
+                                <span className="text-sm">{label}</span>
+                            </label>
+                        ))}
                     </div>
 
                     <div className="space-y-1.5">
