@@ -30,6 +30,7 @@ interface RevenueTrendPoint { date: string; revenue: number; }
 interface TopProduct    { name: string; qtySold: number; revenue: number; }
 interface RecentTransaction { id: string; saleNumber: string; occurredAt: string; cashierName: string; grandTotal: number; }
 interface StockAlerts   { count: number; items: { name: string; stock: number; stockMin: number; outletName: string | null }[] }
+interface InstallmentDue { planId: string; customerName: string; dueDate: string; amountDue: number; isOverdue: boolean; }
 
 interface PageProps {
     stats: DashboardStats;
@@ -41,6 +42,8 @@ interface PageProps {
     topProducts: TopProduct[];
     recentTransactions: RecentTransaction[];
     stockAlerts: StockAlerts;
+    installmentsDue: InstallmentDue[];
+    dueTodayCount: number;
     storeSettings?: { store_name?: string; [key: string]: unknown } | null;
     warehouseContext?: string | null;
     branchStats: {
@@ -86,6 +89,8 @@ export default function Dashboard() {
         stats, salesChart = [], topItems = [], recentSales = [], lowStockItems = [],
         revenueTrend = [], topProducts = [], recentTransactions = [],
         stockAlerts = { count: 0, items: [] },
+        installmentsDue = [],
+        dueTodayCount = 0,
         warehouseContext, branchStats,
         selectedMonth = '', isCurrentMonth = true, availableMonths = [],
         storeSettings,
@@ -407,6 +412,46 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                {/* ── Cicilan Jatuh Tempo (tampil jika ada) ── */}
+                {dueTodayCount > 0 && (
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-sm font-semibold">Cicilan Jatuh Tempo</h2>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                                    {dueTodayCount}
+                                </span>
+                            </div>
+                            <span
+                                className="text-xs text-primary cursor-pointer hover:underline"
+                                onClick={() => router.visit(route('pos.kredit'))}
+                            >
+                                Lihat Semua →
+                            </span>
+                        </div>
+                        <div className="divide-y">
+                            {installmentsDue.map((item) => (
+                                <div
+                                    key={item.planId}
+                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer transition-colors"
+                                    onClick={() => router.visit(route('pos.kredit'))}
+                                >
+                                    <div className={`flex-shrink-0 w-2 h-2 rounded-full ${item.isOverdue ? 'bg-rose-500' : 'bg-orange-400'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-medium truncate">{item.customerName}</p>
+                                        <p className={`text-xs ${item.isOverdue ? 'text-rose-500 dark:text-rose-400 font-medium' : 'text-muted-foreground'}`}>
+                                            {item.isOverdue ? 'Lewat jatuh tempo' : 'Jatuh tempo'}: {item.dueDate}
+                                        </p>
+                                    </div>
+                                    <span className="text-xs font-semibold tabular-nums shrink-0">
+                                        {formatRp(item.amountDue)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Row 3: Charts ── */}
                 <div className="grid gap-4 lg:grid-cols-3">
