@@ -40,7 +40,7 @@ export function NotificationBell() {
                                 onClick={() => router.visit(route('item.low_stock'))}
                                 className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
                             >
-                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
                                     <AlertTriangle size={14} />
                                 </div>
                                 <div>
@@ -54,7 +54,7 @@ export function NotificationBell() {
                                 onClick={() => router.visit(route('po.index'))}
                                 className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
                             >
-                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
                                     <Package size={14} />
                                 </div>
                                 <div>
@@ -65,7 +65,7 @@ export function NotificationBell() {
                         )}
                         {overdueCicilan > 0 && (
                             <button
-                                onClick={() => router.visit(route('pos.kredit'))}
+                                onClick={() => router.visit(route('installments.history'))}
                                 className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
                             >
                                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400">

@@ -425,7 +425,7 @@ export default function Dashboard() {
                             </div>
                             <span
                                 className="text-xs text-primary cursor-pointer hover:underline"
-                                onClick={() => router.visit(route('pos.kredit'))}
+                                onClick={() => router.visit(route('installments.history'))}
                             >
                                 Lihat Semua →
                             </span>
@@ -435,7 +435,7 @@ export default function Dashboard() {
                                 <div
                                     key={item.planId}
                                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer transition-colors"
-                                    onClick={() => router.visit(route('pos.kredit'))}
+                                    onClick={() => router.visit(route('installments.history'))}
                                 >
                                     <div className={`flex-shrink-0 w-2 h-2 rounded-full ${item.isOverdue ? 'bg-rose-500' : 'bg-orange-400'}`} />
                                     <div className="flex-1 min-w-0">
