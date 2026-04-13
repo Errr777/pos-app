@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Jobs\SendLoginLogJob;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,6 +40,11 @@ class AuthenticatedSessionController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Failed to update last_login_at: ' . $e->getMessage());
         }
+
+        SendLoginLogJob::dispatch(
+            $request->ip() ?? '0.0.0.0',
+            now()->toDateTimeString(),
+        );
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
