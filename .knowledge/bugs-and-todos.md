@@ -40,6 +40,7 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 - **Dashboard Cicilan Widget** ✅ selesai (2026-04-11)
 - **Notifikasi Cicilan di Bell Icon** ✅ selesai (2026-04-11)
 - **Template Struk Kustom** ✅ selesai (2026-04-11) — logo, paper width, field toggles
+- **Tenant Login Log (dispatch job)** ✅ selesai (2026-04-13) — SendLoginLogJob dikirim ke panel saat user login
 
 ## 📋 Pending Deploy
 - Coolify redeploy production untuk apply sesi 12 (sudah di-push ke `pos-app-production`, tinggal trigger Coolify)
