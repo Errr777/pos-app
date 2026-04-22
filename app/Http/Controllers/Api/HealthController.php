@@ -16,7 +16,7 @@ class HealthController extends Controller
     {
         $config = LicenseConfig::current();
 
-        if (! $config || ! $this->validateBearerToken($request, $config->license_key)) {
+        if (! $config || ! $config->webhook_secret || ! $this->validateBearerToken($request, $config->license_key, $config->webhook_secret)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -31,7 +31,7 @@ class HealthController extends Controller
         ]);
     }
 
-    private function validateBearerToken(Request $request, string $licenseKey): bool
+    private function validateBearerToken(Request $request, string $licenseKey, string $webhookSecret): bool
     {
         $header = $request->header('Authorization', '');
 
@@ -55,7 +55,7 @@ class HealthController extends Controller
             return false;
         }
 
-        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $webhookSecret);
 
         return hash_equals($expected, $hmac);
     }

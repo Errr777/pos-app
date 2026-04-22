@@ -16,7 +16,7 @@ class AdminPasswordResetController extends Controller
     {
         $license = LicenseConfig::current();
 
-        if (! $license || ! $this->validateBearerToken($request, $license->license_key)) {
+        if (! $license || ! $license->webhook_secret || ! $this->validateBearerToken($request, $license->license_key, $license->webhook_secret)) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
 
@@ -37,7 +37,7 @@ class AdminPasswordResetController extends Controller
         ]);
     }
 
-    private function validateBearerToken(Request $request, string $licenseKey): bool
+    private function validateBearerToken(Request $request, string $licenseKey, string $webhookSecret): bool
     {
         $header = $request->header('Authorization', '');
 
@@ -61,7 +61,7 @@ class AdminPasswordResetController extends Controller
             return false;
         }
 
-        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+        $expected = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $webhookSecret);
 
         return hash_equals($expected, $hmac);
     }
