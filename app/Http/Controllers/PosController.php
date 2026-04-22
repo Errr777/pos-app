@@ -573,6 +573,8 @@ class PosController extends Controller
      */
     public function show(SaleHeader $saleHeader)
     {
+        abort_unless($this->canAccessWarehouse($saleHeader->warehouse_id), 403);
+
         $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item', 'paymentSplits']);
 
         $saleData = [
@@ -615,6 +617,8 @@ class PosController extends Controller
 
     public function print(SaleHeader $saleHeader)
     {
+        abort_unless($this->canAccessWarehouse($saleHeader->warehouse_id), 403);
+
         $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems.item', 'paymentSplits']);
 
         return Inertia::render('pos/Print', [
@@ -655,6 +659,7 @@ class PosController extends Controller
     public function invoice(SaleHeader $saleHeader)
     {
         abort_unless(auth()->user()->hasPermission('pos', 'can_view'), 403);
+        abort_unless($this->canAccessWarehouse($saleHeader->warehouse_id), 403);
 
         $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems', 'paymentSplits']);
 
@@ -726,6 +731,7 @@ class PosController extends Controller
     public function invoicePdf(SaleHeader $saleHeader)
     {
         abort_unless(auth()->user()->hasPermission('pos', 'can_view'), 403);
+        abort_unless($this->canAccessWarehouse($saleHeader->warehouse_id), 403);
 
         $saleHeader->load(['warehouse', 'customer', 'cashier', 'saleItems', 'paymentSplits']);
 
@@ -810,6 +816,7 @@ class PosController extends Controller
     {
         // Void is destructive — requires can_delete regardless of HTTP method
         abort_unless(auth()->user()->hasPermission('pos', 'can_delete'), 403);
+        abort_unless($this->canAccessWarehouse($saleHeader->warehouse_id), 403);
 
         if ($saleHeader->status === 'void') {
             return back()->withErrors(['status' => 'Penjualan ini sudah di-void.']);
