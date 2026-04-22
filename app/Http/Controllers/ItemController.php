@@ -45,7 +45,9 @@ class ItemController extends Controller
 
     public function index(Request $request)
     {
-        $perPage = (int) $request->get('per_page', 10);
+        $perPage = in_array((int) $request->get('per_page', 10), [10, 20, 50, 100], true)
+            ? (int) $request->get('per_page', 10)
+            : 10;
         $search  = $request->get('search');
 
         // Sorting: accept client keys but map to DB column names (whitelist for safety)
