@@ -44,6 +44,7 @@ Update file ini setiap sesi. Hapus item yang sudah selesai.
 
 ## 📋 Pending Deploy
 - Coolify redeploy production untuk apply sesi 12 (sudah di-push ke `pos-app-production`, tinggal trigger Coolify)
+- **Sesi 16 security fixes**: Tambah `TRUSTED_PROXIES=<IP load balancer>` di `.env` production, lalu redeploy + `config:clear`
 
 ## 📋 Backlog
 - DashboardTest pre-existing failure (factory user tanpa role → 403) — perlu fix terpisah

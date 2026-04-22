@@ -4,6 +4,33 @@ Catatan ringkasan per sesi kerja. Terbaru di atas.
 
 ---
 
+## 2026-04-22 (sesi 16)
+
+### Yang dikerjakan
+
+**Security Hardening — Production Safe (bersama pos-app-panel)**
+
+- **C-1 License Token HMAC** — `HealthController` + `AdminPasswordResetController`: `validateBearerToken()` signature diubah dari `(Request, licenseKey)` ke `(Request, licenseKey, webhookSecret)`. HMAC key sekarang `webhook_secret` dari `LicenseConfig`. Guard tambahan: jika `webhook_secret` null → tolak.
+- **H-1 Admin Last-User Guard** — `ProfileController::destroy()`: cek apakah user adalah admin terakhir; jika ya return error "Tidak bisa menghapus akun admin terakhir."
+- **H-4 trustProxies** — `bootstrap/app.php`: `at: '*'` → `at: env('TRUSTED_PROXIES', '127.0.0.1')`. Rate limit `throttle:3,60` ditambah ke `POST /forgot-password`.
+- **M-2 IDOR POS** — `PosController`: `canAccessWarehouse()` guard ditambah ke `show()`, `print()`, `invoice()`, `invoicePdf()`, `void()`.
+- **M-4 Backup upload** — `BackupController::upload()`: MIME type check + validasi 16-byte header konten setelah dekripsi (SQLite magic / SQL dump). Cleanup temp file di `finally`.
+- **M-8 per_page whitelist** — `ItemController::index()`: whitelist `[10, 20, 50, 100]`, default 10.
+
+### Catatan Deploy ke Production
+- Tambah `TRUSTED_PROXIES=<IP load balancer>` di `.env`
+- Jalankan `php artisan config:clear`
+
+### Commits
+- `bb2d529` security: enforce warehouse scope on POS show/print/invoice/invoicePdf/void
+- `c71499f` security: add MIME and content validation to backup upload
+- `6078270` security: whitelist per_page values in ItemController
+- `7c6c9aa` security(client): validate license tokens with webhook_secret HMAC key
+- `1321294` security: prevent last admin from deleting their own account
+- `533efd5` security: restrict trustProxies to env var, rate-limit forgot-password
+
+---
+
 ## 2026-04-11 (sesi 12)
 
 ### Yang dikerjakan
