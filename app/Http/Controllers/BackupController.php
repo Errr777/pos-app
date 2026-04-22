@@ -101,8 +101,15 @@ class BackupController extends Controller
         $file     = $request->file('backup_file');
         $origName = $file->getClientOriginalName();
 
-        if (!str_ends_with($origName, '.sql.enc') && !str_ends_with($origName, '.sqlite.enc')) {
+        if (! str_ends_with($origName, '.sql.enc') && ! str_ends_with($origName, '.sqlite.enc')) {
             return back()->withErrors(['backup_file' => 'File harus berformat .sql.enc (backup terenkripsi).']);
+        }
+
+        // Block unexpected MIME types — encrypted binary files should be octet-stream
+        $mime = $file->getMimeType();
+        $allowedMimes = ['application/octet-stream', 'application/x-sqlite3', 'text/plain', 'application/sql'];
+        if (! in_array($mime, $allowedMimes, true)) {
+            return back()->withErrors(['backup_file' => "Tipe file tidak valid: {$mime}."]);
         }
 
         $filename = 'db-imported-' . now()->format('Y-m-d_H-i-s') . '.sql.enc';
@@ -110,10 +117,27 @@ class BackupController extends Controller
         $encPath  = Storage::disk('local')->path($stored);
 
         $tmpPath = BackupEncryption::decryptToTemp($encPath);
+
         try {
-            $this->runRestore($tmpPath, 'sql');
+            // Verify decrypted content looks like a valid SQL dump or SQLite file
+            $handle = fopen($tmpPath, 'rb');
+            if ($handle === false) {
+                return back()->withErrors(['backup_file' => 'File tidak bisa dibaca setelah dekripsi.']);
+            }
+            $header = fread($handle, 16);
+            fclose($handle);
+
+            $isSqlite = str_starts_with($header, 'SQLite format 3');
+            $isSql    = str_contains($header, '--') || str_contains($header, 'CREATE') || str_contains($header, 'INSERT') || str_starts_with($header, '/*');
+
+            if (! $isSqlite && ! $isSql) {
+                return back()->withErrors(['backup_file' => 'Konten file tidak valid setelah dekripsi. Pastikan file adalah backup yang sah.']);
+            }
+
+            $this->runRestore($tmpPath, str_ends_with($origName, '.sqlite.enc') ? 'sqlite' : 'sql');
         } finally {
             @unlink($tmpPath);
+            Storage::disk('local')->delete("backups/{$filename}");
         }
 
         return back()->with('success', 'Database berhasil dipulihkan dari file yang diunggah.');
