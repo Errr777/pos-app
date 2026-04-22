@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,13 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        if (
+            $request->user()->role === 'admin' &&
+            User::where('role', 'admin')->count() === 1
+        ) {
+            return back()->withErrors(['password' => 'Tidak bisa menghapus akun admin terakhir. Tambahkan admin lain terlebih dahulu.']);
+        }
+
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);
