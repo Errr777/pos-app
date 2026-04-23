@@ -19,10 +19,10 @@ class LicenseSyncJob implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 30;
 
-    private function bearerToken(string $licenseKey): string
+    private function bearerToken(string $licenseKey, string $secret): string
     {
         $timestamp = time();
-        $hmac      = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $licenseKey);
+        $hmac      = hash_hmac('sha256', $licenseKey . ':' . $timestamp, $secret);
 
         return $licenseKey . '.' . $timestamp . '.' . $hmac;
     }
@@ -36,6 +36,11 @@ class LicenseSyncJob implements ShouldQueue
             return;
         }
 
+        if (! $config->webhook_secret) {
+            Log::warning('[LicenseSync] webhook_secret belum ada. Skipping — akan dicoba lagi.');
+            return;
+        }
+
         if (! str_starts_with((string) $config->panel_url, 'http://') && ! str_starts_with((string) $config->panel_url, 'https://')) {
             Log::error('[LicenseSync] panel_url tidak valid (harus http:// atau https://).');
             $config->update(['valid' => false, 'last_reason' => 'panel_url_invalid']);
@@ -44,7 +49,7 @@ class LicenseSyncJob implements ShouldQueue
 
         try {
             $response = Http::timeout(10)
-                ->withToken($this->bearerToken($config->license_key))
+                ->withToken($this->bearerToken($config->license_key, $config->webhook_secret))
                 ->withHeaders(['X-App-Url' => rtrim(config('app.url'), '/')])
                 ->get(rtrim($config->panel_url, '/') . '/api/license');
 

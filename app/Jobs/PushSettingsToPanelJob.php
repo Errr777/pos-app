@@ -22,12 +22,12 @@ class PushSettingsToPanelJob implements ShouldQueue
     {
         $config = LicenseConfig::current();
 
-        if (! $config || ! $config->valid || ! $config->panel_url) {
+        if (! $config || ! $config->valid || ! $config->panel_url || ! $config->webhook_secret) {
             return;
         }
 
         $timestamp = time();
-        $hmac      = hash_hmac('sha256', $config->license_key . ':' . $timestamp, $config->license_key);
+        $hmac      = hash_hmac('sha256', $config->license_key . ':' . $timestamp, $config->webhook_secret);
         $token     = $config->license_key . '.' . $timestamp . '.' . $hmac;
 
         $payload = array_filter([
