@@ -108,7 +108,12 @@ class PanelWebhookController extends Controller
             'purchase_orders', 'customers', 'suppliers', 'reports', 'returns', 'users',
         ];
         $modules = array_values(array_intersect($payload['modules'] ?? [], $allowedModules));
-        $license->update(['modules' => $modules]);
+
+        $licenseUpdate = ['modules' => $modules];
+        if (isset($payload['max_users']))   $licenseUpdate['max_users']   = max(1, (int) $payload['max_users']);
+        if (isset($payload['max_outlets'])) $licenseUpdate['max_outlets'] = max(1, (int) $payload['max_outlets']);
+
+        $license->update($licenseUpdate);
 
         $tenantPushedTs = $license->tenant_pushed_at?->timestamp ?? 0;
         $payloadTs      = (int) ($payload['timestamp'] ?? 0);
