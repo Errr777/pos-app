@@ -113,6 +113,15 @@ class PanelWebhookController extends Controller
         if (isset($payload['max_users']))   $licenseUpdate['max_users']   = max(1, (int) $payload['max_users']);
         if (isset($payload['max_outlets'])) $licenseUpdate['max_outlets'] = max(1, (int) $payload['max_outlets']);
 
+        $allowedStatuses = ['active', 'trial', 'suspended', 'expired'];
+        if (isset($payload['status']) && in_array($payload['status'], $allowedStatuses)) {
+            $licenseUpdate['status'] = $payload['status'];
+            $licenseUpdate['valid']  = in_array($payload['status'], ['active', 'trial']);
+        }
+        if (array_key_exists('expires_at', $payload)) {
+            $licenseUpdate['expires_at'] = $payload['expires_at'];
+        }
+
         $license->update($licenseUpdate);
 
         $tenantPushedTs = $license->tenant_pushed_at?->timestamp ?? 0;
